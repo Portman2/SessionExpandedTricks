@@ -1,65 +1,39 @@
 # posedump -- see what a pose fix does
 
-Three parts: a recorder inside the native half (a patch, **not applied to the game folder**), a viewer that turns its
-file into pictures and numbers, and a test rig that runs the recorder without the game.
+The native half can record every trick's full skeleton to a file: each pose as the game handed it over and as the mod
+drew it. These tools read that file. Use them before theorising about a bad-looking pose: draw it, measure it.
 
 | file | what |
 |---|---|
-| `v94_posedump.pl` | the patch: `perl v94_posedump.pl <hn_main.cpp in> <hn_main.cpp out>` |
-| `poseview.ps1` | the viewer (PowerShell 5.1 + System.Drawing; the work is C# compiled by `Add-Type`) |
-| `pd_list.pl` | a second, independent reader: `perl pd_list.pl <poses.bin> [segment]` lists segments / one line per pose |
-| `zs.bat`, `compile_obj.bat` | MSVC `/Zs` syntax check and full `/c /O2 /W4` compile of a scratch copy (`work\hn_main.cpp`) |
-| `test\run_all.sh` | everything below in one go (`bash test/run_all.sh`): patch, syntax check, harness, viewer, truth check |
-| `test\pd_harness.cpp` | compiles the recorder **as cut out of the patched copy** against stand-ins; `logic` / `cap` / `synth` |
-| `test\synth.poses.bin`, `test\synth_truth.txt` | three synthetic tricks with planted defects, and what was planted |
-| `test\check_truth.ps1` | 63 numbers of the viewer's csv against the planted ones |
-| `NOTES.md` | working notes |
+| `poseview.ps1` | the viewer: contact sheets (PNG), plots, and with `-Metrics` a ranked list of events (PowerShell 5.1 + System.Drawing; the work is C# compiled by `Add-Type`) |
+| `pd_list.pl` | an independent reader: `perl pd_list.pl <bin> [segment]` lists the segments, or one line per pose |
+| `legpos.pl` | `<bin> <seg> <pose,pose,...>`: pelvis, hip, knee and ankle places and thigh / shin lengths, arrived and drawn |
+| `tear.pl` | per segment and leg: bone lengths as % of the leg's own, the knee's way round the leg, the foot's heading against the pelvis |
+| `joints.pl`, `hipreach.pl` | the hip joints' distance from their sockets; what that does to the leg's reach |
+| `sock.pl`, `socksim.pl` | the game's foot sockets against the feet; the socket rule of native v100 replayed over a recording |
+| `deckpose.pl`, `origin.pl`, `lag.pl` | joints, the mesh origin and the deck in the drawn deck's own frame; the deck's lag against the speed |
+| `raw.pl`, `turn.pl`, `yaws.pl`, `whip.pl` | headings of hips, shoulders, feet, deck and mesh; how far each bone moves in one pose |
+| `hinge.pl`, `ankle2.pl`, `ankletw.pl`, `toebend.pl` | the knee's hinge roll, the ankle's flex and twist, the toe joint |
+| `kneeway.pl`, `landstep.pl`, `shinsim.pl`, `twistsim.pl` | hippie jumps: the knee's side at take-off, its steps at touchdown, replays of two knee rules |
 
-## 1. Merging the recorder
+Every Perl tool says in its first comment lines what it takes and prints. They need Perl 5 and nothing else.
 
-`perl v94_posedump.pl in.cpp out.cpp` makes four literal replacements, each of which must match exactly once (nothing is
-written otherwise; an already patched file is refused; LF and CRLF both work). `kVersion` / `ModVersion` are not touched.
-Against v93 (md5 `4850e0d8...`) all four match; the result passes `cl /Zs` and a full `/c /O2 /W4` compile with no
-warning in the inserted lines. By hand it is:
+## 1. The recorder
 
-1. **The recorder** (239 lines: constants, the two packed structs, globals, `PdAlloc PdBegin PdEnd PdQ PdFill PdPose
-   PoseDump PdSwitch`) -- immediately before `void PosePass(void* mesh) {`.
-2. **The one call in the hook** -- its own line immediately before `    if (!changed) return;` (the line after the
-   `FootUnderWatch(...)` call, before the `// (v10) never hand the renderer a broken pose` comment):
-   ```cpp
-   PoseDump(mesh, anim, n, (air ? 0x1u : 0u) | (land ? 0x2u : 0u) | (plant ? 0x4u : 0u) | (bone ? 0x8u : 0u) | (fhold ? 0x10u : 0u) | (phOn ? 0x20u : 0u) | (gfeet ? 0x40u : 0u) | (y180 ? 0x80u : 0u) | (grab ? 0x100u : 0u) | (tt ? 0x200u : 0u) | (calib ? 0x400u : 0u) | (changed ? 0x800u : 0u) | (hold ? 0x1000u : 0u) | (held ? 0x2000u : 0u) | (guard ? 0x4000u : 0u) | (trace ? 0x8000u : 0u) | (unstr ? 0x10000u : 0u));
-   ```
-3. **The one `HJN_Set` key** -- anywhere in the chain (the script puts it before `"stickbank"`, away from the feet's keys):
-   ```cpp
-   else if (k == "posedump") PdSwitch(v != 0);
-   ```
-4. **`PdGround()`** (13 lines, the recorder's one ray) -- immediately before `bool PtrOk(const void* p, size_t need) {`.
-   **This is a fourth edit, one more than asked for.** It cannot sit with the rest: `RayHit`, `GetWorldFn` and
-   `RVA_ACTOR_GETWORLD` are defined 1100 lines after the hook, so the function that casts the ray has to be defined
-   after them (the block before the hook only declares it, the way `GroundFeet` is declared at line 2346). The anchor
-   is `PtrOk`'s own definition line, which is in none of PlantSoft / GroundFeet / BoneHand / HopReach / LandBlend / Hold.
+It is part of `hn_main.cpp` (`PoseDump`, `PdFill`, `PdSwitch`, `struct PdFrame`) and off by default. Switch it on with
+`PoseRecorder=1` in `ExpandedTricks.ini`; the Lua half sends `HJN_Set("posedump", 1)`.
 
-No Lua change is needed (it is ON by default). `HJN_Set("posedump", 0)` stops it and writes the segment that is open;
-`1` starts it again and re-reads the file's size. **For a release build set `g_pdOn = 0`** (or send it from the ini):
-as delivered every player would write up to 96 MB beside the logs.
+- Every pose that reaches the end of the pose pass is copied into a ring of 40. When one of the mod's windows is on
+  (a hop's air or landing, a plant, a hand on the board, held feet, a grab, a trick trace), the ring and every pose
+  after it make one **segment**. It ends 60 poses after the last window shut, or 600 poses after it began (the next
+  segment then "goes on" from it), or when no pose came for 0.5 s (a bail).
+- One write per segment, appended to `ExpandedTricks.poses.bin` beside the game's exe, with one line in
+  `ExpandedTricks.native.log` (`pose dump: segment N written -- ...`).
+- At 96 MB it stops and logs once: move the file away. A fault inside the recorder turns it off for the run.
+- It changes nothing in the pose. Cost per pose: a copy of about 2 KB and one ray under the skater.
+- What is still open when the game closes is lost.
 
-What it does at run time:
-- every pose that reaches the end of `PosePass` (so: not while nothing is active and you are not riding, not during a
-  bail) is copied into a ring of 40; when any of `air land plant bone fhold phOn gfeet y180 grab tt` is on, the ring and
-  all poses after it are one **segment**; it ends 60 poses after the last of them went off, or 600 poses after it
-  began (the next segment then "goes on" from it), or when no pose came for 0.5 s (a bail: it is written when poses
-  come again), or on `HJN_Set("posedump", 0)`, or when the rig's bone count changes.
-- one `WriteFile` per segment, appended to `ExpandedTricks.poses.bin` in the exe's folder (where
-  `ExpandedTricks.native.log` is); the file is opened and closed for each one. One log line per segment
-  (`pose dump: segment N written -- ...`), one at the first pose (`pose dump: on -- ...`).
-- at 96 MB it stops and logs once: move the file away and `HJN_Set("posedump", 1)`. The same when the file cannot be
-  opened or written (something else holds it without sharing, a full disk).
-- cost per pose: one `DeckXf`, two `FootA`, one ray (mesh origin +60 .. -1000 cm), a copy of `bones * 24 + 308` bytes
-  (1988 for the live rig's 70 bones). Memory: one allocation per bone count (`HeapAlloc`), 1.3 MB for 70 bones.
-- it changes nothing: `g_dq / g_dp` are put back after its `DeckXf` (which also refreshes `g_ms` and the deck's bounds
-  to the values any other call that pose gives them); `Ray` counts in `g_rays`.
-- it runs in its own `__try`: a fault turns the recorder off for the run and logs; the grab arms are not touched.
-- what is still open when the game is closed is lost (send `posedump 0` first if it matters).
+The file grows by 0.2 to 1.3 MB per trick, so rename it between test sessions (the tools take any file name).
 
 ## 2. The file
 
@@ -199,26 +173,18 @@ The csv has one line per pose: every series of the plots for both poses (`d_` dr
 the jumps, the deck's yaw / pitch / roll, the mesh's place and speed, the recorded state (`plant_w`, `hop_frac`, ...)
 and the world positions of ankles, knees, toes, hips and pelvis (`*_wx _wy _wz`).
 
-## 4. What was checked, and what was not
+## 4. Reading the numbers
 
-Checked (all of it without the game, `bash test/run_all.sh` repeats it):
-- the patch against v93: 4 of 4, `/Zs` clean, `/c /O2 /W4` clean; also on a copy with stand-in edits in the six
-  functions others are patching, a new `HJN_Set` key beside `footheel` and a new line in the hook.
-- the recorder itself, compiled from the patched copy against stand-ins with faked time: 54 checks of the state machine
-  (pre-roll, post-roll, the 600 cut and "goes on", the gap, switching off -- also while the hook holds the lock --,
-  another rig, no deck / no ground, nothing changed in `g_dq g_dp g_C g_Ct`, the file held open by something else, a
-  fault inside leaves the caller alive),
-  and the cap (stops at 95.6 MB, logs once, goes on after the file is moved and `posedump 1`).
-- the layout, three ways: the C++ writer, the viewer's reader (explicit offsets) and `pd_list.pl` agree.
-- the viewer on `test\synth.poses.bin`: 63 numbers of its csv against the planted values (`check_truth.ps1`), every
-  planted defect in the event list, the PNGs looked at 1:1 (`-PageSize 2000`): labels legible, colours as stated.
-- cut, junk-filled and empty files: warnings, a resync to the next header, no crash.
-
-NOT checked -- there is no real pose file yet, and the game was not started:
-- `PdGround` (the real ray: `Ray`, `GetWorldFn`, the world pointer) only compiles; the harness uses a plane instead.
-- the real `DeckXf` / `FootA` / mesh offsets, the real rig's chains (the synthetic skeleton is the asset's tree without
-  its `AMXX_D_*` bones: 72 bones with the live rig's leg / arm / spine indices, but the live rig has 70).
-- the cost in the game (frame time, the hitch of a 0.3-1.3 MB write at a segment's end), and that `HJN_Set` reaches
-  `PdSwitch` from Lua.
-- which end of the drawn deck (+x) is the nose, the facing of the real skater in the views, and whether the events'
-  default thresholds are quiet enough on real motion (4 cm jumps may be ordinary in a kick).
+- **Arrived against drawn.** A defect already in the arrived pose is the game's (or another mod's); one only in the
+  drawn pose is this mod's. Most tools print both.
+- **The game squeezes shins.** It takes the thigh from the animation and drags the foot to its socket on the board, so
+  an arrived shin can be 30 to 100 % of its length while riding. The mod puts bones back to their own length only while
+  one of its windows is on.
+- **Left is the mesh's left.** `left` / `0` is always the mesh's own left bone, whether the game mirrors the pose
+  (a goofy rider) or not.
+- **Tearing is roll, hip joints and bone length**, not joint places: a leg can have every joint where it should be and
+  still look torn because a bone is rolled about its own length. `hinge.pl` and `ankletw.pl` show that.
+- **The legs' own lengths** are taken from the file itself (riding medians), so a file with only a few squeezed poses in
+  it gives a wrong reference. `tear.pl` prints the reference it used; check it (thigh about 42.6, shin about 41.5 cm
+  on the stock rig).
+- The viewer's event thresholds are defaults, not truths: a 4 cm one-pose jump can be an ordinary kick.
