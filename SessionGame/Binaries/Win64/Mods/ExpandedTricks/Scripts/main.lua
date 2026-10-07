@@ -6739,8 +6739,8 @@ end
 -- latest release's update.txt: its version, build number, the game build it is for and the two files' SHA-256). With
 -- AutoUpdate=2 a newer build is downloaded, checked and put in place for the next start; with 1 you are only told.
 -- NATIVE.BUILD is this file's own build number: the release's update.txt carries the same number, and that is what is compared.
-NATIVE.BUILD = 192
-NATIVE.WANT = 103      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
+NATIVE.BUILD = 193
+NATIVE.WANT = 104      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
 NATIVE.updateTick = function(live)
     local U = NATIVE.upd or {}
     NATIVE.upd = U
@@ -6825,7 +6825,7 @@ end
 LoopAsync(2000, function()
     NATIVE.gt(function()
         if NATIVE.off then
-            logOnce("offbuild", "*** THIS IS ANOTHER BUILD OF THE GAME than this version of the mod was made for: Expanded Tricks is switched off (nothing of the game is touched) until the mod is updated -- only the update check runs. ExpandedTricks.native.log has the two build stamps")
+            logOnce("offbuild", "*** THIS IS ANOTHER BUILD OF THE GAME than this version of the mod was made for: Expanded Tricks is switched off (nothing of the game is touched) until the mod is updated -- only the update check runs. The native half looked for the game's functions by signature and did not find them all: ExpandedTricks.native.log has the list (send it: Mods\ExpandedTricks\pack-logs.bat)")
             if NATIVE.updateTick then pcall(NATIVE.updateTick, false) end
             return
         end
@@ -6876,7 +6876,7 @@ LoopAsync(2000, function()
     return false
 end)
 
-log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v192 / native v103)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
+log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v193 / native v104)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
 
 -- the game's grabs need IsGrabsEnabled in its experimental save (the profile loads it at start-up). (v121) If it is off or
 -- missing, the save is PATCHED here: a BoolProperty tag put into FExperimentalSettings -- the bytes the game's own serializer

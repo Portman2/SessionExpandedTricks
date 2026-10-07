@@ -1,12 +1,14 @@
 # Changelog
 
 ## 1.0.0 -- first public release
-Lua build 192, native v103. For Session: Skate Sim 1.0.6.42 on PC (exe stamp 69ca6d05, built 30 March 2026).
+Lua build 193, native v104. For Session: Skate Sim 1.0.6.42 on PC (exe stamp 69ca6d05, built 30 March 2026).
 
 - Hippie jumps and mini hippie jumps, with body spins (180 / 360) and landings in switch.
 - The game's twelve grabs switched on and posed (hand, arm, fingers, knees, feet, the deck's tilt), three two-hand
   grabs, per-grab tuning in the ini and three sliders that move every grab's hand at once.
 - The no comply (the game's own unused animation, on the pressure kickflip's input), regular, goofy and switch.
+- Other builds of the game (Steam's exe, game updates): the native half finds the game's functions by signature at
+  start-up and runs if it finds them all. Until now it ran on Epic's exe only.
 - Boneless and bean plant: a hand on the board through a no comply. The game catches the board for these two
   whatever the no comply's own catch setting says, and the hand lets go by itself as the board comes back under the feet.
 - Rolling grabs and finger flips.

@@ -26,9 +26,13 @@ pause menu. Source and releases: https://github.com/Portman2/SessionExpandedTric
 
 ## Requirements
 
-- Session: Skate Sim on PC, the build current in October 2026 (Epic's launcher lists it as 1.0.6.42; its exe was built
-  on 30 March 2026). The mod checks the game's build and switches itself off on any other, and says so in
-  `ExpandedTricks.log`: after a game update expect the mod to do nothing until the mod is updated.
+- Session: Skate Sim on PC, from Epic or Steam. The mod was written against Epic's build of October 2026 (the launcher
+  lists it as 1.0.6.42; its exe was built on 30 March 2026). On any other exe (Steam's is one, and so is any game
+  update) it looks for the game's functions by their byte patterns when the game starts and runs only if it finds
+  every one of them; otherwise it switches itself off and says so in `ExpandedTricks.log`. Steam support is new and
+  has not been tested on a Steam copy by the author: if the mod stays off, send the logs (see *Something wrong?*).
+- Steam Deck / Linux: copy the files by hand (the installer is Windows-only) and set the game's launch option to
+  `WINEDLLOVERRIDES="dwmapi=n,b" %command%` so the mod loader starts. Untested.
 - A controller.
 - UE4SS 3.0.1, the mod loader. **The installer puts it in for you if the game has none.** If you already use
   SessionOpenMP or SessionTweaks you have it, and it is left as it is.
@@ -113,7 +117,8 @@ and before removing UE4SS if this installer was what put it in and no other mod 
 
 ## Known limits
 
-- One game build (see Requirements).
+- Written against one game build; other builds (Steam, game updates) run only if the start-up check passes (see
+  Requirements).
 - The game's grab animations are unfinished; the mod poses the hand, arm, legs and deck on top of them. Odd poses
   happen, and the per-grab numbers in the ini are there to tune them.
 - In the replay editor the mod's poses are replayed as recorded, not re-made.

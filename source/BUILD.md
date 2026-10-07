@@ -1,6 +1,7 @@
 # Building the native half
 
-`ExpandedTricksNative` is a UE4SS 3.0.1 C++ mod: one file, `hn_main.cpp`, built into `Mods/ExpandedTricksNative/dlls/main.dll`.
+`ExpandedTricksNative` is a UE4SS 3.0.1 C++ mod: `hn_main.cpp` with two headers beside it (`hn_sigs.h`, generated, and
+`hn_sigscan.h`), built into `Mods/ExpandedTricksNative/dlls/main.dll`.
 
 Needs: Visual Studio 2022 Build Tools (MSVC x64, C++20) and CMake 3.20+.
 
@@ -15,8 +16,16 @@ Needs: Visual Studio 2022 Build Tools (MSVC x64, C++20) and CMake 3.20+.
 3. Copy `build/Release/main.dll` to `SessionGame/Binaries/Win64/Mods/ExpandedTricksNative/dlls/main.dll`. A dll the
    running game has loaded can be renamed away and the new one copied in; it loads at the next start.
 
-The native half is pinned to one game build (`kExeStamp` in `hn_main.cpp`, the exe's PE TimeDateStamp); every RVA in
-the file comes from that build's PDB. On another build it logs that it stood down and does nothing.
+The native half is written against one game build (`kExeStamp` in `hn_main.cpp`, the exe's PE TimeDateStamp); every
+`RVA_*` in the file comes from that build's PDB and is used as it stands there. On any other exe (Steam's, a game
+update) the functions are found by signature in the exe on disk (`hn_sigs.h`, `hn_sigscan.h`) and the mod runs only
+if every one is found; the log lists what each signature found.
+
+- `tools/gen_sigs.pl <exe> <pdb> <symcache> hn_main.cpp hn_sigs.h` makes the table from the exe the RVAs belong to
+  (it needs the session-mod skill's PdbDis.exe for the disassembly) and fails if any signature is not unique there.
+  Run it again whenever an `RVA_*` is added or the constants are moved to a new game build.
+- `tools/sigcheck.cpp` is the same search as a command-line program: `sigcheck <exe>` prints what every signature
+  finds in that exe (build line in the file). Use it on any exe a player's log is about.
 
 The Lua half needs no build: it is `Mods/ExpandedTricks/Scripts/main.lua`. `tools/snapshot_defaults.pl` rewrites its
 shipped defaults from an `ExpandedTricks.ini` (`perl snapshot_defaults.pl main.lua ExpandedTricks.ini --globals`).

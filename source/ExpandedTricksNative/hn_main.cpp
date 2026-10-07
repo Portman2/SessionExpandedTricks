@@ -43,18 +43,26 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 103
+#define HJN_VERSION 104
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
 constexpr char kBuildTag[] = "ExpandedTricksNative-build-" HJN_STR(HJN_VERSION);   // (review) make-release.ps1 looks for this text in main.dll
 
 // ------------------------------------------------------------------ this exe build
-// SessionGame-Win64-Shipping.exe with PE TimeDateStamp 0x69ca6d05 (RVAs from its PDB). Another build =
-// the hook is not installed (logged), everything else stays off.
+// SessionGame-Win64-Shipping.exe with PE TimeDateStamp 0x69ca6d05 (RVAs from its PDB): Epic's exe of 30 March 2026.
+// (v104) ANOTHER BUILD OF THE GAME -- Steam's exe is one: linked apart from Epic's (Epic's has no Steam code in it at
+// all), so its stamp and every address differ, and until v103 the mod switched itself off there. Now the RVA_* below
+// are variables: on the exe they were taken from they are used as they stand; on any other the functions are looked
+// for by signature in the exe ON DISK (hn_sigs.h, made by source/tools/gen_sigs.pl; hn_sigscan.h) -- the way
+// SessionOpenMP and SessionTweaks find theirs -- and only if EVERY one is found does the mod run, on the addresses
+// found. Many of the signatures are game functions whose first bytes carry the offsets of the game's own structs,
+// so a build whose structs differ does not pass. Whatever is found goes to the log (the probe a tester sends back).
+#include "hn_sigs.h"
+#include "hn_sigscan.h"
 constexpr uint32_t  kExeStamp      = 0x69ca6d05;
-constexpr uintptr_t RVA_FBT        = 0x2b58280;   // USkeletalMeshComponent::FinalizeBoneTransform
-constexpr uintptr_t RVA_SKM_VT_FBT = 0x3d541a8;   // ??_7USkaterSkeletalMeshComponent@@6BUObject@@@ + 0x938
+uintptr_t RVA_FBT        = 0x2b58280;   // USkeletalMeshComponent::FinalizeBoneTransform
+uintptr_t RVA_SKM_VT_FBT = 0x3d541a8;   // ??_7USkaterSkeletalMeshComponent@@6BUObject@@@ + 0x938
 // USkinnedMeshComponent (engine, verified in this exe: FlipEditableSpaceBases reads +0x4f0/+0x4f4 and
 // copies the TArray<FTransform> pair at +0x4b0 + i*0x10)
 constexpr int SKM_CST  = 0x4b0;
@@ -5376,6 +5384,7 @@ void TraceRevert(void* mesh) {
 typedef void (*FbtFn)(void* self);
 FbtFn g_origFbt = nullptr;
 bool  g_hooked = false;
+volatile int g_sigMode = 0; bool g_vtPending = false;   // (v104) the addresses were found by signature (another build of the game) | its pose hook waits for the skater's mesh
 
 int GrabFilter(unsigned code) { return code == EXCEPTION_ACCESS_VIOLATION || code == EXCEPTION_INT_DIVIDE_BY_ZERO
                                     || code == EXCEPTION_FLT_INVALID_OPERATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH; }
@@ -5640,15 +5649,64 @@ void hkFbt(void* self) {
     g_origFbt(self);
 }
 
+int SafeSigScan(const wchar_t* path, HnSigFound* found) {        // (v104) a fault reading the file = nothing found
+    __try { return HnSigScanPath(path, found, &Log); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { Log("signatures: fault while reading the exe (code %08x)", GetExceptionCode()); return -1; }
+}
+// (v104) On another build the skater mesh's vtable is not at a known address: the slot is read off the live mesh (the
+// class's own table + 0x938, the engine's FinalizeBoneTransform slot) and taken only if it holds the function the
+// signatures found. On the known build the same reading is only CHECKED against the fixed address, once, and logged:
+// that proves the route on the exe it can be proved on.
+bool VtHookFromMesh(void* mesh) {
+    if (!mesh) return false;
+    uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr);
+    const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(exe + ((const IMAGE_DOS_HEADER*)exe)->e_lfanew);
+    const uintptr_t image = nt->OptionalHeader.SizeOfImage;
+    __try {
+        uint8_t* vt = *(uint8_t**)mesh;
+        if (vt < exe || vt + 0x940 > exe + image) { Log("pose hook: the skater mesh's vtable (%p) is not in the game's exe -- NOT installed", vt); return false; }
+        void** slot = (void**)(vt + 0x938);
+        if (!g_sigMode) {
+            static bool told = false;
+            if (!told) { told = true; Log("check: the skater mesh's own vtable slot is %p; the hook is at %p -- %s", slot, exe + RVA_SKM_VT_FBT, (uint8_t*)slot == exe + RVA_SKM_VT_FBT ? "the same (the route another build of the game takes is right here)" : "NOT THE SAME"); }
+            return g_origFbt != nullptr;
+        }
+        if (*slot == (void*)&hkFbt) return true;
+        void* expect = exe + RVA_FBT;
+        if (*slot != expect) {
+            Log("pose hook: on this build the skater mesh's slot holds %p, not FinalizeBoneTransform (%p) -- NOT installed: the mod's poses (hands, feet, plants) stay off. Please send this log", *slot, expect);
+            return false;
+        }
+        DWORD old = 0;
+        if (!VirtualProtect(slot, sizeof(void*), PAGE_READWRITE, &old)) { Log("pose hook: VirtualProtect failed (%lu) -- NOT installed", GetLastError()); return false; }
+        g_origFbt = (FbtFn)*slot;
+        *slot = (void*)&hkFbt;
+        VirtualProtect(slot, sizeof(void*), old, &old);
+        Log("pose hook installed (another build of the game): the skater mesh's FinalizeBoneTransform slot @ %p (original %p)", slot, (void*)g_origFbt);
+        return true;
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) { Log("pose hook: fault reading the skater mesh's vtable (code %08x) -- NOT installed", GetExceptionCode()); return false; }
+}
 bool InstallHook() {
     if (g_hooked) return true;
     uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr);
     const IMAGE_DOS_HEADER* dos = (const IMAGE_DOS_HEADER*)exe;
     const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(exe + dos->e_lfanew);
     if (nt->FileHeader.TimeDateStamp != kExeStamp) {
-        Log("the game exe is a different build (stamp %08x, expected %08x) -- the pose hook is NOT installed",
-            nt->FileHeader.TimeDateStamp, kExeStamp);
-        return false;
+        Log("the game exe is ANOTHER BUILD than this mod was written against (stamp %08x, image %u KB; written against %08x) -- its functions are looked for by signature in the exe on disk",
+            nt->FileHeader.TimeDateStamp, (unsigned)(nt->OptionalHeader.SizeOfImage / 1024), kExeStamp);
+        static HnSigFound found[kSigN];
+        static wchar_t path[1024];
+        const DWORD pn = GetModuleFileNameW(nullptr, path, 1024);
+        const int got = (pn > 0 && pn < 1023) ? SafeSigScan(path, found) : 0;
+        if (got != kSigN) {
+            Log("signatures: %d of %d found -- this build of the game is NOT supported by this version of the mod: nothing is hooked and the mod stays off. Please send this log (run Mods\\ExpandedTricks\\pack-logs.bat)", got < 0 ? 0 : got, kSigN);
+            return false;
+        }
+        HnSigApply(found);
+        g_sigMode = 1; g_vtPending = true; g_hooked = true;
+        Log("signatures: all %d found -- the mod runs on this build of the game. The pose hook goes in when your skater is there (its place is read off the skater's own mesh)", kSigN);
+        return true;
     }
     void** slot = (void**)(exe + RVA_SKM_VT_FBT);
     void* expect = exe + RVA_FBT;
@@ -5722,8 +5780,9 @@ int nSetMesh(const Lua& lua) {
     if (mesh != g_mesh || anim != g_anim || sk != g_skater) Log("our skater %p: mesh %p, anim instance %p", sk, mesh, anim);
     if (mesh != g_mesh) ForgetSkater(mesh ? "another mesh" : "stood down");
     g_gonePoses = 0;                                 // (v95) a skater handed over (or stood down): the next 'level change' line is a new one
+    if (mesh && (g_vtPending || !g_sigMode) && g_hooked) { if (g_sigMode) g_vtPending = false; VtHookFromMesh(mesh); }   // (v104) another build: the hook goes in now, one try; the known build: the route is checked once
     g_mesh = mesh; g_anim = anim; g_skater = sk;
-    lua.set_integer(g_hooked ? 1 : 0);
+    lua.set_integer((g_hooked && g_origFbt != nullptr) ? 1 : 0);
     return 1;
 }
 
@@ -5866,8 +5925,8 @@ float SafeInstantRevert() {
 // is unchanged and the deck never moves; the rider (whose facing follows ctrl) is now turned round; then
 // ASkaterCharacterBase::AdjustFootPositionAndMoveDirection re-derives footPosition from ctrl vs the move
 // direction (Regular <-> Fakie, Nollie <-> Switch) and fires the game's own foot-position event.
-constexpr uintptr_t RVA_ADJUST_FOOT = 0xfe95a0;    // ASkaterCharacterBase::AdjustFootPositionAndMoveDirection(bool, bool)
-constexpr uintptr_t RVA_POP_PENDING = 0xff8590;    // ASkaterCharacterBase::IsPopPending() const
+uintptr_t RVA_ADJUST_FOOT = 0xfe95a0;    // ASkaterCharacterBase::AdjustFootPositionAndMoveDirection(bool, bool)
+uintptr_t RVA_POP_PENDING = 0xff8590;    // ASkaterCharacterBase::IsPopPending() const
 constexpr int BM_CTRL = 0x5c0, BM_CTRL_LAST = 0x610, BM_DECK_YAW = 0x624, BM_REVERTING = 0x4ca, BM_FLIPBITS = 0x7e9;
 constexpr int SK_PRIMO = 0xa0c;
 typedef void (*AdjustFootFn)(void* skater, bool force, bool force2);
@@ -6369,7 +6428,7 @@ void UpdRun() {
     bool stampOk = stamp.empty() || stamp.size() == 8;           // (review) it goes into both logs: eight hex digits, as make-release.ps1 writes it, or nothing
     for (char ch : stamp) if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'))) stampOk = false;
     if (!stampOk) { UpdSay(5, "the release's update.txt could not be read (its game_stamp) -- not checked this time"); return; }
-    if (!stamp.empty() && (uint32_t)strtoul(stamp.c_str(), nullptr, 16) != mine) {
+    if (!stamp.empty() && (uint32_t)strtoul(stamp.c_str(), nullptr, 16) != mine && !g_sigMode) {   // (v104) a build the mod runs on by signature (Steam's) takes the release: the new mod checks the exe for itself at its start
         UpdSay(3, "version %s is out, but it is made for another build of the game (%s; this game is %08x) -- not installed", ver.c_str(), stamp.c_str(), mine);
         return;
     }
@@ -6581,14 +6640,14 @@ int nBumpers(const Lua& lua) { lua.set_integer(g_pc ? SafeBumpers() : 0); return
 // under the skater, then outwards in 24 directions for where that ground drops away; the nearest such edge, the way
 // its drop faces, how far down the ground is past it, and at what angle a board pivoting on the edge would meet it.
 // Engine functions by address (this exe build only; the pose hook's build check guards them).
-constexpr uintptr_t RVA_ACTOR_GETWORLD   = 0x29c3690;   // AActor::GetWorld
-constexpr uintptr_t RVA_LINETRACE_OBJ    = 0x2aead10;   // UWorld::LineTraceSingleByObjectType
-constexpr uintptr_t RVA_DEFAULT_QUERY    = 0x4f855a0;   // FCollisionQueryParams::DefaultQueryParam
-constexpr uintptr_t RVA_QP_CTOR          = 0x2ab3cc0;   // (v51) FCollisionQueryParams::FCollisionQueryParams(FName, const TStatId&, bool bTraceComplex, const AActor* ignore)
-constexpr uintptr_t RVA_QP_ADD_ACTOR     = 0x2ab60e0;   // (v51) FCollisionQueryParams::AddIgnoredActor(const AActor*)  (the struct is 0x70 bytes: bools at 0x10.., IgnoreComponents 0x20, IgnoreActors 0x50)
-constexpr uintptr_t RVA_SET_WORLD_LOCROT = 0x2b669f0;   // USceneComponent::SetWorldLocationAndRotation(FVector, const FQuat&, bool, FHitResult*, ETeleportType)
-constexpr uintptr_t RVA_SET_LINVEL       = 0x2ed85f0;   // UPrimitiveComponent::SetPhysicsLinearVelocity(FVector, bool, FName)
-constexpr uintptr_t RVA_SET_ANGVEL       = 0x2ed85a0;   // UPrimitiveComponent::SetPhysicsAngularVelocityInRadians(FVector, bool, FName)
+uintptr_t RVA_ACTOR_GETWORLD   = 0x29c3690;   // AActor::GetWorld
+uintptr_t RVA_LINETRACE_OBJ    = 0x2aead10;   // UWorld::LineTraceSingleByObjectType
+uintptr_t RVA_DEFAULT_QUERY    = 0x4f855a0;   // FCollisionQueryParams::DefaultQueryParam
+uintptr_t RVA_QP_CTOR          = 0x2ab3cc0;   // (v51) FCollisionQueryParams::FCollisionQueryParams(FName, const TStatId&, bool bTraceComplex, const AActor* ignore)
+uintptr_t RVA_QP_ADD_ACTOR     = 0x2ab60e0;   // (v51) FCollisionQueryParams::AddIgnoredActor(const AActor*)  (the struct is 0x70 bytes: bools at 0x10.., IgnoreComponents 0x20, IgnoreActors 0x50)
+uintptr_t RVA_SET_WORLD_LOCROT = 0x2b669f0;   // USceneComponent::SetWorldLocationAndRotation(FVector, const FQuat&, bool, FHitResult*, ETeleportType)
+uintptr_t RVA_SET_LINVEL       = 0x2ed85f0;   // UPrimitiveComponent::SetPhysicsLinearVelocity(FVector, bool, FName)
+uintptr_t RVA_SET_ANGVEL       = 0x2ed85a0;   // UPrimitiveComponent::SetPhysicsAngularVelocityInRadians(FVector, bool, FName)
 constexpr int ACTOR_ROOT = 0x130;                       // AActor::RootComponent
 typedef void* (*GetWorldFn)(const void* actor);
 typedef bool  (*TraceFn)(const void* world, void* outHit, const V3* start, const V3* end, const void* objParams, const void* queryParams);
@@ -7745,7 +7804,7 @@ ground_found:
 // calls ASkaterCharacterBase::SetCatchOrient(handler->_defaultState (+0x32), pitchRatio (+0x90), yawRatio (+0x8c)); the
 // mod's hand-over (ServerRPCSetGrab) skips that pick, so some grabs ran with no catch orient at all. So the Lua now
 // asks for the same call when it hands a grab over (and again while the game holds it, should the state fall to 0).
-constexpr uintptr_t RVA_SET_CATCH_ORIENT = 0x1004120;   // ASkaterCharacterBase::SetCatchOrient(ECatchOrientState, float, float)
+uintptr_t RVA_SET_CATCH_ORIENT = 0x1004120;   // ASkaterCharacterBase::SetCatchOrient(ECatchOrientState, float, float)
 constexpr int PC_INAIR = 0x6e0;                          // ASessionPlayerController -> InAirHandler* (InGame_Tick: mov rcx,[rdi+0x6e0])
 constexpr int SK_CATCH_STATE = 0x63e;                    // ASkaterCharacterBase::_catchOrientState (reflected)
 typedef void (*SetCatchFn)(void* skater, uint8_t state, float pitchRatio, float yawRatio);
@@ -8193,7 +8252,7 @@ int nBoardMeet(const Lua& lua) {
 // the bail on the quarter; the bank held only because its face lay within reach under the hung wheels). So while the
 // board is held the slot answers "grounded" for this board's interface; every other object gets the game's own answer.
 // The vtable lives in the exe's read-only data: unprotected for the one write, and left hooked (a passthrough) after.
-constexpr uintptr_t RVA_ISGROUNDED = 0xfc36e0;
+uintptr_t RVA_ISGROUNDED = 0xfc36e0;
 constexpr int BM_IFACE = 0x138, VT_ISGROUNDED = 0x3b0;
 typedef bool (*IsGroundedFn)(void* iface);
 IsGroundedFn g_isGroundedOrig = nullptr; volatile int g_groundHold = 0; void* g_groundIface = nullptr; LONG g_groundForced = 0;
@@ -8418,20 +8477,20 @@ int nMenuTake(const Lua& lua) {
 // trampoline followed by a jump back, and the target gets `jmp [rip+0]; <hook>` in their place. Two of the targets
 // are 32-byte funnels with a branch in their first bytes, so the hook RE-IMPLEMENTS them (test a flag, stamp the
 // page definition into the params, broadcast the delegate) instead of trampolining. Installed on the game thread.
-constexpr uintptr_t RVA_MENU_CREATEITEMS = 0x1071150;   // UMenuPage::CreatePageItems(this, const TArray<FMenuPageItemDefinition>&, bool)
-constexpr uintptr_t RVA_MENU_SELCONFIRM  = 0x1090c80;   // UMenuPage::OnSelectionConfirmed(this, params&)        -- re-implemented
-constexpr uintptr_t RVA_MENU_BACKACTION  = 0x1076df0;   // UMenuPageContainer::HandlePageBackAction(this, params)
-constexpr uintptr_t RVA_MENU_MULTICHG    = 0x10822e0;   // UMenuPage::OnMultiOptionItemSelectionChanged(this, params&)
-constexpr uintptr_t RVA_MENU_PROGCHG     = 0x1090c50;   // UMenuPage::OnProgressBarValueChanged(this, params&)    -- re-implemented
-constexpr uintptr_t RVA_MENU_REFRESH     = 0x1096b70;   // UMenuPage::RefreshItemsPanel(this)
-constexpr uintptr_t RVA_MENU_SETTITLE    = 0x109ab60;   // UMenuPage::SetTitle(this, FText by value)
-constexpr uintptr_t RVA_MENU_SETSEL      = 0x1099eb0;   // UMenuPage::SetSelectedIndex(this, int, bool)
-constexpr uintptr_t RVA_ITEM_PROGSET     = 0x1096330;   // UMenuPageItem::ProgressBarSetPercent(this, float 0..1)
-constexpr uintptr_t RVA_ITEM_MULTISET    = 0x1078e80;   // UMenuPageItem::MultiOptionSetSelectedItemIndex(this, int)
-constexpr uintptr_t RVA_DELEGATE_BCAST   = 0x7e5920;    // TMulticastDelegate<void(Params&)>::Broadcast(this, params&) -- the funnels' tail call
-constexpr uintptr_t RVA_FNAME_CTOR_A     = 0x132d4e0;   // FName::FName(const char*, EFindName)
-constexpr uintptr_t RVA_FTEXT_FROMNAME   = 0x126d3f0;   // FText::FromName(const FName&)
-constexpr uintptr_t RVA_ENGINE_TICK      = 0x2c2c000;   // UGameEngine::Tick(this, float, bool) -- the pump
+uintptr_t RVA_MENU_CREATEITEMS = 0x1071150;   // UMenuPage::CreatePageItems(this, const TArray<FMenuPageItemDefinition>&, bool)
+uintptr_t RVA_MENU_SELCONFIRM  = 0x1090c80;   // UMenuPage::OnSelectionConfirmed(this, params&)        -- re-implemented
+uintptr_t RVA_MENU_BACKACTION  = 0x1076df0;   // UMenuPageContainer::HandlePageBackAction(this, params)
+uintptr_t RVA_MENU_MULTICHG    = 0x10822e0;   // UMenuPage::OnMultiOptionItemSelectionChanged(this, params&)
+uintptr_t RVA_MENU_PROGCHG     = 0x1090c50;   // UMenuPage::OnProgressBarValueChanged(this, params&)    -- re-implemented
+uintptr_t RVA_MENU_REFRESH     = 0x1096b70;   // UMenuPage::RefreshItemsPanel(this)
+uintptr_t RVA_MENU_SETTITLE    = 0x109ab60;   // UMenuPage::SetTitle(this, FText by value)
+uintptr_t RVA_MENU_SETSEL      = 0x1099eb0;   // UMenuPage::SetSelectedIndex(this, int, bool)
+uintptr_t RVA_ITEM_PROGSET     = 0x1096330;   // UMenuPageItem::ProgressBarSetPercent(this, float 0..1)
+uintptr_t RVA_ITEM_MULTISET    = 0x1078e80;   // UMenuPageItem::MultiOptionSetSelectedItemIndex(this, int)
+uintptr_t RVA_DELEGATE_BCAST   = 0x7e5920;    // TMulticastDelegate<void(Params&)>::Broadcast(this, params&) -- the funnels' tail call
+uintptr_t RVA_FNAME_CTOR_A     = 0x132d4e0;   // FName::FName(const char*, EFindName)
+uintptr_t RVA_FTEXT_FROMNAME   = 0x126d3f0;   // FText::FromName(const FName&)
+uintptr_t RVA_ENGINE_TICK      = 0x2c2c000;   // UGameEngine::Tick(this, float, bool) -- the pump
 constexpr int PG_FLAGS = 0x2b0, PG_MAXVISIBLE = 0x290, PG_ACTIVEDEF = 0x298, PG_WIDGETS = 0x2a0, PG_HEADERIDX = 0x2b4, PG_SELIDX = 0x2b8;
 constexpr int PG_DLG_CONFIRM = 0x3b0, PG_DLG_PROGRESS = 0x398;      // the two funnels' delegates
 constexpr int DEF_KEY = 0x30, DEF_DISPLAYNAME = 0x38;
@@ -8548,8 +8607,8 @@ bool MakeText(const char* s, FTextBlob* out) { uint64_t fn; if (!MakeFName(s, &f
 // of its ini keys. Now APlayerController::InputKey (every key event, the engine's stick-direction keys included) is
 // detoured like the menu's seams, and every PRESSED key's name is queued for the Lua (HJN_PadEvents): the same names
 // SessionTweaks logged ("Gamepad_LeftThumbstick", "GenericUSBController_Button11"...). SessionTweaks' log stays the fallback.
-constexpr uintptr_t RVA_PC_INPUTKEY     = 0x2ecf510;   // bool APlayerController::InputKey(FKey, EInputEvent, float, bool): the FKey comes by pointer
-constexpr uintptr_t RVA_FNAME_TOSTR_BUF = 0x133a690;   // uint32 FName::ToString(WIDECHAR* out, uint32 outSize) const
+uintptr_t RVA_PC_INPUTKEY     = 0x2ecf510;   // bool APlayerController::InputKey(FKey, EInputEvent, float, bool): the FKey comes by pointer
+uintptr_t RVA_FNAME_TOSTR_BUF = 0x133a690;   // uint32 FName::ToString(WIDECHAR* out, uint32 outSize) const
 typedef bool (*InputKeyFn)(void* pc, const void* key, int ev, float amt, bool gamepad);
 typedef uint32_t (*FNameToStrFn)(const void* fname, wchar_t* out, uint32_t n);
 InputKeyFn o_InputKey = nullptr;
@@ -8573,8 +8632,8 @@ void PadQueue(const void* key) {
 // APlayerController::InputKey, hooked here, is upstream of that: while the replay manager says playback (its mode byte = 2)
 // the two stick clicks are handed straight to the game's own UPlayerInput::InputKey (the trampoline behind the MinHook on
 // it, found and checked as ChainInstall does) -- and they are NOT queued for the Lua: a replay's skater does no tricks.
-constexpr uintptr_t RVA_REPLAY_MGR  = 0x4fc3430;   // AReplayManager::_instance
-constexpr uintptr_t RVA_PI_INPUTKEY = 0x308d310;   // bool UPlayerInput::InputKey(FKey, EInputEvent, float, bool)
+uintptr_t RVA_REPLAY_MGR  = 0x4fc3430;   // AReplayManager::_instance
+uintptr_t RVA_PI_INPUTKEY = 0x308d310;   // bool UPlayerInput::InputKey(FKey, EInputEvent, float, bool)
 constexpr int RM_MODE = 0x2a8, PC_PLAYERINPUT = 0x348;   // AReplayManager::_currentReplayMode (2 = playback); APlayerController::PlayerInput
 uint64_t g_fnL3 = 0, g_fnR3 = 0; volatile int g_replayClicks = 1; int g_replayPassed = 0, g_replayTold = 0;
 extern bool g_hooked;
@@ -9059,7 +9118,7 @@ int SafeHeld(char* out, size_t n) { __try { return HeldState(out, n); } __except
 // HJN_CrankFix() finishes a crouch the handler was left holding (its own ResetCrank, which does nothing unless the skater's
 // crank bit at +0x580 or a pending trick is there: the bit is lent to it for the call) -- the one stuck state known: a
 // crouch timer running with both sticks at rest "broke powerslides until a flip trick completed it".
-constexpr uintptr_t RVA_RESET_CRANK = 0x1030410;   // FlipTricksHandler::ResetCrank()
+uintptr_t RVA_RESET_CRANK = 0x1030410;   // FlipTricksHandler::ResetCrank()
 typedef void (*ResetCrankFn)(void* fth);
 bool SlideGate(char* out, size_t n) {
     const uint8_t* pc = (const uint8_t*)g_pc;
@@ -9174,7 +9233,7 @@ int nTrickName(const Lua& lua) {
 // falling). Every no comply of 3 Oct bailed there, 0.1 s after the pop ("his foot plants underneath the ground"). While the
 // Lua holds the window open (HJN_Set("nobail", seconds), refreshed each frame; it shuts by itself) that check is passed over
 // for our skater; the board's own collision bails are another path and still run.
-constexpr uintptr_t RVA_IMPACT_BAIL = 0xff66e0;   // ASkaterCharacterBase::ImpactBailCheck(const FVector& impulse, const FHitResult&)
+uintptr_t RVA_IMPACT_BAIL = 0xff66e0;   // ASkaterCharacterBase::ImpactBailCheck(const FVector& impulse, const FHitResult&)
 typedef void (*ImpactBailFn)(void* skater, const float* impulse, const uint8_t* hit);
 ImpactBailFn o_ImpactBail = nullptr; int g_noBailHook = 0; volatile ULONGLONG g_noBailUntil = 0; int g_noBailSkips = 0, g_noBailTold = 0;
 void NoBailNote(const float* imp, const uint8_t* hit) {
@@ -9221,7 +9280,7 @@ int nNoBail(const Lua& lua) {
 // input (-value into the movement component's +0x154); with the stick's bank off their first byte is a `ret` (a RIP-relative
 // andps follows the first instruction, so no detour), put back when it is on again. The triggers' lean is another path
 // (Skate_LeanLeft/Right -> USkateboardExMovementComponent::LeanLeft/Right) and keeps working
-constexpr uintptr_t RVA_BANK_LEFT = 0x1007d00, RVA_BANK_RIGHT = 0x1007d30;
+uintptr_t RVA_BANK_LEFT = 0x1007d00, RVA_BANK_RIGHT = 0x1007d30;
 int g_bankPatched = 0; uint8_t g_bankSaved[2] = { 0x0f, 0x0f };
 void StickBank(bool on) {
     const int wantPatched = on ? 0 : 1;
