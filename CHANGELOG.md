@@ -1,7 +1,7 @@
 # Changelog
 
 ## 1.0.0 -- first public release
-Lua build 191, native v103. For Session: Skate Sim 1.0.6.42 on PC (exe stamp 69ca6d05, built 30 March 2026).
+Lua build 192, native v103. For Session: Skate Sim 1.0.6.42 on PC (exe stamp 69ca6d05, built 30 March 2026).
 
 - Hippie jumps and mini hippie jumps, with body spins (180 / 360) and landings in switch.
 - The game's twelve grabs switched on and posed (hand, arm, fingers, knees, feet, the deck's tilt), three two-hand

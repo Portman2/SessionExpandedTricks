@@ -80,7 +80,7 @@ local S = {
     NoComplyEndPitchTimeMin = 0.2,
     NoComplyEndPitchTimeMax = 0.42,
     NoComplyPopNotify = 0.015,
-    NoComplyAutoCatch = 0,
+    NoComplyAutoCatch = 1,
     NoComplyNoBail = 1,
     NoComplyFootFix = 1,
     NoComplyFootHeight = 10,
@@ -6739,7 +6739,7 @@ end
 -- latest release's update.txt: its version, build number, the game build it is for and the two files' SHA-256). With
 -- AutoUpdate=2 a newer build is downloaded, checked and put in place for the next start; with 1 you are only told.
 -- NATIVE.BUILD is this file's own build number: the release's update.txt carries the same number, and that is what is compared.
-NATIVE.BUILD = 191
+NATIVE.BUILD = 192
 NATIVE.WANT = 103      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
 NATIVE.updateTick = function(live)
     local U = NATIVE.upd or {}
@@ -6876,7 +6876,7 @@ LoopAsync(2000, function()
     return false
 end)
 
-log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v191 / native v103)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
+log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v192 / native v103)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
 
 -- the game's grabs need IsGrabsEnabled in its experimental save (the profile loads it at start-up). (v121) If it is off or
 -- missing, the save is PATCHED here: a BoolProperty tag put into FExperimentalSettings -- the bytes the game's own serializer
