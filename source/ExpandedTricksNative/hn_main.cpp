@@ -43,7 +43,7 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 102
+#define HJN_VERSION 103
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
@@ -487,7 +487,7 @@ V3 g_hingeTh[2] = { { 0, 0, 0 }, { 0, 0, 0 } }, g_hingeCa[2] = { { 0, 0, 0 }, { 
 int g_hingeN[2] = { 0, 0 }, g_hingeMiss[2] = { 0, 0 }, g_hingeOdd[2] = { 0, 0 }, g_hingeAgain[2] = { 0, 0 };
 volatile int g_hingeOn = 1; LONG g_hingeRolled = 0, g_hingeLogs = 0; float g_hingeLast[2][2] = { { 0, 0 }, { 0, 0 } }, g_hingeMost = 0.0f; double g_hingeSaid = -1.0e9;
 // (the further v99 switches the recorder reads: the foot sockets turned for this pose, a hop's hips, the plant foot's swivel)
-volatile int g_sockLive = 0, g_plSwOn = 0;
+volatile int g_sockLive = 0, g_plSwOn = 0, g_sockMirLive = 0;
 void HingeLearn(int k, V3 ht, V3 hc) {                           // one riding pose's reading of leg k's hinge: in its thigh's frame, in its shin's
     if (g_hingeN[k] > 0 && fminf(dot(ht, g_hingeTh[k]), dot(hc, g_hingeCa[k])) < 0.94f) {
         g_hingeOdd[k]++;
@@ -4267,7 +4267,7 @@ void PdFill(uint8_t* rec, const void* mesh, const void* anim, int n, uint32_t f,
             r->hipGap[k] = std::isfinite(gap) ? gap : 0.0f;
             r->roll[k][0] = g_hingeLast[k][0]; r->roll[k][1] = g_hingeLast[k][1];
         }
-        r->more = (g_sockLive ? 1u : 0u) | ((g_hingeN[0] >= 30 && g_hingeN[1] >= 30) ? 2u : 0u) | (g_hopHipW > 0.02f ? 4u : 0u) | (g_plSwOn ? 8u : 0u) | (g_ankNow ? 16u : 0u);
+        r->more = (g_sockLive ? 1u : 0u) | ((g_hingeN[0] >= 30 && g_hingeN[1] >= 30) ? 2u : 0u) | (g_hopHipW > 0.02f ? 4u : 0u) | (g_plSwOn ? 8u : 0u) | (g_ankNow ? 16u : 0u) | (g_sockMirLive ? 32u : 0u);   // (v103) 32 = a foot socket was held on its own side of the deck for this pose (SockMirror)
     }
     float* p = (float*)(rec + sizeof(PdFrame));
     for (int i = 0; i < n; i++, p += 3) { p[0] = g_C[i].p.x; p[1] = g_C[i].p.y; p[2] = g_C[i].p.z; }
@@ -4504,6 +4504,63 @@ void QRot(Q4 q, float* r) {                                      // FQuat::Rotat
     }
 }
 bool DeckXf(const void* mesh); float CentreX();
+// ==== (v103) A GOOFY RIDER'S SWITCH PLANT, CAUGHT: THE FEET DO NOT TURN ROUND AT THE LANDING ===========================
+// The goofy rider's switch plant is drawn with the game's mirror table taken away (the Lua, v189) and the sockets turned
+// here. When the game has CAUGHT the board in such a trick its foot sockets are no longer the skeleton's anchors but the
+// board's catch sockets, and those go by the game's goofy flag: on the pose the table is put back they stand mirrored
+// across the deck's centre line, turned half round -- the recording of 6 Oct 21:20:09 (the one goofy switch trick caught
+// so far, by hand), pose 78: L from -20 +10 to -21 -9, R from +22 +10 to +21 -9, the feet with them and their toes the
+// other way, under hips that face as before; the game then walks each socket back across the board, R after 0.42 s, L
+// after 0.57 s. "Both feet stand turned backwards for half a second." With the boneless's board caught by the game
+// (Lua v191) every goofy switch boneless would land so.
+// The Lua calls with mode 4 on the poses after it has put the table back. On the first of them a socket that has jumped
+// to the other side of the centre line, and whose mirror image is where the pose before had it, is HELD: its own along
+// and up, the image's across, and the rotation it came with turned half round about the deck's up (kept in the deck's
+// frame) -- until the game's own socket has come round to that side (within 2 cm of the held across), 1.5 s at most.
+// Replayed over that recording (source/tools/posedump/mirsim.pl): L held 34 poses at -21 +9, R 25 poses at +21 +9, steps
+// of 2 cm at either end, the held rotation 11 and 15 deg from the game's own at the release; and over the 39 other
+// switch landings on record (26 of the goofy rider's, none caught, 13 of the regular rider's as if mode 4 were sent)
+// it does not start. It rests on that one trick, caught by hand: the first board the game catches in a goofy rider's
+// switch boneless is its real test (the log's "switch plant, caught:" lines say what it did).
+// Nothing else calls with mode 4: the regular rider's swap ends with the game's own flag.
+bool g_sockMir[2] = { false, false }; float g_sockMirY[2] = { 0.0f, 0.0f }; Q4 g_sockMirQ[2] = { { 0.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f, 0.0f, 1.0f } };
+double g_sockMirT0 = -1.0e9; int g_sockMirArm = 0, g_sockMirN[2] = { 0, 0 }; LONG g_sockMirLogs = 0;
+// d: this pose's two sockets as the game has them, in the deck's frame; prev: what the pose before was given; lp: the anim instance's own
+void SockMirror(double now, const V3* d, const V3* prev, float* const* lp) {
+    if (g_sockMirArm == 0) g_sockMirT0 = now;
+    if (g_sockMirArm < 100000) g_sockMirArm++;
+    const V3 up = norm(qrot(g_dq, v3(0.0f, 0.0f, 1.0f)));
+    const Q4 half = q4(up.x, up.y, up.z, 0.0f), dqc = q4(-g_dq.x, -g_dq.y, -g_dq.z, g_dq.w);
+    for (int k = 0; k < 2; k++) {
+        if (!g_sockMir[k]) {
+            if (g_sockMirArm > 8 || now - g_sockMirT0 > 0.2) continue;       // only as the table comes back
+            const V3 im = v3(d[k].x, -d[k].y, d[k].z);
+            const float eRaw = len(sub(d[k], prev[k])), eIm = len(sub(im, prev[k]));
+            if (!(std::isfinite(eRaw) && std::isfinite(eIm) && d[k].y * prev[k].y < 0.0f && fabsf(d[k].y - prev[k].y) > 12.0f && eIm + 8.0f < eRaw && eIm < 10.0f && fabsf(im.y) >= 4.0f)) continue;
+            const Q4 hq = qnorm(qmul(dqc, qmul(half, RotQ(lp[k] + 3))));
+            if (!(std::isfinite(hq.x) && std::isfinite(hq.y) && std::isfinite(hq.z) && std::isfinite(hq.w))) continue;
+            g_sockMir[k] = true; g_sockMirY[k] = im.y; g_sockMirQ[k] = hq; g_sockMirN[k] = 0;
+            if (InterlockedIncrement(&g_sockMirLogs) <= 60)
+                Log("switch plant, caught: the game's %s foot socket came back on the far side of the board (%+.0f %+.0f on the deck; the pose before had it at %+.0f %+.0f) -- it is held on its own side, turned back, until the game's own comes round",
+                    k ? "R" : "L", d[k].x, d[k].y, prev[k].x, prev[k].y);
+        }
+        const float sg = g_sockMirY[k] >= 0.0f ? 1.0f : -1.0f;
+        if (d[k].y * sg >= fabsf(g_sockMirY[k]) - 2.0f || now - g_sockMirT0 > 1.5) {
+            if (InterlockedIncrement(&g_sockMirLogs) <= 60)
+                Log("switch plant, caught: the game's %s foot socket is %s (%+.0f %+.0f on the deck) after %d held poses, %.2f s -- the game's own again",
+                    k ? "R" : "L", (d[k].y * sg >= fabsf(g_sockMirY[k]) - 2.0f) ? "back on its side" : "NOT back on its side in time", d[k].x, d[k].y, g_sockMirN[k], now - g_sockMirT0);
+            g_sockMir[k] = false;
+            continue;
+        }
+        const V3 o = v3(d[k].x, g_sockMirY[k], d[k].z), np = add(g_dp, qrot(g_dq, o));
+        const Q4 nq = qnorm(qmul(g_dq, g_sockMirQ[k]));
+        if (!finite3(np) || !(std::isfinite(nq.x) && std::isfinite(nq.y) && std::isfinite(nq.z) && std::isfinite(nq.w))) { g_sockMir[k] = false; continue; }
+        lp[k][0] = np.x; lp[k][1] = np.y; lp[k][2] = np.z;
+        QRot(nq, lp[k] + 3);
+        g_sockNowC[k] = np; g_sockPrevD[k] = o; g_sockMirN[k]++;
+        InterlockedExchange(&g_sockMark, 3);
+    }
+}
 // mode 2: a swap begins -- this pose's sockets are your own stance's, and are kept (in the deck's frame). mode 1: every pose
 // of the swap -- the sockets are kept CONTINUOUS with the pose before: turned half round when that is what brings them
 // back to where they stood, left alone when they already are there. (v100. v99 turned them on the poses the game's stance
@@ -4534,6 +4591,7 @@ bool SockTurn(int mode) {
         }
         if (fin) {
             const double now = NowS();
+            if (mode != 4 || now - g_sockPrevT > 0.25) { g_sockMir[0] = g_sockMir[1] = false; g_sockMirArm = 0; }   // (v103) the hold is the tail's alone
             if (mode == 2 || now - g_sockPrevT > 0.25) {         // the swap's first pose (or the first the Lua calls for after a gap): as they stand
                 g_sockPrevD[0] = d[0]; g_sockPrevD[1] = d[1]; g_sockCOk = false;
                 g_sockTurned = false; g_sockFlag = 0; g_sockFlagN = 0; g_sockForced = 0;
@@ -4580,10 +4638,13 @@ bool SockTurn(int mode) {
                 }
                 g_sockTurned = turn;
                 if (!turn) {
+                    const V3 prev[2] = { g_sockPrevD[0], g_sockPrevD[1] };
                     g_sockPrevD[0] = d[0]; g_sockPrevD[1] = d[1];
                     g_sockNowC[0] = p[0]; g_sockNowC[1] = p[1];
                     InterlockedExchange(&g_sockMark, 1);
+                    if (mode == 4) SockMirror(now, d, prev, lp);         // (v103) the goofy rider's switch plant, the table back: the note at SockMirror
                 }
+                else { g_sockMir[0] = g_sockMir[1] = false; }
             }
             g_sockPrevT = now; g_sockSeenT = now; ok = true;
         }
@@ -4599,6 +4660,7 @@ bool SafeSockTurn(int mode) {                                    // (called from
 void SockSeen(bool live) {
     if (live) {
         g_sockWas = true; g_sockPoses++;
+        if (g_sockMirLive) return;                               // (v103, review) a pose with a socket HELD is not a test of the turn: a push in the second after the landing must not switch the turn off for the run
         for (int k = 0; k < 2; k++) {
             if (g_foot[k] < 0 || k == g_plantFoot) continue;     // (the plant foot leaves its socket for the ground: the regular side's does too)
             const float away = len(sub(g_C[g_foot[k]].p, g_sockNowC[k]));
@@ -4803,7 +4865,7 @@ void PosePass(void* mesh) {
     // skater's ABP (a swapped instance waits the <2 s until Lua hands the new one over)
     void* anim = *(void* const*)((const uint8_t*)mesh + SKM_ANIM);
     if (!anim || anim != g_anim) return;
-    const LONG sockMark = InterlockedExchange(&g_sockMark, 0); g_sockLive = (sockMark == 2) ? 1 : 0;           // (v99) this pose's foot sockets were turned by the Lua's call (the note at SockTurn)
+    const LONG sockMark = InterlockedExchange(&g_sockMark, 0); g_sockLive = (sockMark == 2) ? 1 : 0; g_sockMirLive = (sockMark == 3) ? 1 : 0;           // (v99) this pose's foot sockets were turned by the Lua's call (the note at SockTurn)
     const bool swTurn = SwapTurn(anim);                              // (v97) the other stance's half turn, made in the pose (read once a pose, before anything can return)
     float a[2] = { HandA(anim, 0), HandA(anim, 1) }, w[2], wh[2];   // (v19) by the mesh's own sides (the mirror undone)
     for (int sd = 0; sd < 2; sd++) {
@@ -9200,7 +9262,7 @@ int nSet(const Lua& lua) {
     if (k == "shintight") { g_unstrLong = v != 0 ? 1.012f : 1.04f; lua.set_integer(1); return 1; }   // (v99) a hop's leg bone is put back from half a centimetre over its own length (0 = from 4 %)
     if (k == "sockturn" || k == "sockon" || k == "legroll" || k == "hophips" || k == "plswivel" || k == "plankle") {   // (v99) in front of the chain as well
         int r = 1;
-        if (k == "sockturn") r = SafeSockTurn((int)(v + 0.5)) ? 1 : 0;   // (v100: 2 = a swap begins; every pose of it 1 = the stance flag names your own stance, 3 = the other)   //   1 = this pose's foot sockets are turned half round about the deck (0 back = not done: the Lua zeroes the IK weights instead); 2 = they are noted
+        if (k == "sockturn") { r = SafeSockTurn((int)(v + 0.5)) ? 1 : 0; if (r && (int)(v + 0.5) == 4 && (g_sockMir[0] || g_sockMir[1])) r = 2; }   // (v103) 4 = the poses after a goofy rider's switch plant; 2 back = a socket is held: call on   // (v100: 2 = a swap begins; every pose of it 1 = the stance flag names your own stance, 3 = the other)   //   1 = this pose's foot sockets are turned half round about the deck (0 back = not done: the Lua zeroes the IK weights instead); 2 = they are noted
         else if (k == "sockon") { g_sockOn = v != 0 ? 1 : 0; if (v != 0) g_sockBad = 0; }
         else if (k == "legroll") g_hingeOn = v != 0 ? 1 : 0;         //   a solved leg's thigh and shin are rolled onto the knee's hinge
         else if (k == "hophips") g_hopHipOn = v != 0 ? 1 : 0;        //   a hop's hip joints go back into their sockets

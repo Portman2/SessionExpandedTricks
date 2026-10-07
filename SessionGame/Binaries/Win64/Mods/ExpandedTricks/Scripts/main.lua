@@ -121,6 +121,8 @@ local S = {
     BonelessExtraPop = -24.0,
     BonelessBoardPopMin = 45,
     BonelessBoardPopMax = 54,
+    BonelessAutoCatch = 1,
+    BonelessHandTime = 0.4,
     MiniHop       = 1,
     MiniHeight    = 45,
     MiniCrouch    = 0.25,
@@ -366,7 +368,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "NoComplyNoBail", "num", 0, 1, "no comply: 1 = the planted foot cannot bail you (the game bails you for ANY hit on a leg while it counts you as in the air; from the trick being taken until you land that check is passed over), 0 = the game's own" },
     { "NoComplyFootFix", "num", 0, 1, "no comply: 1 = the planted foot is kept ON the ground (the animation plants it lower than the ground you roll on: each frame the foot is traced onto the world and lifted to NoComplyFootHeight over it), 0 = the animation's own" },
     { "NoComplyFootHeight", "num", 0, 30, "no comply: how high the planted foot's ANKLE is kept over the ground, cm (the ankle sits about 10 cm over the sole)" },
-    { "Boneless",      "num", 0, 1,    "1 = the BONELESS, as it is done: a hand already on the board (GroundGrabs: RB = the Indy hand, LB = the Mute hand -- or pressed during the trick) STAYS on it through a no comply. Only the arm and the crouch are posed, the game's grab is not used, and the bumpers are kept from the game for the trick. The game's own line then reads 'Boneless' (and 'FS Boneless' ... with a turn)" },
+    { "Boneless",      "num", 0, 1,    "1 = the BONELESS, as it is done: a hand already on the board (GroundGrabs: RB = the Indy hand, LB = the Mute hand -- or pressed in the trick's first fifth of a second) stays on it through a no comply's pop and lets go as the board comes back under the feet (BonelessHandTime); the game catches the board (BonelessAutoCatch). Only the arm and the crouch are posed, the game's grab is not used, and the bumpers are kept from the game for the trick. The game's own line then reads 'Boneless' (and 'FS Boneless' ... with a turn)" },
     { "GroundGrabs",   "num", 0, 1,    "1 = GRABS WHILE ROLLING: on the board, on the ground, hold RB and the back hand takes the toe edge between your feet (the Indy), hold LB and the front hand takes it by the front foot (the Mute); you crouch as far as it takes (GroundGrabCrouch at most). The hand stays on while you hold the bumper -- into an ollie, a drop, a no comply (the boneless) and the landing. Let go = stand up. (A bumper first pressed in the air is the game's own grab, as before)" },
     { "GroundGrabCrouch", "num", 0, 70, "grabs while rolling: the MOST the hips may come down, cm. (They go down to GroundGrabHips over the board; this is only the limit)" },
     { "GroundGrabHips", "num", 25, 80, "grabs while rolling: THE SQUAT -- the height the hips go down to, cm over the board. 46 is the game's own Indy grab (its hips are 44-48 over the board). A height, not an amount: crouching yourself adds nothing on top. Lower = a deeper squat and a straighter back, higher = more of the reach is left to the back" },
@@ -401,6 +403,8 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "NoComplyPlantClear", "num", 0, 40, "plant foot: it goes down at least this far from the board's centre line, cm (the board is 20 wide): beside the deck, so it can lift straight up past the edge" },
     { "NoComplyOriginal", "num", 0, 1, "1 = the no comply AS THE GAME ITSELF PLAYS IT, to compare with: for the whole trick nothing of the mod touches the pose -- no planted foot, no body let down, no foot lifted onto the ground, and a switch one is not ridden in the other stance. (The planted foot still cannot bail you, a hand on the board still makes it a boneless, and the trick is still traced in the native log: its 'anim' and 'drawn' columns then read the same.) 0 = the mod's planted foot. Read every frame: no restart needed" },
     { "BonelessExtraPop", "num", -90, 45, "the BONELESS's own pop height (the no comply's NoComplyExtraPop while a hand is on the board). The game's pop is (101 + this) x 1.2: +3 = 125, a third more than v164's -24 ('it's not getting very high ... like 35 % more': the body is held low over the board for the hand, so the same pop reads lower)" },
+    { "BonelessAutoCatch", "num", 0, 1, "the BONELESS and BEAN PLANT: 1 = with a hand on the board the game always catches the board for you (the catch starts about 0.37 s after the pop, the board is back under the feet at about half a second), whatever NoComplyAutoCatch says. 0 = NoComplyAutoCatch decides. With the boneless's board pop (BonelessBoardPopMin..Max) a board nobody catches stays at hip height to the landing and the body is folded onto it" },
+    { "BonelessHandTime", "num", 0, 3, "the BONELESS and BEAN PLANT: the hand lets go of the board in the air this many seconds after the trick began, even with the bumper still held, and sooner (from 0.25 s) when a stick is pushed to catch. The bumper has to be let go before a new grab, and a bumper pressed later than 0.2 s before this time puts no hand on. 0 = the hand stays on for as long as the bumper is held" },
     { "BonelessBoardPopMin", "num", -45, 120, "the BONELESS: cm the BOARD rises at the pop, least (the no comply's NoComplyPopHeightMin while a hand is on the board). The no comply has 15..25: the board peaks about 55 cm over the ground whatever the body does, 25-30 cm BELOW where it rides under you -- so with a hand on it the whole body was held down to it, hips 50 cm over a low board and the back bent 45 deg ('slouched the whole time'). Higher = the board comes up to the body: the back leg folds, the back straightens, he stands up on the planted leg" },
     { "BonelessBoardPopMax", "num", -45, 120, "the BONELESS: ...most, cm (the no comply's NoComplyPopHeightMax while a hand is on the board)" },
     { "MiniHop",       "num", 0, 1,    "1 = clicking BOTH sticks together does a mini hop (no crouch needed)" },
@@ -2410,7 +2414,9 @@ stanceSwapTick = function()
             -- for a pose each). The native half no longer goes by the flag: it keeps the sockets where the pose before had
             -- them, turning them on the poses that takes -- so it is called for all of them
             if other or (tonumber(NATIVE.v) or 0) >= 100 then
-                local ok, r = pcall(HJN_Set, "sockturn", (other and (tonumber(NATIVE.v) or 0) >= 100) and 3 or 1)   -- (3 = the flag names the other stance: the native half's last word when the sockets do not say)
+                local tail4 = G.m and G.done and not other and (tonumber(NATIVE.v) or 0) >= 103     -- (v191 / native v103) the goofy rider's switch plant, the table back: 4 = hold a socket that came back across the board (a caught trick's; the note at SockMirror)
+                local ok, r = pcall(HJN_Set, "sockturn", tail4 and 4 or ((other and (tonumber(NATIVE.v) or 0) >= 100) and 3 or 1))
+                G.hold = (tail4 and ok and r == 2) or nil   -- (3 = the flag names the other stance: the native half's last word when the sockets do not say)
                 G.turned = (ok and r == 1) or nil
                 if other and not G.turned and not G.sockTold then
                     G.sockTold = true
@@ -2424,7 +2430,7 @@ stanceSwapTick = function()
         if G.done and (not other or os.clock() - (G.doneAt or 0) > 1.0) then
             if G.off then if not G.m then NATIVE.graphTurn(false) end G.off = false end
             G.tail = (G.tail or 0) + 1                          -- (v184) ...the sockets come back to your own stance a pose after the flag
-            if not G.sock or (tonumber(NATIVE.v) or 0) < 100 or G.tail > 3 or os.clock() - (G.doneAt or 0) > 1.0 then VS.graph = nil end
+            if not G.sock or (tonumber(NATIVE.v) or 0) < 100 or ((G.tail > 3 or os.clock() - (G.doneAt or 0) > 1.0) and not (G.hold and os.clock() - (G.doneAt or 0) < 2.0)) then VS.graph = nil end
         end
     end
     -- (v82) the native half undoes the mirror on the animation's hand/foot sides (goofy, a stance swap): with it
@@ -3703,6 +3709,25 @@ NATIVE.groundGrab = function(cm, now)
     if not GG.kind and GG.muted then GG.muted = nil pcall(HJN_TrickMute, 0) end       -- (v157) no hand on the board: no mute, whatever happened
     local NC = NATIVE.noComply
     local inNC = (NC ~= nil) and (NC.guard ~= nil)
+    -- (v191) HAS HE RISEN SINCE THE WINDOW OPENED? The window also opens on a drop or a bounce with no flick when the last
+    -- flip trick was a no comply (22:12:18 on 6 Oct: "TAKEN ... landed 0.33 s", the plant foot never down). The boneless's
+    -- let-go below is for a real trick only: the mesh 15 cm up since the window opened WITH THE BOARD STILL WITHIN 6 CM
+    -- of where it stood over the ground then -- a no comply's pop lifts the body while the board is still down (the deck
+    -- -0.5..+3.6 cm up when the mesh is 15 up, all 190 recorded tricks, 67-158 ms in); a launch off a ramp carries the
+    -- board up with it (+8 cm and more, 44 recorded airs) and a drop only falls. Not readable = as if risen.
+    if not inNC then GG.ncAt, GG.ncZ0, GG.ncUp = nil, nil, nil
+    else
+        if GG.ncAt ~= NC.guard then GG.ncAt, GG.ncZ0, GG.ncUp = NC.guard, nil, nil end
+        if not GG.ncUp then
+            local z = q(function() return mesh:K2_GetComponentLocation().Z end, nil) or actorZ()
+            local over = (type(HJN_DeckOver) == "function") and q(function() return tonumber(HJN_DeckOver()) end, nil) or nil
+            if type(z) ~= "number" then GG.ncUp = true
+            else
+                if not GG.ncZ0 then GG.ncZ0, GG.ncOver0 = z, over end
+                if z - GG.ncZ0 >= 15 and (not GG.ncOver0 or (over ~= nil and over - GG.ncOver0 < 6)) then GG.ncUp = true end
+            end
+        end
+    end
     if not GG.kind and not GG.ffLatch and not inNC and (S.GroundGrabs == 0 or cm ~= MODE_RIDING) then return end      -- nothing on, nothing could start: no pad read
     local btn = tonumber((tostring(type(HJN_PadSticks) == "function" and HJN_PadSticks() or "")):match("^%S+ %S+ %S+ %S+ %S+ %S+ (%d+)"))
     local lb, rb
@@ -3762,12 +3787,30 @@ NATIVE.groundGrab = function(cm, now)
         else
             GG.flipAt, GG.liftAt = nil, nil
         end
+        -- (v191) THE BONELESS'S HAND LETS GO AS THE BOARD GOES BACK UNDER THE FEET. The two bonelesses the regular rider
+        -- accepted had the hand on for the first 0.2 and 0.4 s; with the bumper held on through the air and the board caught
+        -- (5 Oct 20:02-20:04) the hand reached after a board that had gone back down, 14-31 cm short of it, the back bent 55
+        -- deg and the hips raised 18 cm, to the landing. The hand comes off BonelessHandTime (0.4 s) after the trick began:
+        -- where the accepted switch boneless's hand began to ease (+383 ms). The game's catch-orient state is the STICKS'
+        -- (it comes up only while a stick is pushed at the catch: 35 of 62 pops on 5 Oct, 250-384 ms in, never before): from
+        -- a quarter second on it lets the hand go too. The native half eases it off. As after a finger flip the bumper has
+        -- to be let go before a new grab. Only in a trick that has left the ground (GG.ncUp).
+        local blOff = nil
+        if inNC and GG.ncUp and not flip and S.BonelessHandTime > 0 and cm == MODE_AIR then
+            local t = now - NC.guard
+            local cs = (t >= 0.25 and type(HJN_CatchState) == "function") and (tonumber(HJN_CatchState()) or 0) or 0
+            if cs > 0 then blOff = string.format("a stick is on the game's catch (catch-orient state %d, %.0f ms into the trick)", cs, t * 1000)
+            elseif t >= S.BonelessHandTime then blOff = string.format("%.2f s into the trick (BonelessHandTime; the game's catch-orient state %d)", t, cs) end
+        end
         if flip then
             why = string.format("THE FINGER FLIP: '%s' flicked with the hand on -- the hand lets go %.0f ms after the flick, %s (press the bumper again for a new grab)", flip,
                 (now - (GG.flipAt or now)) * 1000, GG.liftAt and string.format("%.0f ms after the board left the ground (the deck %s cm up then, %s now)", (now - GG.liftAt) * 1000,
                     GG.liftOver and string.format("%.0f", GG.liftOver) or "?", over and string.format("%.0f", over) or "?") or "the board never seen off the ground")
             GG.ffLatch, GG.offSince = true, now - 1
             GG.flips = (GG.flips or 0) + 1
+        elseif blOff then
+            why = "THE BONELESS: " .. blOff .. " -- the hand lets go (press the bumper again for a new grab)"
+            GG.ffLatch, GG.offSince = true, now - 1
         elseif canKeep and held then want = GG.kind
         elseif not held then why = string.format("%s let go (the pad reads %s)", (GG.kind == 102) and "RB" or "LB", btn and string.format("0x%04x", btn) or "no XInput")
         elseif busy then why = active and "a hippie jump" or "a drop-in"
@@ -3775,6 +3818,16 @@ NATIVE.groundGrab = function(cm, now)
         else why = "off the board (mode " .. tostring(cm) .. ")" end
     elseif canStart and q(function() return inst.IsGrinding end, false) ~= true then
         want = (rb and 102) or (lb and 3) or nil
+        -- (v191) too late in a no comply's air for a hand (it would arrive as it is let go: 22:12:28 on 6 Oct, pressed 0.25 s
+        -- in, on at 0.5 s): no hand, the trick keeps its name, and the bumper has to be let go as after the let-go itself
+        if want and inNC and GG.ncUp and cm == MODE_AIR and S.BonelessHandTime > 0 then
+            local t = now - NC.guard
+            if t >= math.max(S.BonelessHandTime - 0.2, 0.1) or (t >= 0.25 and type(HJN_CatchState) == "function" and (tonumber(HJN_CatchState()) or 0) > 0) then
+                want = nil GG.ffLatch = true
+                GG.lateTold = (GG.lateTold or 0) + 1
+                if GG.lateTold <= 20 then log(string.format("rolling grab: the bumper came %.2f s into a no comply -- too late for a hand (BonelessHandTime %g): none goes on; let the bumper go for a new grab", t, S.BonelessHandTime)) end
+            end
+        end
     end
     if not want then
         if not GG.kind then return end
@@ -3796,6 +3849,7 @@ NATIVE.groundGrab = function(cm, now)
         GG.offSince = nil
     end
     if GG.kind ~= want then
+        if inNC and NATIVE.noComplyCatchNow then pcall(NATIVE.noComplyCatchNow) end      -- (v191) a hand that goes on inside the trick: the game catches this one too
         GG.kind, GG.t0, GG.frames, GG.gap, GG.drop, GG.airTold = want, now, 0, nil, nil, nil
         GG.lean, GG.flipAt, GG.liftAt, GG.rideOver = nil, nil, nil, nil
         pcall(HJN_Set, "bonehips", S.GroundGrabHips)                                   -- (v156) the squat's height over the deck
@@ -3890,6 +3944,21 @@ NATIVE.heldNote = function()
     return string.format(" [the game's trick list: %s of %s muted (our mute %s); bumper byte %s, grab state %s, bumper mask %s; rolling grab %s, no comply window %s]",
         muted, num, on == "1" and "ON" or "off", bump, grab, mask == "1" and "ON" or "off", (GG and GG.kind) and tostring(GG.kind) or "none", (NC and NC.guard) and "OPEN" or "shut")
 end
+-- (v191) A HAND PUT ON AFTER THE POP: the pop numbers are the no comply's (the game took them at the flick) but the game
+-- reads ForceAutoCatch every tick of the trick (FlipTricksHandler::CheckForBoardFlipOrRotationContinuousInput, off the
+-- skater's current trick), so the catch can still be given. The sync writes both definitions afresh once the window shuts.
+NATIVE.noComplyCatchNow = function()
+    local NC = NATIVE.noComply
+    if not NC or not NC.applied or S.NoComply == 0 or S.BonelessAutoCatch == 0 then return end
+    local n = 0
+    for _, nm in ipairs({ "TRICK_RGS_Pressure_KickFlip", "TRICK_SWS_Pressure_KickFlip" }) do
+        local d = alive(q(function() return StaticFindObject("/Game/Data/Input/FlipTricks/" .. nm .. "." .. nm) end))
+        if d and pcall(function() d.ForceAutoCatch = true end) then n = n + 1 end
+    end
+    NC.popIs = nil
+    NC.catchTold = (NC.catchTold or 0) + 1
+    if NC.catchTold <= 20 then log(string.format("no comply: a hand went on after the pop -- the game catches the board for this trick (written to %d of the 2 definitions; the pop stays the no comply's)", n)) end
+end
 NATIVE.noComplyPopSync = function()
     local NC = NATIVE.noComply
     if not NC or not NC.applied or NC.guard or S.NoComply == 0 then return end
@@ -3905,18 +3974,28 @@ NATIVE.noComplyPopSync = function()
     -- board rises to the body, and the squat and the lean (which only ever do what the hand needs) let go by themselves.
     local bMin = hand and S.BonelessBoardPopMin or S.NoComplyPopHeightMin
     local bMax = hand and S.BonelessBoardPopMax or S.NoComplyPopHeightMax
-    local key = string.format("%g/%g/%g", want, bMin, bMax)
+    -- (v191) ...AND THE GAME CATCHES IT. "The boneless are something nightmares are made of." Every boneless the regular
+    -- rider did and accepted (5 Oct 17:31-20:04) ran with NoComplyAutoCatch 1: the game brought the board back under the
+    -- feet 0.35-0.4 s after the pop. The setting went to 0 in the menu at 20:18:51 and every boneless since, the goofy
+    -- rider's all of them, kept its board at hip height, pitched 30 deg, until it fell to the ground: the deck 53-62 cm
+    -- above where it rides under him from +450 ms, the hips 13-19 cm over it, the front ankle above the hips, the body 26-37
+    -- cm into the ground at the landing (19 of 19 recordings; the regular rider's own no complies changed the same way at
+    -- that minute). A board popped 45..54 cm up to a hand has to be caught: with a hand on, the definition's ForceAutoCatch
+    -- is on (BonelessAutoCatch); without, it is NoComplyAutoCatch's as before.
+    local catch = (hand and S.BonelessAutoCatch ~= 0) or (S.NoComplyAutoCatch ~= 0)
+    local key = string.format("%g/%g/%g/%s", want, bMin, bMax, catch and "c" or "m")
     if NC.popIs == key then return end
     local n = 0
     for _, nm in ipairs({ "TRICK_RGS_Pressure_KickFlip", "TRICK_SWS_Pressure_KickFlip" }) do
         local d = alive(q(function() return StaticFindObject("/Game/Data/Input/FlipTricks/" .. nm .. "." .. nm) end))
         if d and pcall(function() d.AdditionalPopHeightMax = want d.PopBoardHeightAdditionalOffsetMin = bMin d.PopBoardHeightAdditionalOffsetMax = bMax end) then n = n + 1 end
+        if d and pcall(function() d.ForceAutoCatch = catch end) then NC.catchBack = tostring(q(function() return d.ForceAutoCatch end, "?")) else NC.catchBack = "NOT WRITTEN" end
     end
     NC.popIs = key
     NC.popTold = (NC.popTold or 0) + 1
-    if NC.popTold <= 10 then
-        log(string.format("no comply: the pop height is %g and the board's own pop %g..%g now (%s) -- written to %d of the 2 definitions", want, bMin, bMax,
-            hand and "a hand is on the board: the boneless's" or "no hand on the board: the no comply's", n))
+    if NC.popTold <= 60 then
+        log(string.format("no comply: the pop height is %g and the board's own pop %g..%g now (%s), %s (ForceAutoCatch reads %s) -- written to %d of the 2 definitions", want, bMin, bMax,
+            hand and "a hand is on the board: the boneless's" or "no hand on the board: the no comply's", catch and "the game catches the board" or "you catch the board", tostring(NC.catchBack), n))
     end
 end
 -- (v161) the switch no comply's other stance, put back: the stance, and the mesh's half turn with it
@@ -3946,6 +4025,15 @@ NATIVE.noComplyResult = function(cm, now)
             -- on the spot of the stance the trick was SHOWN in (R at -13 cm along the deck in the trace of 13:36:2x) while
             -- the game, back in your own stance, wanted it at -26 -- then it slid there. Now the window ends 0.12 s after
             -- the touchdown and is not renewed after it.
+            -- (v191) the goofy rider's NORMAL boneless: 2 of the 9 recorded landed with the right shin at 65-80 % of its length
+            -- for a second and more (6 Oct 21:58:09, 5 Oct 22:01:41), as the switch one did before v190. The switch trick
+            -- gets the native half's watch through mirrorEnd; this one gets it here (its log line reads "switch plant")
+            if not NC.guardLand and NC.bone and NAT.goofy and not NC.guardSws and not NC.flip and not VS.on and S.NoComplyOriginal == 0
+                and type(HJN_Set) == "function" and (tonumber(NATIVE.v) or 0) >= 102 then
+                pcall(HJN_Set, "leglinger", 4)
+                NC.lingerTold = (NC.lingerTold or 0) + 1
+                if NC.lingerTold <= 20 then log("no comply: a goofy rider's boneless is down -- the legs are watched for up to 4 s (the native half's line reads 'after a goofy switch plant')") end
+            end
             if NC.guardSws and not NC.guardLand and S.NoComplyPlant ~= 0 and S.NoComplyOriginal == 0 then pcall(HJN_Set, "plant", 0.12) end
             NC.guardLand = NC.guardLand or now
             if NC.flip then NATIVE.ncSwapOff() end                                        -- (v160) the wheels are down: your own stance again
@@ -4182,6 +4270,10 @@ NATIVE.noComplyResult = function(cm, now)
     NC.matchWas, NC.cmWas = match, cm
 end
 NATIVE.bailWatch = function(cm)
+    -- (v191) ...and once BEFORE a trick can be taken: the hand's rule (NATIVE.groundGrab) runs after this, each frame, so a
+    -- hand that went on or came off in the frame before the take was to be synced by the call below -- which, the window
+    -- just opened, returns. That one trick ran as a Boneless with the no comply's board pop and catch (or the other way round)
+    if NATIVE.noComplyPopSync then pcall(NATIVE.noComplyPopSync) end
     if NATIVE.noComplyResult then pcall(NATIVE.noComplyResult, cm, os.clock()) end
     if NATIVE.noComplyPopSync then pcall(NATIVE.noComplyPopSync) end               -- (v156)
     if cm == MODE_BAILING then
@@ -5008,7 +5100,7 @@ NATIVE.MENU = {
     } },
     { "No Comply and Boneless", {
         { "toggle", "NoComply", "Allow no complies", 1, 1, "Adds the no comply: your front foot steps off and plants on the ground as the board pops. It takes the place of the pressure kickflip and uses its input (riding regular: left stick down + right stick left)." },
-        { "toggle", "Boneless", "Allow boneless and bean plant", 1, 1, "Keep a hand on the board through a no comply. Hold RB (back hand) for a Boneless or LB (front hand) for a Bean Plant, while rolling or during the trick, then do the no comply." },
+        { "toggle", "Boneless", "Allow boneless and bean plant", 1, 1, "A hand on the board through a no comply. Hold RB (back hand) for a Boneless or LB (front hand) for a Bean Plant while rolling, then do the no comply. The hand lets go by itself as the board comes back under your feet." },
         { "toggle", "NoComplyPlant", "Plant foot reaches the ground", 1, 1, "On: your body is let down during the pop so the planted foot really stands on the ground until the board is at its highest. Off: the animation as the game plays it, with that foot hanging in the air." },
         { "slider", "NoComplyExtraPop", "No comply pop height", 1, 2, "How high a no comply pops, in centimetres (cm) added to the game's own pop. -46 lifts you about 50 cm, +9 about 105 cm.", -90, 45, unit = "cm" },
         { "slider", "BonelessExtraPop", "Boneless pop height", 1, 2, "Pop height for the Boneless and Bean Plant, in centimetres (cm) added to the game's own pop. Lower = a smaller pop. Used in place of No comply pop height while a hand is on the board.", -90, 45, unit = "cm" },
@@ -5375,6 +5467,13 @@ function NATIVE.sync()
     if not NATIVE.v then
         NATIVE.v = HJN_Version()
         log("native half: ExpandedTricksNative v" .. tostring(NATIVE.v))
+        -- (v191, review) AN OLDER NATIVE HALF BESIDE THIS FILE (main.lua copied by hand, or main.dll not replaced because the
+        -- game held it): everything runs, what needs the newer one is left out -- and nothing said so
+        if (tonumber(NATIVE.v) or 0) < (NATIVE.WANT or 0) then
+            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then a goofy rider's caught switch boneless lands with the feet turned round for half a second")
+            NATIVE.upd = NATIVE.upd or {}
+            if not NATIVE.upd.show then NATIVE.upd.show, NATIVE.upd.tries = "Expanded Tricks: native half is old - see the log", 0 end
+        end
         -- (v122) the controller from the native half: the game's own key events, no SessionTweaks needed
         if S.NativePad ~= 0 and type(HJN_PadOn) == "function" and type(HJN_PadEvents) == "function" then
             NATIVE.pad = (tonumber(HJN_PadOn(1)) or 0) == 1
@@ -6640,7 +6739,8 @@ end
 -- latest release's update.txt: its version, build number, the game build it is for and the two files' SHA-256). With
 -- AutoUpdate=2 a newer build is downloaded, checked and put in place for the next start; with 1 you are only told.
 -- NATIVE.BUILD is this file's own build number: the release's update.txt carries the same number, and that is what is compared.
-NATIVE.BUILD = 190
+NATIVE.BUILD = 191
+NATIVE.WANT = 103      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
 NATIVE.updateTick = function(live)
     local U = NATIVE.upd or {}
     NATIVE.upd = U
@@ -6776,7 +6876,7 @@ LoopAsync(2000, function()
     return false
 end)
 
-log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v190 / native v102)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
+log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v191 / native v103)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
 
 -- the game's grabs need IsGrabsEnabled in its experimental save (the profile loads it at start-up). (v121) If it is off or
 -- missing, the save is PATCHED here: a BoolProperty tag put into FExperimentalSettings -- the bytes the game's own serializer

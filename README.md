@@ -14,6 +14,8 @@ pause menu. Source and releases: https://github.com/Portman2/SessionExpandedTric
 - **No comply.** The game's unused no-comply animation, on the pressure kickflip's input (riding regular: left stick
   down + right stick left). Regular and goofy, and riding switch.
 - **Boneless and bean plant.** Hold RB (back hand) or LB (front hand) so a hand is on the board, then do a no comply.
+  The game catches the board for you and the hand lets go as the board comes back under your feet; let the bumper go
+  before the next grab. A bumper pressed late in the trick puts no hand on.
 - **Rolling grabs and finger flips.** Riding on the ground, hold RB or LB to put a hand on the board. Flick a flip
   trick with the hand on and the hand flips the board.
 - **Drop-ins.** On foot, standing still at the edge of a ledge, bank or ramp with the board in your hand, press Y

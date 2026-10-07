@@ -8,6 +8,7 @@ drew it. These tools read that file. Use them before theorising about a bad-look
 | `poseview.ps1` | the viewer: contact sheets (PNG), plots, and with `-Metrics` a ranked list of events (PowerShell 5.1 + System.Drawing; the work is C# compiled by `Add-Type`) |
 | `pd_list.pl` | an independent reader: `perl pd_list.pl <bin> [segment]` lists the segments, or one line per pose |
 | `legpos.pl` | `<bin> <seg> <pose,pose,...>`: pelvis, hip, knee and ankle places and thigh / shin lengths, arrived and drawn |
+| `mirsim.pl`, `pdlib.pl` | native v103's rule for a goofy rider's caught switch landing (a foot socket that comes back mirrored across the board is held on its own side) replayed over a recording; `pdlib.pl` is the reader and vector maths it uses |
 | `tear.pl` | per segment and leg: bone lengths as % of the leg's own, the knee's way round the leg, the foot's heading against the pelvis |
 | `joints.pl`, `hipreach.pl` | the hip joints' distance from their sockets; what that does to the leg's reach |
 | `sock.pl`, `socksim.pl` | the game's foot sockets against the feet; the socket rule of native v100 replayed over a recording |
@@ -85,7 +86,7 @@ Segments back to back, no file header. Little endian, floats IEEE 32 bit, cm, UE
 | 436 | f32[2][6] | (v99+) the anim instance's foot sockets L / R as the pose pass found them: location (3), rotation (pitch yaw roll) |
 | 484 | f32[2] | (v99+) the DRAWN hip joints off their sockets, cm |
 | 492 | f32[2][2] | (v99+) the hinge roll the last solve of leg L / R put into thigh, shin (deg) |
-| 508 | u32 | (v99+) `more`: 1 the sockets were turned for this pose, 2 both knees' hinges known, 4 a hop's hips put back, 8 the plant foot swivels |
+| 508 | u32 | (v99+) `more`: 1 the sockets were turned for this pose, 2 both knees' hinges known, 4 a hop's hips put back, 8 the plant foot swivels, 16 the plant foot's ankle is being brought back, 32 (v103) a foot socket was held on its own side of the deck (the recorded socket is the held one) |
 | frameHdrBytes | f32[bones][3] | `g_C[i].p` -- "the game's pose" |
 | frameHdrBytes + 12 * bones | f32[bones][3] | `g_Ct[i].p` -- "the mod's pose" |
 
