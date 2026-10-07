@@ -1,0 +1,7 @@
+*.bak
+*.prev
+*.log
+*.poses.bin
+*.ecc
+release-key*
+/dist/
