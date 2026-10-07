@@ -63,19 +63,24 @@ Your settings (`ExpandedTricks.ini`) are never part of an update.
 
 ## Controls
 
-| Do | Press |
+LS / RS = left / right stick, L3 / R3 = a stick clicked in, LB / RB = bumpers, LT / RT = triggers.
+Written for a regular rider; riding goofy or switch the sticks swap as they do for the game's own tricks.
+
+| Trick | Input |
 |---|---|
-| Hippie jump | hold one stick down to crouch, click the other stick |
-| Mini hippie jump | click both sticks together |
-| Spin in a hippie jump | hold LT or RT in the air |
-| Grab | in the air hold LB (front hand) or RB (back hand); that hand's stick picks the grab |
-| Two-hand grab | in the air hold LB and RB |
-| No comply | the pressure kickflip's input: left stick down + right stick left (regular) |
-| Boneless / bean plant | RB / LB held, then the no comply |
-| Rolling grab | riding, hold RB or LB |
-| Finger flip | a flip trick's flick while a hand is on the board |
-| Drop-in | on foot, standing still at an edge, board in hand: Y; then stick up to go |
-| Jump onto the board | on foot next to the board, click a stick |
+| Hippie jump | Stick down (crouch) + the other stick's click: LS down + R3, or RS down + L3 |
+| Mini hippie jump | L3 + R3 |
+| Spin in a hippie jump | LT or RT, held in the air |
+| Grab, front hand | LB + LS direction, in the air |
+| Grab, back hand | RB + RS direction, in the air |
+| Two-hand grab | LB + RB, in the air |
+| No comply | LS down + RS left (the pressure kickflip's input) |
+| Boneless | RB + no comply |
+| Bean plant | LB + no comply |
+| Rolling grab | RB or LB, riding |
+| Finger flip | RB or LB + a flip trick's flick |
+| Drop-in | Y at an edge, on foot and standing still, board in hand; then Stick up to go, LB / RB to step back, Y to step off |
+| Jump onto the board | L3 or R3, on foot next to the board |
 
 ## Settings
 
@@ -121,5 +126,5 @@ together and signs it.
 
 ## Licence
 
-GPLv3 (`LICENSE`). Third-party notices are in `THIRD_PARTY.md`. This mod is not made or endorsed by the game's
+Copyright (C) 2026 Portman2. GPLv3 (`LICENSE`), with an added permission to run it inside the game (`LICENSE-EXCEPTION.txt`). Third-party notices are in `THIRD_PARTY.md`. This mod is not made or endorsed by the game's
 developers.

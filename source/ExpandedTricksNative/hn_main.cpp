@@ -1,7 +1,7 @@
 // ExpandedTricksNative -- the native half of the Expanded Tricks mod for Session: Skate Sim (the Lua half is
 // Mods/ExpandedTricks/Scripts/main.lua; this was HippieNative until v44).
 //
-// Copyright (C) 2026. This program is free software: you can redistribute it and/or modify it under the
+// Copyright (C) 2026 Portman2. This program is free software: you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the Free Software Foundation, either version 3
 // of the License, or (at your option) any later version. It is distributed WITHOUT ANY WARRANTY; see
 // LICENSE. It builds on SessionOpenMP / SessionTweaks by matsix (GPL-3.0-or-later): the UE4SS ABI
@@ -43,7 +43,7 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 101
+#define HJN_VERSION 102
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
@@ -404,6 +404,13 @@ float Arm(int sd, V3 Hh) {
 // 4 % off the leg's own length (the riding median, LegRefLearn) is put back first; the knee then bends for the difference.
 extern float g_legRef[2][2]; extern bool g_legRefOk;
 bool g_legFix = false; LONG g_legFixed = 0; float g_legFixMost = 0.0f;
+// (v102) ...AND UNTIL THE LEGS ARRIVE SOUND AGAIN AFTER A GOOFY RIDER'S SWITCH PLANT. "The boneless are something nightmares
+// are made of." The recording of 6 Oct 21:30 (segments 36-39, the goofy rider's switch boneless): from the landing on the
+// game hands in the left leg straight, the knee over the ankle and the shin at 58-77 % of its length, for one to three
+// seconds -- and the repair above stopped with the trick's last window, so that pose was drawn as it came. The Lua names a
+// time (HJN_Set("leglinger", seconds)) when it puts the mirror table back: the repair stays on while riding until both
+// shins have arrived within 6 % of their own for 12 poses running, or the time is up, or a grab or the air begins.
+volatile ULONGLONG g_legLingerUntil = 0; int g_legLingerOk = 0; LONG g_legLingered = 0, g_legLingerLogs = 0;
 // (v95) WHICH WAY A KNEE BENDS WHEN THE POSE DOES NOT SAY. The knee's way was always taken from the pose's own knee: how
 // far it stands off the line from hip to ankle. Riding regular the game draws the leading leg STRAIGHT with a squeezed
 // shin (hip to ankle 65-74 cm on bones of 43 + 26-33), so that knee is ON the line and its "way" was rounding noise:
@@ -4906,7 +4913,7 @@ void PosePass(void* mesh) {
         SearchReset();
         for (int d = 0; d < 4; d++) g_torso[d] = 0.0f;   // (v36)
     }
-    if (!grab && !guard && !calib && !trace && !hold && !held && !air && !land && !gfeet && !bone && !tt && !plant && !y180 && !fhold && !unstr && !g_ownOn && !phOn && !(g_sinkOn || g_sink > 0.05f) && g_legFixW <= 0.0f) return;   // (review) + a let-down still to be given back
+    if (!grab && !guard && !calib && !trace && !hold && !held && !air && !land && !gfeet && !bone && !tt && !plant && !y180 && !fhold && !unstr && !g_ownOn && !phOn && !(g_sinkOn || g_sink > 0.05f) && g_legFixW <= 0.0f && g_legLingerUntil == 0) return;   // (review) + a let-down still to be given back (v102: + the legs watched after a goofy switch plant)
     g_stHot = grab || guard || hold || held || air || land || gfeet || bone || plant || y180 || fhold || phOn || g_sinkOn || g_sink > 0.05f || g_swapOn != 0;   // (v97) a pose of the mod's own: SessionTweaks does not learn from it
     const int idx = *(const int*)((const uint8_t*)mesh + SKM_EDIT);
     if (idx < 0 || idx > 1) return;
@@ -4940,6 +4947,24 @@ void PosePass(void* mesh) {
     LegRefLearn(calib && g_riding != 0 && !air && !land && !plant && !fhold && !bone && !y180 && g_stretchFrames <= 0);   // (v84) from plain riding poses only
     // learn where each foot bone sits over the drawn deck's foot socket while the game's own foot IK holds it
     g_legFix = (plant || fhold || bone) && !grab;   // (v88, v89) see LegOwnLength(); (v94) the plain no comply too: the game hands in its shins at 31-48 cm (41.2 their own)
+    if (g_legFix) g_legLingerOk = 0;
+    else if (g_legLingerUntil != 0) {                                            // (v102) the note at g_legLingerUntil
+        bool sound = g_legRefOk;
+        for (int sd = 0; sd < 2 && sound; sd++) {
+            const int ft = g_foot[sd];
+            if (ft < 0 || g_legRef[sd][1] < 1.0f) continue;
+            const float cur = len(g_Lt[ft].p);
+            if (cur < g_legRef[sd][1] * 0.94f || cur > g_legRef[sd][1] * 1.04f) sound = false;
+        }
+        g_legLingerOk = sound ? g_legLingerOk + 1 : 0;
+        if (grab || air || !g_riding || !g_legRefOk || g_legLingerOk >= 12 || GetTickCount64() > g_legLingerUntil) {
+            if (g_legLingered > 0 && InterlockedIncrement(&g_legLingerLogs) <= 60)
+                Log("legs after a goofy switch plant: put back to their own length on %ld poses after the trick's end (%s)", (long)g_legLingered,
+                    g_legLingerOk >= 12 ? "the game's legs are sound again" : (grab || air || !g_riding) ? "a grab, the air or off the ground" : "the time is up");
+            g_legLingerUntil = 0; g_legLingerOk = 0; g_legLingered = 0;
+        }
+        else { g_legFix = true; if (!sound) InterlockedIncrement(&g_legLingered); }
+    }
     g_hipFix = (plant || bone) && g_hipFixOn != 0;                               // (v94) ...and through a plant the hip joints go back into their sockets
     g_noLearn = plant || fhold || bone || phOn || air || land || y180 || gfeet || g_swapOn != 0;   // (v87) the feet are a trick's, not a stance's (v98: a stance swap's poses too)
     if (calib) DeckLearn(mesh, anim, fa);
@@ -9296,6 +9321,7 @@ int nSet(const Lua& lua) {
     else if (k == "legsolve") g_unstrSolve = v != 0 ? 1 : 0;                 // (v95) a leg whose bones are put back to their length keeps its ankle where the pose had it
     else if (k == "backflat") g_bkFlat = clampf((float)v, 0.0f, 1.0f);       // (v96) the soft plant's back foot: the share of its tilt off the deck taken out
     else if (k == "kneekeep") g_kneeKeep = v != 0 ? 1 : 0;                   // (v96) the unplanned knee keeps its side where the game's leg does not say
+    else if (k == "leglinger") { g_legLingerUntil = v > 0 ? GetTickCount64() + (ULONGLONG)(clampf((float)v, 0.0f, 10.0f) * 1000.0f) : 0; g_legLingerOk = 0; g_legLingered = 0; }   // (v102)
     else if (k == "plantflex") g_plFlex = clampf((float)v, 0.0f, 120.0f);     // (v96) the least a planted foot's ankle is bent to (shin to toe, deg) before its heel comes up; 0 = off
     else if (k == "plantheelmax") g_plHeelMax = clampf((float)v, 0.0f, 60.0f); // (v96) the most its heel comes up for that, deg
     else if (k == "plantstick") g_plStick = v != 0 ? 1 : 0;                  // (v95) the plant foot keeps its place in the world while it stands

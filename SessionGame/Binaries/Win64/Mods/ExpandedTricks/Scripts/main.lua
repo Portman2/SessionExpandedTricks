@@ -1,5 +1,6 @@
 -- ============================================================================
 --  EXPANDED TRICKS  --  Session: Skate Sim   (UE4SS Lua)  -- hippie jumps, grabs, drop-ins
+--  Copyright (C) 2026 Portman2. GPLv3 with the linking permission in LICENSE-EXCEPTION.txt (see LICENSE).
 --
 --  HIPPIE JUMP: crouch with one stick, click the OTHER one (whichever stick your control mode and stance put
 --    the crouch on: pulled down = the ollie crouch, pushed up = the nollie one).
@@ -2321,6 +2322,9 @@ NATIVE.mirrorEnd = function(why)
     if not NATIVE.mirrorAsset then return end
     local ok = NATIVE.mirrorOff(false)
     if type(HJN_Set) == "function" then pcall(HJN_Set, "swapturn", 0) end
+    -- (v190 / native v102) the game hands in a squeezed, straight left leg for 1-3 s after a goofy rider's switch boneless
+    -- (the recording of 6 Oct): the native half's bone-length repair stays on until the legs arrive sound, 4 s at most
+    if type(HJN_Set) == "function" and (tonumber(NATIVE.v) or 0) >= 102 then pcall(HJN_Set, "leglinger", 4) end
     local G = VS.graph
     if G and G.m then G.mOn, G.done, G.doneAt = false, true, os.clock() end
     if why or not ok then log("   mirror: the graph's mirror table is back" .. (why and (" (" .. why .. ")") or "") .. (ok and "" or " -- IT COULD NOT BE WRITTEN: the next skater has its own")) end
@@ -6636,7 +6640,7 @@ end
 -- latest release's update.txt: its version, build number, the game build it is for and the two files' SHA-256). With
 -- AutoUpdate=2 a newer build is downloaded, checked and put in place for the next start; with 1 you are only told.
 -- NATIVE.BUILD is this file's own build number: the release's update.txt carries the same number, and that is what is compared.
-NATIVE.BUILD = 189
+NATIVE.BUILD = 190
 NATIVE.updateTick = function(live)
     local U = NATIVE.upd or {}
     NATIVE.upd = U
@@ -6772,7 +6776,7 @@ LoopAsync(2000, function()
     return false
 end)
 
-log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v189 / native v101)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
+log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v190 / native v102)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
 
 -- the game's grabs need IsGrabsEnabled in its experimental save (the profile loads it at start-up). (v121) If it is off or
 -- missing, the save is PATCHED here: a BoolProperty tag put into FExperimentalSettings -- the bytes the game's own serializer

@@ -1,0 +1,22 @@
+Expanded Tricks for Session: Skate Sim
+Copyright (C) 2026 Portman2
+
+Expanded Tricks is free software: you can redistribute it and/or modify it under the terms of the GNU General
+Public License, version 3, as published by the Free Software Foundation (the file LICENSE).
+
+ADDITIONAL PERMISSION UNDER GNU GPL VERSION 3 SECTION 7
+
+Expanded Tricks is a mod. It only does anything when it is loaded into the game Session: Skate Sim, which is
+proprietary software built on Unreal Engine, through the mod loader UE4SS.
+
+If you modify this program, or any covered work, by linking or combining it with Session: Skate Sim (or a modified
+version of that game), with Unreal Engine code contained in the game, or with UE4SS, the licensors of this program
+grant you additional permission to convey the resulting work. The Corresponding Source for a non-source form of
+such a combination does not need to include the source code of the game, of Unreal Engine or of UE4SS.
+
+This permission covers only that combination. Expanded Tricks itself, and every modified version of it, stays under
+the GNU General Public License version 3. If you convey a modified version you may remove this additional permission
+from your copy, as section 7 of the licence allows.
+
+Nothing here grants any right in Session: Skate Sim, Unreal Engine or UE4SS. Those belong to their owners and are
+used under their own terms. This mod is not made or endorsed by the game's developers.
