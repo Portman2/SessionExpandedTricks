@@ -63,24 +63,23 @@ Your settings (`ExpandedTricks.ini`) are never part of an update.
 
 ## Controls
 
-LS / RS = left / right stick, L3 / R3 = a stick clicked in, LB / RB = bumpers, LT / RT = triggers.
-Written for a regular rider; riding goofy or switch the sticks swap as they do for the game's own tricks.
+Shown for a regular rider; riding goofy or switch the sticks swap as they do for the game's own tricks.
 
 | Trick | Input |
 |---|---|
-| Hippie jump | Stick down (crouch) + the other stick's click: LS down + R3, or RS down + L3 |
-| Mini hippie jump | L3 + R3 |
-| Spin in a hippie jump | LT or RT, held in the air |
-| Grab, front hand | LB + LS direction, in the air |
-| Grab, back hand | RB + RS direction, in the air |
-| Two-hand grab | LB + RB, in the air |
-| No comply | LS down + RS left (the pressure kickflip's input) |
-| Boneless | RB + no comply |
-| Bean plant | LB + no comply |
-| Rolling grab | RB or LB, riding |
-| Finger flip | RB or LB + a flip trick's flick |
-| Drop-in | Y at an edge, on foot and standing still, board in hand; then Stick up to go, LB / RB to step back, Y to step off |
-| Jump onto the board | L3 or R3, on foot next to the board |
+| Hippie jump | <img src="docs/buttons/LS-down.svg" alt="LS down" height="28"> + <img src="docs/buttons/R3.svg" alt="R3" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/RS-down.svg" alt="RS down" height="28"> + <img src="docs/buttons/L3.svg" alt="L3" height="28"> |
+| Mini hippie jump | <img src="docs/buttons/L3.svg" alt="L3" height="28"> + <img src="docs/buttons/R3.svg" alt="R3" height="28"> |
+| Spin in a hippie jump | <img src="docs/buttons/LT.svg" alt="LT" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/RT.svg" alt="RT" height="28"> held in the air |
+| Grab, front hand | <img src="docs/buttons/LB.svg" alt="LB" height="28"> + <img src="docs/buttons/LS.svg" alt="LS" height="28"> in the air |
+| Grab, back hand | <img src="docs/buttons/RB.svg" alt="RB" height="28"> + <img src="docs/buttons/RS.svg" alt="RS" height="28"> in the air |
+| Two-hand grab | <img src="docs/buttons/LB.svg" alt="LB" height="28"> + <img src="docs/buttons/RB.svg" alt="RB" height="28"> in the air |
+| No comply | <img src="docs/buttons/LS-down.svg" alt="LS down" height="28"> + <img src="docs/buttons/RS-left.svg" alt="RS left" height="28"> |
+| Boneless | <img src="docs/buttons/RB.svg" alt="RB" height="28"> + <img src="docs/buttons/LS-down.svg" alt="LS down" height="28"> + <img src="docs/buttons/RS-left.svg" alt="RS left" height="28"> |
+| Bean plant | <img src="docs/buttons/LB.svg" alt="LB" height="28"> + <img src="docs/buttons/LS-down.svg" alt="LS down" height="28"> + <img src="docs/buttons/RS-left.svg" alt="RS left" height="28"> |
+| Rolling grab | <img src="docs/buttons/RB.svg" alt="RB" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/LB.svg" alt="LB" height="28"> while riding |
+| Finger flip | <img src="docs/buttons/RB.svg" alt="RB" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/LB.svg" alt="LB" height="28"> + a flip trick's flick |
+| Drop-in | <img src="docs/buttons/Y.svg" alt="Y" height="28"> at an edge, on foot, board in hand; then <img src="docs/buttons/stick-up.svg" alt="stick up" height="28"> to go, <img src="docs/buttons/LB.svg" alt="LB" height="28"> / <img src="docs/buttons/RB.svg" alt="RB" height="28"> to step back, <img src="docs/buttons/Y.svg" alt="Y" height="28"> to step off |
+| Jump onto the board | <img src="docs/buttons/L3.svg" alt="L3" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/R3.svg" alt="R3" height="28"> on foot next to the board |
 
 ## Settings
 
