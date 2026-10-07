@@ -143,7 +143,7 @@ $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("et-release-" + [Guid]::NewG
 $inner = Join-Path $tmp ("ExpandedTricks-" + $version)
 New-Item -ItemType Directory -Path $inner | Out-Null
 try {
-    foreach ($item in (Get-ChildItem -LiteralPath $Root -Force)) { Copy-Item -LiteralPath $item.FullName -Destination $inner -Recurse -Force }
+    foreach ($item in (Get-ChildItem -LiteralPath $Root -Force | Where-Object { $_.Name -notin @(".git", ".gitignore", ".gitattributes") })) { Copy-Item -LiteralPath $item.FullName -Destination $inner -Recurse -Force }
     New-Zip $tmp $zip
 } finally { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
 
