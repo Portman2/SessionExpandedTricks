@@ -133,6 +133,31 @@ $pub = Get-PublicBlob $priv
 if (-not (Find-Bytes $dllBytes $pub)) { $problems.Add("main.dll does not carry this signing key's public half (kUpdKey in hn_main.cpp) -- players' games would refuse the update") }
 $junk = @(Get-ChildItem -LiteralPath $Root -Recurse -File -Force | Where-Object { $_.Name -match '\.(bak|prev|new|old|log|pdb|ilk|exp|obj|ecc)$' -or $_.Name -like '*.poses*.bin' -or $_.Name -like 'ExpandedTricks.ini*' })
 foreach ($j in $junk) { $problems.Add("left-over file in the package: " + $j.FullName.Substring($Root.Length + 1)) }
+# (build 194) THE LUA FILE IS STARTED BY THE REAL LUA BEFORE IT SHIPS. Build 193 went to a tester with "Mods\ExpandedTricks"
+# in a string: an invalid escape that the mod's own syntax checker passed and Lua 5.4 refused -- the whole Lua half did
+# not load, for anyone. luareal.exe (source\tools\luareal) loads main.lua with the Lua inside UE4SS.dll and runs its top
+# level and timers against a stand-in for the game, as the exe the mod was written against (0) and as another build (1).
+$lr = Join-Path (Join-Path $env:USERPROFILE '.expandedtricks') 'luareal'
+$lrExe = Join-Path $lr 'luareal.exe'
+$lrBox = $null
+if ((Test-Path -LiteralPath $lrExe) -and (Test-Path -LiteralPath (Join-Path $lr 'dryrun.lua')) -and (Test-Path -LiteralPath (Join-Path $lr 'UE4SS.dll'))) {
+    $lrBox = Join-Path ([System.IO.Path]::GetTempPath()) ('et-luareal-' + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $lrBox | Out-Null
+    foreach ($sc in 0, 1) {
+        $b = Join-Path $lrBox "s$sc"
+        New-Item -ItemType Directory -Path $b | Out-Null
+        Set-Content -LiteralPath (Join-Path $b 'scenario.txt') -Value "$sc" -Encoding ASCII
+        $res = Join-Path $b 'result.txt'
+        $p = Start-Process -FilePath $lrExe -ArgumentList @('-run', ('"' + (Join-Path $lr 'dryrun.lua') + '"'), ('"' + $res + '"'), ('"' + $luaPath + '"')) -WorkingDirectory $b -NoNewWindow -PassThru -RedirectStandardOutput (Join-Path $b 'out.txt')
+        if (-not $p.WaitForExit(60000)) { try { $p.Kill() } catch { }; $problems.Add("main.lua: the real-Lua dry run (scenario $sc) did not finish"); continue }
+        $line = if (Test-Path -LiteralPath $res) { [string](Get-Content -LiteralPath $res -TotalCount 1) } else { '' }
+        if ($line -notlike 'SYNTAX OK*') { $problems.Add("main.lua does NOT start in real Lua (scenario $sc): $line -- the run's output is in " + (Join-Path $b 'out.txt')) }
+    }
+    if ($problems.Count -eq 0) { Write-Host "main.lua loads and starts in real Lua 5.4 (the one inside UE4SS.dll): checked"; Remove-Item -LiteralPath $lrBox -Recurse -Force -ErrorAction SilentlyContinue }
+} else {
+    Write-Host "WARNING: main.lua was NOT started in real Lua ($lrExe with dryrun.lua and UE4SS.dll beside it is not there: see source\BUILD.md)." -ForegroundColor Yellow
+    Write-Host "         Start the game with this build once and read ExpandedTricks.log and UE4SS.log before you publish it." -ForegroundColor Yellow
+}
 if ($problems.Count -gt 0) { $problems | ForEach-Object { Write-Host $_ -ForegroundColor Red }; exit 1 }
 
 if (-not (Test-Path -LiteralPath $Out)) { New-Item -ItemType Directory -Path $Out | Out-Null }

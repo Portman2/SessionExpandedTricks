@@ -43,7 +43,7 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 104
+#define HJN_VERSION 105
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
@@ -5771,6 +5771,10 @@ void ForgetSkater(const char* why) {
     g_hingeN[0] = g_hingeN[1] = 0; g_hingeAgain[0] = g_hingeAgain[1] = 0; g_hingeOdd[0] = g_hingeOdd[1] = 0; g_hopHipW = 0.0f; g_sockLive = 0;   // (v99)   // (v97) no stance swap, no riding shin of the last skater's
     Log("skater mesh changed (%s): the learned stances, deck frame, socket and foot offsets are forgotten -- learned again as you ride", why);
 }
+// (v105) HJN_BuildMode() -> 0 = the exe this mod was written against, 1 = another build of the game whose functions were
+// all found by signature (the mod runs on it), -1 = another build, not all found (nothing is hooked). The Lua checks the
+// game's class layouts against its own table before it lets this half touch anything in mode 1.
+int nBuildMode(const Lua& lua) { lua.set_integer(!g_hooked ? -1 : (g_sigMode ? 1 : 0)); return 1; }
 int nSetMesh(const Lua& lua) {
     double m = 0, a = 0, s = 0;
     ArgNum(lua, m); ArgNum(lua, a); ArgNum(lua, s);
@@ -9557,6 +9561,7 @@ class HippieNative : public RC::CppUserModBase {
             main_lua.register_function("HJN_PushCap", &nPushCap);         // (v96)
             main_lua.register_function("HJN_Update", &nUpdate);           // (v101)
             main_lua.register_function("HJN_UpdateStatus", &nUpdateStatus);
+            main_lua.register_function("HJN_BuildMode", &nBuildMode);          // (v105)
             main_lua.register_function("HJN_ReverseSwap", &nReverseSwap);
             main_lua.register_function("HJN_ReverseSwapWhy", &nReverseSwapWhy);
             main_lua.register_function("HJN_BoardState", &nBoardState);

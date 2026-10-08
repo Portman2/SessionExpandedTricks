@@ -26,6 +26,16 @@ if every one is found; the log lists what each signature found.
   Run it again whenever an `RVA_*` is added or the constants are moved to a new game build.
 - `tools/sigcheck.cpp` is the same search as a command-line program: `sigcheck <exe>` prints what every signature
   finds in that exe (build line in the file). Use it on any exe a player's log is about.
+- `tools/gen_layout.pl <exe> <pdb> <symcache> layout.lua.inc` makes the Lua half's `NATIVE.LAYOUT` table (every reflected
+  property, with its offset, of the 16 game and engine classes the native half reads by fixed offset) from the same
+  exe. On another build the Lua compares the live offsets with it and stands down if a game class differs. Paste the
+  result over the table in `main.lua` when the constants move to a new game build.
+- `tools/luareal/` is the real-Lua check: `luareal.exe` loads `main.lua` with the Lua 5.4 inside `UE4SS.dll`
+  (`luareal main.lua`), or runs its whole top level and timers against a stand-in for the game
+  (`luareal -run dryrun.lua result.txt main.lua`, in an empty folder holding `scenario.txt`). Build it with
+  `build_luareal.bat`, then copy `luareal.exe`, `dryrun.lua` and a copy of `UE4SS.dll` and `UE4SS-settings.ini` into
+  `%USERPROFILE%\.expandedtricks\luareal\`: `make-release.ps1` then refuses a `main.lua` that does not start.
+  Never run it inside a game's folder.
 
 The Lua half needs no build: it is `Mods/ExpandedTricks/Scripts/main.lua`. `tools/snapshot_defaults.pl` rewrites its
 shipped defaults from an `ExpandedTricks.ini` (`perl snapshot_defaults.pl main.lua ExpandedTricks.ini --globals`).
