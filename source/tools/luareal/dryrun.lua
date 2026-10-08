@@ -50,9 +50,12 @@ local G = {
                 return { IsValid = function() return true end,
                     ForEachProperty = function(self, cb)
                         for name, off in pairs(c[2]) do
+                          if not (SCEN == 6 and name == "_catchOrientState") then                 -- (6: a game property is not there: said, the mod runs)
                             if (SCEN == 2 or SCEN == 4) and name == "LeftFootSocketLocation" then off = off + 8 end
                             if SCEN == 4 and name == "RootComponent" then off = off + 8 end      -- (4: an engine property reads wrong too = the reading is off)
-                            cb({ GetFName = function() return { ToString = function() return name end } end, GetOffset_Internal = function() return off end })
+                            local shown = (SCEN == 6 and name == "BankingRatio") and "bankingratio" or name    -- (6: and a name shown in another case)
+                            cb({ GetFName = function() return { ToString = function() return shown end } end, GetOffset_Internal = function() return off end })
+                          end
                         end
                     end }
             end
@@ -60,7 +63,7 @@ local G = {
         return nil
     end,
     HJN_PushCap = function() return (SCEN == 3) and "0 not this game build" or "1 100 100" end,
-    HJN_BuildMode = function() return (SCEN == 0 or SCEN == 5) and 0 or ((SCEN == 3) and -1 or 1) end,
+    HJN_BuildMode = function() return (SCEN == 0) and 0 or ((SCEN == 3) and -1 or 1) end,
     HJN_Version = function() return 105 end,
 }
 setmetatable(_G, { __index = function(_, k)

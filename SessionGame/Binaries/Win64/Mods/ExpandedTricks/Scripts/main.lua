@@ -684,7 +684,7 @@ function NATIVE.grab() return NATIVE.live and NATIVE.rig > 0 and S.NativeGrab ~=
 -- the signatures for certain -- it would read the wrong bytes. So the Lua asks the game itself (UE4SS's reflection)
 -- where every reflected property of those classes sits and compares with where it sits in the exe the native half was
 -- written against (the table below: 420 properties of 16 classes, the game's and the engine's, from that exe's own
--- property tables). A GAME class's property elsewhere or gone, on a build found by signature = the mod stands down as it
+-- property tables). A GAME class's property at another offset, on a build found by signature = the mod stands down as it
 -- did before v104, and the log says which. The ENGINE's classes are the check on the check: they are the same in every
 -- build of this game, so if they do not read as expected it is the reading that is off, not the game -- the result is
 -- then logged and not acted on. A class that cannot be read is said and not counted. On the exe the mod was written
@@ -803,7 +803,7 @@ NATIVE.LAYOUT = {
     } },
 }
 NATIVE.layoutCheck = function()
-    local r = { ok = 0, total = 0, bad = 0, miss = 0, cant = 0, engOk = 0, engOff = 0, notes = {} }
+    local r = { ok = 0, total = 0, bad = 0, miss = 0, cant = 0, engOk = 0, engBad = 0, notes = {} }
     for _, c in ipairs(NATIVE.LAYOUT) do
         local live, n, short = {}, 0, (c[1]:match("%.([^.]+)$") or c[1])
         local eng = c[1]:find("/Script/Engine.", 1, true) == 1
@@ -811,7 +811,7 @@ NATIVE.layoutCheck = function()
             local cls = StaticFindObject(c[1])
             if not cls or not cls:IsValid() then error("the class is not there", 0) end
             cls:ForEachProperty(function(p)
-                live[p:GetFName():ToString()] = p:GetOffset_Internal()
+                live[p:GetFName():ToString():lower()] = p:GetOffset_Internal()     -- (an FName shows the spelling it was FIRST registered with in this run, not necessarily the property's own: compared without case)
                 n = n + 1
             end)
         end)
@@ -821,17 +821,16 @@ NATIVE.layoutCheck = function()
         else
             for name, off in pairs(c[2]) do
                 r.total = r.total + 1
-                local l = live[name]
+                local l = live[name:lower()]
                 if l == off then
                     r.ok = r.ok + 1
                     if eng then r.engOk = r.engOk + 1 end
                 elseif l == nil then
                     r.miss = r.miss + 1
-                    if eng then r.engOff = r.engOff + 1 end
                     if #r.notes < 16 then r.notes[#r.notes + 1] = short .. "." .. name .. " is not there" end
                 else
                     r.bad = r.bad + 1
-                    if eng then r.engOff = r.engOff + 1 end
+                    if eng then r.engBad = r.engBad + 1 end
                     if #r.notes < 16 then r.notes[#r.notes + 1] = string.format("%s.%s is at %s, not at 0x%x", short, name, (math.type(l) == "integer") and string.format("0x%x", l) or tostring(l), off) end
                 end
             end
@@ -839,9 +838,11 @@ NATIVE.layoutCheck = function()
     end
     return r
 end
--- true = this build's game classes are laid out differently and the reading can be trusted: the mod stands down
+-- true = a property of one of the GAME's classes sits at another offset on this build, and the reading can be trusted
+-- (the engine's read as expected): the mod stands down. A property that is not there at all is said, not acted on: if
+-- a member really was taken out, the ones after it have moved and say so.
 NATIVE.layoutVerdict = function(r)
-    return NATIVE.buildMode == 1 and ((r.bad + r.miss) - r.engOff) > 0 and r.engOff == 0 and r.engOk > 0
+    return NATIVE.buildMode == 1 and (r.bad - r.engBad) > 0 and r.engBad == 0 and r.engOk > 0
 end
 -- (v189, review) ANOTHER BUILD OF THE GAME. The native half checks the exe's build stamp and leaves its hook out on any
 -- other -- but the Lua half went on: the 2 s tick still wired the no comply and wrote the trick names through natives
@@ -855,7 +856,7 @@ do
     local okm, mode = pcall(function() return HJN_BuildMode() end)
     NATIVE.buildMode = (okm and tonumber(mode)) or 0
     local okl, res = pcall(NATIVE.layoutCheck)
-    NATIVE.layoutRes = okl and res or { ok = 0, total = 0, bad = 0, miss = 0, cant = #NATIVE.LAYOUT, engOk = 0, engOff = 0, notes = { "the check itself failed: " .. tostring(res) } }
+    NATIVE.layoutRes = okl and res or { ok = 0, total = 0, bad = 0, miss = 0, cant = #NATIVE.LAYOUT, engOk = 0, engBad = 0, notes = { "the check itself failed: " .. tostring(res) } }
     if NATIVE.layoutVerdict(NATIVE.layoutRes) then NATIVE.off, NATIVE.offWhy = true, "layout" end
 end
 
@@ -7008,12 +7009,12 @@ LoopAsync(2000, function()
                 if NATIVE.layoutVerdict(NATIVE.layoutRes) then NATIVE.off, NATIVE.offWhy = true, "layout" end
             end
             local L = NATIVE.layoutRes
-            local gameOff = (L.bad + L.miss) - L.engOff
+            local gameBad = L.bad - L.engBad
             log(string.format("layout: %d of %d reflected properties of the game's and the engine's classes are where the native half was written for; %d elsewhere, %d not there, %d of %d classes not readable (%s)%s%s",
                 L.ok, L.total, L.bad, L.miss, L.cant, #NATIVE.LAYOUT,
                 (NATIVE.buildMode == 1) and "ANOTHER BUILD of the game than the mod was written against: its functions were found by signature"
                     or ((NATIVE.buildMode == 0) and "the build the mod was written against" or "the native half does not run on this build"),
-                (NATIVE.buildMode == 1 and gameOff > 0 and not NATIVE.off) and " -- NOT ACTED ON: the engine's own classes do not read as expected either, so it is the reading that is off, not the game" or "",
+                (NATIVE.buildMode == 1 and gameBad > 0 and not NATIVE.off) and " -- NOT ACTED ON: the engine's own classes do not read as expected either, so it is the reading that is off, not the game" or "",
                 (#L.notes > 0) and (" -- " .. table.concat(L.notes, "; ")) or ""))
         end
         if NATIVE.off then
