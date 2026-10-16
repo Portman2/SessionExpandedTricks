@@ -31,21 +31,31 @@ pause menu. Source and releases: https://github.com/Portman2/SessionExpandedTric
   trick with the hand on and the hand flips the board.
 - **Drop-ins.** On foot at the edge of a ledge, bank or ramp (within about 45 cm of it) with the board in your
   hand, press Y (Triangle). The board is set tail-down on the coping and you step on; push a stick up to drop
-  in, LB or RB to step back, Y to step off.
-  On a vert wall the speed you get goes with the wall's height (`DropInVertRef` in the ini is the height the
-  two vert speeds of the Drop-ins page are for).
+  in, LB or RB to step back, Y to step off. Tap Y twice to be put on in switch (facing away from the drop).
+  Farther from an edge, Y is the game's own throwdown.
+  Off a ramp the board tips down onto its face; off a plain ledge or wall you roll straight out; on a vert wall
+  the speed you get goes with the wall's height (`DropInVertRef` in the ini is the height the two vert speeds of
+  the Drop-ins page are for). As you drop in your arms come out for balance and you crouch, both by how big the
+  drop is (sliders on the Drop-ins page); holding the crouch stick takes you further down.
+- **Throwdown speed.** A slider on the General gameplay settings page: the game's own throwdown is played faster and
+  you roll away faster, as a percentage of the speed you were moving at when you threw the board down. 100 % (as
+  it ships) = unchanged.
 - **Jumping onto the board.** On foot next to your board lying on the ground, click a stick. Run at it and
   your speed is carried onto the board.
 - **Trick names** in the game's own trick display.
 - **Settings in the pause menu** under *Expanded Tricks*, and everything else in `ExpandedTricks.ini`.
+- **The Hippie Exterminator board.** A deck and a matching full-colour grip, both called *Hippie Exterminator* in the
+  shop: the deck under **ThankYou** (in place of *Bad Clouds 8.25*), the grip under **DGK** (in place of *Serape*).
+  They are loose files over the game's pak under `SessionGame\Content`; nothing in the pak is changed. To leave
+  them out: `install.bat -NoBoard`.
 
 ## Requirements
 
 - Session: Skate Sim on PC, from Epic or Steam. The mod was written against Epic's build of October 2026 (the launcher
   lists it as 1.0.6.42; its exe was built on 30 March 2026). On any other exe (Steam's is one, and so is any game
   update) it looks for the game's functions by their byte patterns when the game starts and runs only if it finds
-  every one of them; otherwise it switches itself off and says so in `ExpandedTricks.log`. Steam support is new and
-  has not been tested on a Steam copy by the author: if the mod stays off, send the logs (see *Something wrong?*).
+  every one of them; otherwise it switches itself off and says so in `ExpandedTricks.log`. Steam's exe has been run
+  by a tester (every function found) but not by the author: if the mod stays off, send the logs (see *Something wrong?*).
 - Steam Deck / Linux: copy the files by hand (the installer is Windows-only) and set the game's launch option to
   `WINEDLLOVERRIDES="dwmapi=n,b" %command%` so the mod loader starts. Untested.
 - A controller.
@@ -69,7 +79,9 @@ Do not use it together with the *NoComplyWayBetter* mod: both put the no comply 
    it takes one start more.
 
 By hand instead: copy this package's `SessionGame` folder over the game's `SessionGame` folder, so that you end up with
-`SessionGame\Binaries\Win64\Mods\ExpandedTricks` and `...\Mods\ExpandedTricksNative`. If the game has no `UE4SS.dll` in
+`SessionGame\Binaries\Win64\Mods\ExpandedTricks` and `...\Mods\ExpandedTricksNative` (and the board's files under
+`SessionGame\Content\Customization`; leave the package's `SessionGame\Content` folder out if you do not want the
+board). If the game has no `UE4SS.dll` in
 `SessionGame\Binaries\Win64`, also copy `UE4SS.dll`, `dwmapi.dll` and `UE4SS-settings.ini` from the package's `ue4ss`
 folder there.
 
@@ -99,6 +111,7 @@ Shown for a regular rider; riding goofy or switch the sticks swap as they do for
 | Bean plant | <img src="docs/buttons/LB.svg" alt="LB" height="28"> + <img src="docs/buttons/LS-down.svg" alt="LS down" height="28"> + <img src="docs/buttons/RS-left.svg" alt="RS left" height="28"> |
 | Rolling grab | <img src="docs/buttons/RB.svg" alt="RB" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/LB.svg" alt="LB" height="28"> while riding |
 | Finger flip | <img src="docs/buttons/RB.svg" alt="RB" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/LB.svg" alt="LB" height="28"> + a flip trick's flick |
+| Drop-in in switch | <img src="docs/buttons/Y.svg" alt="Y" height="28"> <img src="docs/buttons/Y.svg" alt="Y" height="28"> (tapped twice) at an edge, on foot, board in hand |
 | Drop-in | <img src="docs/buttons/Y.svg" alt="Y" height="28"> at an edge, on foot, board in hand; then <img src="docs/buttons/stick-up.svg" alt="stick up" height="28"> to go, <img src="docs/buttons/LB.svg" alt="LB" height="28"> / <img src="docs/buttons/RB.svg" alt="RB" height="28"> to step back, <img src="docs/buttons/Y.svg" alt="Y" height="28"> to step off |
 | Jump onto the board | <img src="docs/buttons/L3.svg" alt="L3" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/R3.svg" alt="R3" height="28"> on foot next to the board |
 
@@ -133,7 +146,8 @@ when full, 64 MB at most); `RecordPoses=0` in `ExpandedTricks.ini` switches it o
 
 ## Uninstall
 
-Double-click **uninstall.bat**. It removes the mod's two folders, and asks before removing your settings and logs,
+Double-click **uninstall.bat**. It removes the mod's two folders and the board's files (putting back any other mod's
+files the installer had set aside as `.expandedtricks.bak`), and asks before removing your settings and logs,
 and before removing UE4SS if this installer was what put it in and no other mod is left in `Mods`.
 
 ## Known limits

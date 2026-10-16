@@ -36,6 +36,22 @@ if (Test-GameRunning) {
 
 try {
     $mods = Join-Path $win64 'Mods'
+    # the Hippie Exterminator board first (its list is in the mod's folder): each file the installer put under
+    # SessionGame\Content goes if it is still the one it put there; another mod's file it had set aside comes back
+    $bl = Join-Path $mods 'ExpandedTricks\board-files.txt'
+    if (Test-Path -LiteralPath $bl) {
+        $content = Join-Path (Split-Path -Parent (Split-Path -Parent $win64)) 'Content'
+        $gone = 0; $back = 0
+        foreach ($line in @(Get-Content -LiteralPath $bl)) {
+            $p = $line.Split("`t")
+            if ($p.Count -lt 2 -or -not $p[0]) { continue }
+            $dst = Join-Path $content $p[0]
+            if ((Test-Path -LiteralPath $dst) -and ((Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash -eq $p[1])) { Remove-Item -LiteralPath $dst -Force; $gone++ }
+            $bak = $dst + '.expandedtricks.bak'
+            if ((Test-Path -LiteralPath $bak) -and -not (Test-Path -LiteralPath $dst)) { Move-Item -LiteralPath $bak -Destination $dst; $back++ }
+        }
+        Write-Host ("  The Hippie Exterminator board is removed ({0} files; {1} files of another mod put back)." -f $gone, $back)
+    }
     $n = 0
     foreach ($m in @('ExpandedTricks', 'ExpandedTricksNative')) {
         $p = Join-Path $mods $m

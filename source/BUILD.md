@@ -35,13 +35,14 @@ if every one is found; the log lists what each signature found.
   (`luareal -run dryrun.lua result.txt main.lua`, in an empty folder holding `scenario.txt`). Build it with
   `build_luareal.bat`, then copy `luareal.exe`, `dryrun.lua` and a copy of `UE4SS.dll` and `UE4SS-settings.ini` into
   `%USERPROFILE%\.expandedtricks\luareal\`: `make-release.ps1` then refuses a `main.lua` that does not start.
-  Never run it inside a game's folder. `test_throwdown.lua` runs one piece of `main.lua` the same way, the throwdown
-  speed setting's watch, against made-up throwdowns (`luareal -run test_throwdown.lua result.txt main.lua`, in an empty
-  folder; it writes `tdtest_out.txt` there). `test_grabswap.lua` does the same for which hand a bumper is in the game's two stick modes and which way the toe
-  side is (`gstest_out.txt`), `test_grabown.lua` for a grab the game picked itself (`optest_out.txt`),
-  `test_doubles.lua` for the two-hand grabs' pick, the bone and the ollie animation test on a hop (`dbtest_out.txt`), and
-  `test_menuguard.lua` for the pause menu's focus guard
-  (`mgtest_out.txt`).
+  Never run it inside a game's folder.
+- `tools/luareal/test_*.lua` (23 suites) each cut one piece out of `main.lua` and run it in real Lua against a stand-in
+  for the game and the native half: `luareal -run test_<name>.lua result.txt main.lua`, each in its own empty folder;
+  each writes its checks (`ok` / `FAIL`) to a `*_out.txt` there and fails the run if any check fails. The first
+  comment lines of each file say what it covers (throwdown speed, the grab hands in both stick modes, the two-hand
+  grabs and the bone, hops, the no comply's step-off, the drop-in's set-down, GO and arms, the trick display's
+  stutter fixes, the pause menu and its guard, other mods, the class layout check). Checks marked `[new]` must fail
+  on the build before the one that added them. Run all of them after every change to `main.lua`.
 
 The Lua half needs no build: it is `Mods/ExpandedTricks/Scripts/main.lua`. `tools/snapshot_defaults.pl` rewrites its
 shipped defaults from an `ExpandedTricks.ini` (`perl snapshot_defaults.pl main.lua ExpandedTricks.ini --globals`).
@@ -50,8 +51,16 @@ The updater in the native half uses WinHTTP and BCrypt (both part of Windows; li
 
 ## Tools (`source/tools`)
 
-- `make-release.ps1` checks the package and writes the release files: the zip, and `update.txt`, `main.lua`, `main.dll`
-  for the in-game updater. Attach all four to one GitHub release.
+- `make-release.ps1` checks the package and writes the release files: the zip, and `update.txt`, `update.txt.sig`,
+  `main.lua`, `main.dll` for the in-game updater. Attach all five to one GitHub release.
+
+## The Hippie Exterminator board (`SessionGame/Content/Customization`)
+
+Cooked game assets, not built from source here: four of the game's shop items overridden as loose files (the
+ThankYou deck *Bad Clouds 8.25*: graphic, item, icon; the DGK grip *Serape*: material, item, icon, and the grip's
+own texture `TEX_GT_DGK_Hippie`). They were made with cooked-asset tools (texture cooking, a renamed shop item, a
+grip material cloned from DGK's *Rosary*), no Unreal Editor. `tools/install.ps1` copies them in and records them in
+`Mods/ExpandedTricks/board-files.txt`; `tools/uninstall.ps1` takes out only the ones still as installed.
 - `snapshot_defaults.pl` bakes an `ExpandedTricks.ini` into main.lua's shipped defaults.
 - `menutext.pl` prints the pause-menu pages as plain text and checks them against the native half's limits (a
   description holds 239 characters: run it with `check` after every change to a row's text).

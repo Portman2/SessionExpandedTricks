@@ -1,8 +1,9 @@
 # Expanded Tricks -- installer. Run install.bat (it starts this script), or:
 #   powershell -ExecutionPolicy Bypass -File tools\install.ps1 [-GameDir "D:\Games\Session"]
 # What it does: finds the game, puts UE4SS in if the game has no mod loader yet, copies the mod's two folders
-# into SessionGame\Binaries\Win64\Mods. Nothing of the game's own is replaced. (GPLv3, see LICENSE.)
-param([string]$GameDir = "", [switch]$NoPause)
+# into SessionGame\Binaries\Win64\Mods, and (unless -NoBoard) the Hippie Exterminator board's files into SessionGame\Content
+# as loose files over the game's pak. The pak itself is not touched. (GPLv3, see LICENSE.)
+param([string]$GameDir = "", [switch]$NoPause, [switch]$NoBoard)
 
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -93,6 +94,38 @@ try {
         if (-not (Test-Path -LiteralPath $b) -or ((Get-Item -LiteralPath $a).Length -ne (Get-Item -LiteralPath $b).Length)) { throw "$need did not arrive in the game's Mods folder." }
     }
     Write-Host "  Expanded Tricks installed in $mods"
+
+    # --- the Hippie Exterminator board: a deck in ThankYou's "Bad Clouds 8.25" slot and its grip in DGK's "Serape" slot,
+    # loose files over the game's pak under SessionGame\Content. Another mod's file already in one of those places is
+    # kept beside it as <name>.expandedtricks.bak (uninstall.bat puts it back). Mods\ExpandedTricks\board-files.txt lists
+    # what was put in, with each file's hash, so the uninstaller takes out only what is still ours.
+    $csrc = Join-Path $pkg 'SessionGame\Content'
+    if ($NoBoard) {
+        Write-Host "  The Hippie Exterminator board is left out (-NoBoard)."
+    } elseif (Test-Path -LiteralPath $csrc) {
+        $content = Join-Path (Split-Path -Parent (Split-Path -Parent $win64)) 'Content'
+        $list = New-Object System.Collections.Generic.List[string]
+        $kept = 0
+        foreach ($f in (Get-ChildItem -LiteralPath $csrc -Recurse -File)) {
+            $rel = $f.FullName.Substring($csrc.Length + 1)
+            $dst = Join-Path $content $rel
+            $dir = Split-Path -Parent $dst
+            if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+            $hash = (Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash
+            if (Test-Path -LiteralPath $dst) {
+                $bak = $dst + '.expandedtricks.bak'
+                if (((Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash -ne $hash) -and -not (Test-Path -LiteralPath $bak)) {
+                    Copy-Item -LiteralPath $dst -Destination $bak -Force
+                    $kept++
+                }
+            }
+            Copy-Item -LiteralPath $f.FullName -Destination $dst -Force
+            $list.Add($rel + "`t" + $hash)
+        }
+        Set-Content -LiteralPath (Join-Path $mods 'ExpandedTricks\board-files.txt') -Encoding ASCII -Value $list
+        Write-Host "  The Hippie Exterminator board installed: the deck under ThankYou (in place of Bad Clouds 8.25) and its grip under DGK (in place of Serape)."
+        if ($kept -gt 0) { Write-Host ("  {0} files another mod had in those places are kept beside them as .expandedtricks.bak; uninstall.bat puts them back." -f $kept) -ForegroundColor Yellow }
+    }
 
     # --- things worth knowing
     foreach ($old in @('HippieJump', 'HippieNative')) {

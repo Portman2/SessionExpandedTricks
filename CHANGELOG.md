@@ -38,6 +38,10 @@ Lua build 224, native v122. For Session: Skate Sim 1.0.6.42 on PC (exe stamp 69c
   as the number says (the hands' reach took about half of it back), turning the sticks half way up is enough,
   and *Two-hand grabs: bone distance* on the Grabs page adds to every grab's own number at once.
 - Build 224, native v122:
+  - *the Hippie Exterminator board* ships with the mod: a deck under ThankYou (in place of Bad Clouds 8.25) and its
+    grip under DGK (in place of Serape), loose files under `SessionGame\Content`. install.bat puts them in (or not,
+    with `-NoBoard`), setting aside another mod's files in those places; uninstall.bat takes them out and puts those
+    back.
   - *the pause menu:* no Quick settings page in the mod's own pages (it stays only as SessionOpenMP's one flat
     page, MenuOwnPages=0).
   - *drop-ins:* where the board's nose would meet a ramp's face before its front wheels (a steep lip over a

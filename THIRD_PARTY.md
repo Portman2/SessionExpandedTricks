@@ -21,5 +21,13 @@ Expanded Tricks as a whole is distributed under the GPLv3 accordingly (see `LICE
   the game's key events (SessionTweaks' `CatchClickToCatch=1` / `CatchClickProbe=2000000000` make it log them).
 
 ## Session: Skate Sim — crea-ture Studios / Nacon
-The game. No game assets are redistributed: the mod uses the game's own animations, sounds and widgets at run time.
+The game. The mod uses the game's own animations, sounds and widgets at run time. The one exception is the Hippie
+Exterminator board under `SessionGame/Content/Customization`: eighteen cooked files that override four of the game's
+shop items (a ThankYou deck's graphic, item and icon; a DGK grip's material, item and icon). They are the game's own
+assets of those slots, with the picture, the name and the grip material changed; they work only over the game's pak.
+
+## The Hippie Exterminator artwork
+The deck and grip print a scene from *South Park* (Cartman in a hazmat suit, "Die Hippie Die", 2005). *South Park*
+is (c) Comedy Central / South Park Studios. This is fan art: Expanded Tricks is not affiliated with or endorsed by
+them, and the artwork is not covered by this package's GPLv3.
 The grabs are the game's own unfinished feature, switched on through its experimental settings save.
