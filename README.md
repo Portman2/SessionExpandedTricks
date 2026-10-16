@@ -113,7 +113,7 @@ Shown for a regular rider; riding goofy or switch the sticks swap as they do for
 | Finger flip | <img src="docs/buttons/RB.svg" alt="RB" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/LB.svg" alt="LB" height="28"> + a flip trick's flick |
 | Drop-in in switch | <img src="docs/buttons/Y.svg" alt="Y" height="28"> <img src="docs/buttons/Y.svg" alt="Y" height="28"> (tapped twice) at an edge, on foot, board in hand |
 | Drop-in | <img src="docs/buttons/Y.svg" alt="Y" height="28"> at an edge, on foot, board in hand; then <img src="docs/buttons/stick-up.svg" alt="stick up" height="28"> to go, <img src="docs/buttons/LB.svg" alt="LB" height="28"> / <img src="docs/buttons/RB.svg" alt="RB" height="28"> to step back, <img src="docs/buttons/Y.svg" alt="Y" height="28"> to step off |
-| Jump onto the board | <img src="docs/buttons/L3.svg" alt="L3" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/R3.svg" alt="R3" height="28"> on foot next to the board |
+| Jump onto the board | <img src="docs/buttons/L3.svg" alt="L3" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/R3.svg" alt="R3" height="28"> near the board |
 
 ## Settings
 
