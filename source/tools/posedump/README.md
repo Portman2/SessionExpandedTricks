@@ -22,7 +22,7 @@ Every Perl tool says in its first comment lines what it takes and prints. They n
 ## 1. The recorder
 
 It is part of `hn_main.cpp` (`PoseDump`, `PdFill`, `PdSwitch`, `struct PdFrame`) and off by default. Switch it on with
-`PoseRecorder=1` in `ExpandedTricks.ini`; the Lua half sends `HJN_Set("posedump", 1)`.
+`RecordPoses=1` (the default since build 196; it was `PoseRecorder`, off) in `ExpandedTricks.ini`; the Lua half sends `HJN_Set("posedump", 1)`.
 
 - Every pose that reaches the end of the pose pass is copied into a ring of 40. When one of the mod's windows is on
   (a hop's air or landing, a plant, a hand on the board, held feet, a grab, a trick trace), the ring and every pose

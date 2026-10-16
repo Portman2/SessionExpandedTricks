@@ -65,6 +65,9 @@ local S = {
     HippieJump    = 1,
     SpeedScale = 1.0,
     PushScale = 1.0,
+    ThrowdownScale = 1.0,
+    ThrowdownRateMax = 2.5,
+    StepOffUnstick = 1,
     StickTurn = 1,
     NoComply      = 1,
     NoComplyInputAngle = 5,
@@ -157,6 +160,8 @@ local S = {
     DebugBoardLog = 1,
     TrickNames    = 1,
     GrabStart     = 1,
+    GrabFollowStickMode = 1,
+    GrabToeSide = 1,
     GrabLBNeutral = "Mute",
     GrabRBNeutral = "Indy",
     ClickGrabs    = 0,
@@ -227,14 +232,36 @@ local S = {
     GrabAllAlong = 0,
     GrabAllAcross = 0,
     GrabAllUp = 0,
+    GrabAllBone = 0,
+    GrabTurnedSense = 1,
     GrabBlocked   = "ChickenSalad,Taipan,RoastBeef,CanadianBacon",
     DoubleGrabs   = 1,
     DoubleCannonball = "Nose+Tail",
     DoubleGorilla = "Mute+Indy",
     DoubleRocket  = "Nose+Crail",
+    DoubleTruckDriver = "Melon+Indy",
+    DoubleDrunkDriver = "Mute+Stalefish",
+    DoubleSquirrel = "Melon+Stalefish",
     DoubleCannonballBase = "Indy",
     DoubleGorillaBase = "Indy",
     DoubleRocketBase = "Nose",
+    DoubleTruckDriverBase = "Indy",
+    DoubleDrunkDriverBase = "Indy",
+    DoubleSquirrelBase = "Indy",
+    DoubleBothSticks = 1,
+    GrabTweakStyle = 1,
+    GrabBoneMove = 0,
+    GrabBoneHands = 1,
+    GrabBoneLean = 25,
+    GrabHeadUp = 30,
+    GrabHeadTurn = 0,
+    GrabBoneBehind = 20,
+    GrabBoneShowStick = 1,
+    HopOllieDeck = 1,
+    HopOlliePre = 0.06,
+    HopOllieSpan = 0.6,
+    HopOllieLand = 0.72,
+    HopOllieSound = 0,
     NativeHandAim = 2,
     NativeCatchHold = 1,
     NativeGrabStance = 1,
@@ -262,8 +289,19 @@ local S = {
     DropInVertSpin = 150,
     DropInVertBack = 250.0,
     DropInVertBoost = 1194,
+    DropInVertRef = 350,
     DropInSpin    = 90,
     DropInSetTime = 0.8,
+    DropInSetDown = 1,
+    DropInSetOutTime = 0.35,
+    DropInSetEdge = 1,
+    DropInSetReach = 45,
+    DropInFar = 0,
+    DropInWalkSpeed = 120,
+    DropInSetPitchTime = 0.22,
+    DropInSetRise = 0,
+    DropInSetFeet = 1,
+    DropInSetOver = 1,
     DropInAlignTime = 0.4,
     DropInTime = 0.45,
     DropInSpeed = 972,
@@ -281,6 +319,30 @@ local S = {
     BoardHopTime  = 0.45,
     BoardHopHeight = 40,
     BoardHopRideZ = 95,
+    BoardHopSpeedScale = 1.2,
+    BoardHopSpeedAcross = 0.5,
+    BoardHopSwitchFix = 1,
+    BoardHopStanceLock = 1,
+    BoardHopLandLift = 3,
+    BoardHopAirKeep = 1,
+    BoardHopTurnHold = 1,
+    BoardHopTurnHoldSwitch = 0,
+    BoardHopRecord = 1,
+    BoardHopKeep = 0.3,
+    BoardHopFeet = 1,
+    BoardHopHead = 1,
+    DropInSetFly = 1,
+    DropInSetSwitch = 1,
+    DropInPlain = 1,
+    DropInArms = 40,
+    DropInArmsFull = 200,
+    DropInArmsPeak = 50,
+    DropInCrouch = 18,
+    DropInCrouchPeak = 25,
+    DropInNoTwist = 1,
+    DropInPoses = 0,
+    LandHoldFix = 1,
+    BoardHopPoses = 1,
     NativeBoardEase = 0.12,
     NativeEdgeRoll = 1,
     NativeArmSearch = 1,
@@ -302,7 +364,7 @@ local S = {
     HopAnkleLimit = 18,
     HopCarryTurn = 1,
     AutoUpdate = 2,
-    PoseRecorder = 0,
+    RecordPoses = 1,
     TraceLog = 1,
     HopLock = 1,
     HopHold = 1,
@@ -346,9 +408,12 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "LandAbsorbTime","num", 0, 3,    "seconds the landing absorb is held (the game holds a landing ~0.6s, then blends out)" },
     { "LegReachStart", "num", 0.5, 0.99, "point of the air time where the legs start reaching down for the board. The reach is slow at first and fastest at touchdown, so most of the stretch comes in the last few cm over the board (at 0.8: half of it with the body about 12-15 cm up).\n; Lower = they start reaching while still high; higher = later still, and faster" },
     { "LegReachMax",   "num", 0, 1,    "how far the legs reach for the board at touchdown (1 = the game's full reach)" },
-    { "HippieJump",    "num", 0, 1,    "1 = the crouched hippie jump: crouch with one stick and click the other (0 = off; the mini hop has its own switch, MiniHop)" },
+    { "HippieJump",    "num", 0, 3,    "the crouched hippie jump: crouch with one stick and click the other. 0 = off. 1 = with the jump animation (stand up out of the crouch, then the in-air pose).\n; 2 = with the game's ollie animation (its pop, then its tucked knees; the board stays on the ground all the same). 3 = one or the other at random, jump by jump.\n; The mini hop has its own switch (MiniHop) and takes the same animation" },
     { "SpeedScale",    "num", 0.5, 3,  "the skater's TOP SPEED: the game's top skateboarding speed and the speed pushing can take you to, as a multiple of the game's own (1 = the game's; 1.5 = half again as fast). A push is as strong as ever: see PushScale" },
     { "PushScale",     "num", 0.5, 3,  "how hard each PUSH is: the game's push impulse as a multiple of its own (1 = the game's)" },
+    { "ThrowdownScale", "num", 1, 4, "THROWDOWN SPEED: how fast the game's own throwdown (Y / triangle on foot) sends you off, as a multiple of the speed you were moving at when you threw the board down (1 = the game's own; 1.5 = half again as fast as you ran). The run-up and the throw are played that much faster to match (see ThrowdownRateMax). Standing still, nothing is added. Not for the mod's drop-ins: those have DropInSpeed. (Builds 195 and 196 had ThrowdownBoost, an ADDED speed in cm/s)" },
+    { "ThrowdownRateMax", "num", 1, 4, "throwdown speed: the most the throw itself is sped up by. With ThrowdownScale over 1 the run-up, the throw and the step onto the board are played ThrowdownScale times as fast (the skater covers that many times the ground, so he leaves it at the speed the board is then given), and never more than this. 1 = the throw is left as the game plays it and all of the speed comes once you are on the board" },
+    { "StepOffUnstick", "num", 0, 1, "1 = a step-off the game never finishes is finished by the mod. (Y pressed on the board in the split second after the wheels leave the ground with no pop: the game starts its pick-up with no animation, and only that animation's end ever ends a pick-up -- on foot Y and the jump then stay dead until a teleport to the session marker. A quarter second on, the mod asks the game for the end that animation would have asked for; the log has a 'step-off:' line.) 0 = it is only logged" },
     { "StickTurn",     "num", 0, 1,    "1 = the game's own: in the foot-stick control mode the left stick's sideways push banks (turns) the board; 0 = that bank is OFF -- only the triggers turn, and a stick trick is not pulled sideways" },
     { "NoComply",      "num", 0, 1,    "1 = the NO COMPLY: the game's own unused no-comply animation wired into the Pressure Kickflip slot (its input: left stick down + right stick left, regular;\n; mirrored in switch), at run time -- what the NoComplyWayBetter mod did with loose files, with its numbers as the defaults below. 0 = the game's pressure kickflip" },
     { "NoComplyInputAngle", "num", 0, 90, "no comply: how exactly the sticks must match its input, degrees (the mod used 5; the game's own tricks use 85)" },
@@ -440,7 +505,9 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "DropSafety",    "num", 0, 1,    "1 = if the GAME pops a real ollie under you mid-jump (or goes airborne with LiftMethod=0),\n; hand control back to the game (lift fades, its own air + landing take over)" },
     { "DebugBoardLog", "num", 0, 1,    "1 = log movement-state changes and body/board heights during each jump to ExpandedTricks.log" },
     { "TrickNames",    "num", 0, 1,    "1 = hippie jumps and grabs show up in the game's own trick display (\"180 Hippie Jump\", \"Crail Grab\")\n; -- the game's own text line, stacking and fading with its other trick names. 0 = off" },
-    { "GrabStart",     "num", 0, 1,    "GRABS are the game's own. 1 = press and HOLD LB or RB in the air to grab (let go to let go):\n; LB = front hand, the LEFT stick's direction picks it: up Nose, right Mute, left Melon, down-right Taipan,\n;      down-left Chicken Salad, down Seatbelt (right = your toe side riding regular)\n; RB = back hand, the RIGHT stick (the game reads its up/down the other way round): pulled DOWN Crail,\n;      down-right Canadian Bacon, down-left Roast Beef, right Indy, left Stalefish, pushed UP Tail\n; This is the game's own direction map; the mod starts the grab because the game would only while its\n; catch-orient is up. Needs IsGrabsEnabled in the game's ExperimentalSaveSlot.sav (see the log). 0 = off" },
+    { "GrabFollowStickMode", "num", 0, 1, "1 = the bumpers follow the game's stick mode (Options > Gameplay: left foot / right foot, or front foot / back foot). In the left-foot / right-foot mode (and Legacy) LB is the LEFT hand and RB the right, as the sticks are the left and the right foot: the two change places whenever your left foot is the back one -- a regular rider riding switch, a goofy rider riding forward -- for the air grabs, the two-hand grabs, the rolling grabs, the boneless and the bean plant. In the front-foot / back-foot mode LB is always the front hand. 0 = LB is the front hand whatever the mode (as before build 199)" },
+    { "GrabToeSide",   "num", 0, 2,    "which way a grab's stick is pushed for the TOE-side grabs (Mute, Taipan, Indy, Canadian Bacon; the other way for the heel-side ones: Melon, Chicken Salad, Stalefish, Roast Beef). 1 = toward the side of the board your toes are on as you see it from behind: right for a regular rider rolling forward, LEFT for a goofy one, and the other way round riding switch. 0 = right, always (the game's own map, as before build 201). 2 = left, always" },
+    { "GrabStart",     "num", 0, 1,    "GRABS are the game's own. 1 = press and HOLD LB or RB in the air to grab (let go to let go):\n; LB = front hand, the LEFT stick's direction picks it: up Nose, toward your toes Mute, toward your heels Melon,\n;      down and toward your toes Taipan, down and toward your heels Chicken Salad, down Seatbelt\n; RB = back hand, the RIGHT stick (the game reads its up/down the other way round): pulled DOWN Crail, down and toward\n;      your toes Canadian Bacon, down and toward your heels Roast Beef, toward your toes Indy, toward your heels Stalefish, pushed UP Tail\n; (Your toes: right for a regular rider rolling forward, left for a goofy one, the other way round riding switch -- GrabToeSide.\n;  Which bumper is which hand in the game's left-foot / right-foot stick mode: GrabFollowStickMode.)\n; The mod starts the grab because the game would only while its catch-orient is up. Needs IsGrabsEnabled in the game's\n; ExperimentalSaveSlot.sav (see the log). 0 = off" },
     { "GrabLBNeutral", "str", 0, 0,    "the grab LB does with the left stick centred (a grab name, see GrabLeftUp below)" },
     { "GrabRBNeutral", "str", 0, 0,    "the grab RB does with the right stick centred" },
     { "ClickGrabs",    "num", 0, 1,    "1 = ALSO the mod's older stick-CLICK grabs: push a stick and click it (left = front hand, right = back\n; hand; the Grab... table below picks the grab). 0 = off" },
@@ -487,16 +554,38 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "DoubleGrabs",   "num", 0, 1,    "1 = the TWO-HAND grabs (the mod's own): hold LB AND RB in the air; the two grabs your sticks pick make the pair" },
     { "DoubleCannonball", "str", 0, 0, "Cannonball (front hand on the nose, back hand on the tail): the LB grab + the RB grab that make it" },
     { "DoubleGorilla", "str", 0, 0,    "Gorilla (both hands on the toe edge): the LB grab + the RB grab that make it (Mute and Indy are the centred sticks)" },
-    { "DoubleRocket",  "str", 0, 0,    "Quasimodo (both hands on the nose, both feet on the tail): the LB grab + the RB grab that make it.\n; Nose+Crail = left stick up, right stick pulled DOWN (both sticks up is Nose+Tail = the Cannonball; swap the two lines' values if you want it the other way)" },
+    { "DoubleRocket",  "str", 0, 0,    "Quasimodo (both hands on the nose, both feet on the tail): the LB grab + the RB grab that make it.\n; Nose+Crail = BOTH sticks pushed up (the left stick up and the right stick pulled down is Nose+Tail = the Cannonball; swap the two lines' values if you want it the other way)" },
+    { "DoubleTruckDriver", "str", 0, 0, "Truck Driver (front hand on the heel edge, back hand on the toe edge: Melon + Indy): the LB grab + the RB grab that make it" },
+    { "DoubleDrunkDriver", "str", 0, 0, "Drunk Driver (front hand on the toe edge, back hand on the heel edge: Mute + Stalefish): the LB grab + the RB grab that make it" },
+    { "DoubleSquirrel", "str", 0, 0,    "Squirrel (both hands on the heel edge: Melon + Stalefish): the LB grab + the RB grab that make it" },
     { "DoubleCannonballBase", "str", 0, 0, "the game's grab whose crouch the Cannonball is built on" },
     { "DoubleGorillaBase", "str", 0, 0, "the game's grab whose crouch the Gorilla is built on" },
     { "DoubleRocketBase", "str", 0, 0,  "the game's grab whose crouch the Quasimodo is built on" },
+    { "DoubleTruckDriverBase", "str", 0, 0, "the game's grab whose crouch the Truck Driver is built on" },
+    { "DoubleDrunkDriverBase", "str", 0, 0, "the game's grab whose crouch the Drunk Driver is built on" },
+    { "DoubleSquirrelBase", "str", 0, 0, "the game's grab whose crouch the Squirrel is built on" },
+    { "DoubleBothSticks", "num", 0, 1, "1 = the Truck Driver, Drunk Driver and Squirrel need BOTH sticks pushed to a side (toward your toes or your heels, each for its own hand);\n; one stick alone, or none, stays the Gorilla. 0 = a centred stick counts as the toe side, so one stick is enough" },
+    { "GrabTweakStyle","num", 0, 1,    "what moving the stick off where it picked a grab does (the menu's Grab tweak): 0 = ROTATE, the game's own tweak (your legs and the board twist);\n; 1 = BONE: the board is poked out toward the nose by that grab's Bone<Grab> cm -- by the body going back over the back foot, or by the board itself moving out (GrabBoneMove). A grab whose Bone is 0 rotates either way" },
+    { "GrabBoneMove",  "num", 0, 1,    "what moves when a grab is boned (the menu's 'Bone moves'): 0 = the BODY goes back over the back foot, as before build 211;\n; 1 = a TEST: the BOARD is pushed out toward the nose under a body that stays -- in an air that began with a pop; in any other air the body goes back as with 0. Takes the native half v113" },
+    { "GrabBoneHands", "num", 0, 1,    "1 = a boned grab's hands stay on their spots on the board: the back leans further (GrabBoneLean) and what the arm still cannot reach the bone gives back, so a bone may come out smaller;\n; 0 = as before build 211: past 16 cm of bone the spots slide toward the tail and the hand comes off. Takes the native half v113" },
+    { "GrabBoneLean",  "num", 0, 45,   "degrees the back may lean toward the board past the grab's own limit while it is boned, so that the hand stays on (the menu's 'Boned grabs: extra lean'). 0 = no further: the bone is cut back wherever the arm cannot reach" },
+    { "GrabHeadUp",    "num", 0, 90,   "every grab: degrees your head is raised, at the most, from where the game has you look (45 to 65 degrees down, at the board) toward 12 degrees under level, so you look ahead and the head stays clear of the knees; the head is kept level with it. 0 = the head as the game has it (native v117 aims the gaze itself; v116 went by the shoulders' line, which a reaching arm slants: the Melon's crooked head)" },
+    { "GrabHeadTurn",  "num", 0, 90,   "every grab: degrees your gaze is turned toward the way you travel, at the most, from where you look (native v117; v116 turned it by where your toes point, whatever the head already did, and overshot); 0 = not turned" },
+    { "GrabBoneBehind", "num", 0, 45,  "how far out a boned grab goes (the menu's 'Boned grabs: how far out'): cm your hips may end BEHIND the back foot's place on the board at the full bone.\n; 0 = no further than over it, as build 211: there every grab stopped at 16-28 cm of bone, whatever it was asked. It never goes past what the front leg can reach or the hands can hold.\n; A two-hand grab gets it only where the board is what moves (GrabBoneMove 1). Takes the native half v114" },
+    { "GrabBoneShowStick", "num", 0, 1, "with GrabBoneMove 1 and GrabBoneHands 1: a grab picked with the stick centred has no catch in the game, so the board cannot be moved for it and the body went back instead.\n; 1 = the game is shown that stick pushed straight for such a grab, as it is for one picked with the stick (shown again, up to three times, where the catch does not come); 0 = as build 211" },
+    { "HopOllieDeck",  "num", 0, 1,    "the ollie animation on a hippie jump: 1 = the body is raised as the back foot pushes down, so that foot stays on the board (in the game's ollie the tail goes down with it); 0 = as the animation has it" },
+    { "GrabAllBone",   "num", -40, 100, "cm ADDED to every grab's own Bone<Grab> that is over 0 (the menu's 'All grabs: bone distance'): + = more is asked of the bone, - = less; no grab's total goes under 0.\n; This is what is ASKED at the full swing of the stick. How far the board really goes is held by GrabBoneBehind, the front leg and the arms; the native half moves 80 cm at the most" },
+    { "GrabTurnedSense","num", 0, 1,   "1 = a grab on a board that has turned round under you in this air (a shove-it into a Nose or Tail grab) has its tilt steered the other way: there the deck answers the\n; skeleton's board the other way round, and the grabbed end dipped where it should rise. 0 = as before build 207" },
+    { "HopOlliePre",   "num", 0, 0.5,  "HopOllie: seconds between the ollie animation's start and leaving the board (the stand-up time of the usual hop is not used)" },
+    { "HopOllieSpan",  "num", 0, 1,    "HopOllie: the share of the air the ollie's trick animation is played over (it is sped up or slowed to fit; the tucked loop follows). 0 = at its own speed" },
+    { "HopOllieLand",  "num", 0.3, 1,  "HopOllie: the share of the air after which the legs go for the landing (the usual hop's landing pose from there)" },
+    { "HopOllieSound", "num", 0, 1,    "HopOllie: 1 = the ollie animation's own sounds are heard (its pop, the foot on the grip); 0 = silenced for the hop, which has its own take-off and landing sounds" },
     { "NativeHandAim", "num", 0, 2,    "the hand TURNED to the board (fingers down past the edge, palm toward the deck): 0 = off (the game's own hand pose, which lies flat on the deck),\n; 1 = in the two-hand grabs only, 2 = in every grab (the default since v114: the grabbing hand)" },
     { "NativeCatchHold", "num", 0, 1,  "1 = when a grab is handed to the game with its catch orient still off, it is set as the game's own grab pick would set it: the deck follows the board bone\n; (the tilt) only in that state -- grabs that started without it took no tilt at all (a Crail / Seatbelt / Stalefish that worked one time and not the next)" },
     { "NativeGrabStance", "num", 0, 1, "1 = a grab plants the feet in the TAIL layout (back foot on the tail, front foot over the front truck), whichever layout you last rode:\n; the game shifts the feet forward for a nollie / fakie crouch and after a revert, and a grab took that (0 = as last ridden)" },
     { "DevKeys",   "num", 0, 1,      "1 = the keyboard test keys: F11 mini hop, F12 hippie jump (no crouch check), F7 board survey (logged), the numpad nudges the last grab's hand numbers and saves them here. 0 = the keyboard is left alone (the release's default)" },
     { "NativePad", "num", 0, 1,      "1 = the controller's stick clicks, triggers, bumpers and Y are read by the native half from the game's own key events;\n; 0 = from SessionTweaks.log as before (needs its CatchClickToCatch=1 and CatchClickProbe keys)" },
-    { "MenuOwnPages", "num", 0, 1,   "where the settings pages live: 1 = the mod's own NESTED pages in the pause menu (an Expanded Tricks row that opens Quick settings, Hippie Jumps, Drop-ins, Grabs, No Comply), with or without SessionOpenMP;\n; 0 = one flat page of 14 rows inside SessionOpenMP's pause menu (what the nested pages fall back to if they cannot be placed)" },
+    { "MenuOwnPages", "num", 0, 1,   "where the settings pages live: 1 = the mod's own NESTED pages in the pause menu (an Expanded Tricks row that opens General gameplay settings, Hippie Jumps, Drop-ins, Grabs, No Comply), with or without SessionOpenMP;\n; 0 = one flat page of 14 rows inside SessionOpenMP's pause menu (what the nested pages fall back to if they cannot be placed)" },
     { "NativeFingerCurl", "num", 0, 1.5, "how far the four fingers curl round the edge where the hand is turned (1 = 50 / 60 / 35 degrees at the three joints; 0 = as animated)" },
     { "NativeFingerCurlRoot", "num", -30, 120, "degrees the fingers' ROOT joint (at the knuckle) curls toward the palm, x NativeFingerCurl" },
     { "NativeFingerCurlMid",  "num", -30, 120, "degrees the fingers' MIDDLE joint curls toward the palm, x NativeFingerCurl" },
@@ -518,8 +607,29 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "DropInVertSpin", "num", 0, 400,  "vert: how fast the board keeps tipping nose-down as it goes, deg/s" },
     { "DropInVertBack", "num", 0, 400,  "vert: the board is pushed back toward the wall this fast as it is let go, cm/s (the wheels meet a wall that hangs under the coping instead of falling past it)" },
     { "DropInVertBoost", "num", 0, 2000, "vert: once the wheels are on the wall (riding, 0.3 s after the let-go) this much speed is added down the wall, cm/s (the let-go itself is slow so the wheels meet the wall)" },
+    { "DropInVertRef", "num", 0, 1000, "vert: the wall height (cm) DropInVertSpeed and DropInVertBoost are set for. A lower wall gets less of both, as the square root of its height (the way the speed of a fall goes), never under half: a 2 m quarter is not a 4 m vert. 0 = the same on every wall" },
     { "DropInSpin",    "num", 0, 400,  "the board is let go still tipping forward at this many degrees a second (so it lands on its wheels, not flat)" },
     { "DropInSetTime", "num", 0.05, 2, "seconds the slide out (and back) takes" },
+    { "DropInSetDown", "num", 0, 1, "EXPERIMENTAL (the menu's 'Set the board down at the edge (test)'): 1 = at a drop-in's Y press the game's own throw is refused and the mod plays the game's throwdown animation itself, square to the edge and close to it:\n; the board comes down with its middle DropInBack cm from the edge, you are walked onto it where it lies and put on at the animation's own moment, and it slides out over DropInSetOutTime with no move before that.\n; Takes the native half v113. Where a step fails the drop-in goes on the old way and the log says which step. 0 = the drop-in of build 210 (but for its first move, which is no longer made where you already stand right).\n; (build 212) With DropInSetEdge 1 and the native half v114 a press made within DropInSetReach cm of the edge sets the board ON the coping instead: see DropInSetEdge" },
+    { "DropInSetOutTime", "num", 0.05, 2, "with DropInSetDown: seconds the slide out (and back) takes after a set-down (DropInSetTime stays the old way's)" },
+    { "DropInSetEdge", "num", 0, 1, "with DropInSetDown (the menu's 'Set it ON the coping (test)'): 1 = a Y press made within DropInSetReach cm of the edge sets the board ON the coping: you are stood right at the edge (toes over it), the board comes down level out over the edge, its tail goes down and it STAYS there while you step on; you are put on where it is, with no slide.\n; Takes the native half v114. Farther off, in SWITCH (a second tap of Y) and wherever a step of it does not come it is build 211's set-down or the old way, and the log says which. 0 = build 211's set-down on every press (the board comes down behind the edge and slides out)" },
+    { "DropInSetReach", "num", 10, 90, "THE DROP-IN: Y / triangle on foot, the board in your hand, within this many cm of an edge (from the middle of your body; toes over the edge count too): the board is set ON the coping, tail down, and you step on. Farther off, Y is the game's own throwdown" },
+    { "DropInFar", "num", 0, 1, "0 = a Y press made farther from the edge than DropInSetReach is no drop-in (the game's own throwdown); 1 = as build 212: the board is set down behind the edge and slides out to it" },
+    { "DropInWalkSpeed", "num", 0, 300, "a Y press made while you still move this slowly (cm/s) counts as standing still when an edge is within DropInSetReach: you may walk right up to the edge and press. 0 = a standstill only" },
+    { "DropInSetPitchTime", "num", 0.02, 1, "set-down on the coping: seconds the tail takes to go down once the board has landed" },
+    { "DropInSetRise", "num", 0, 1, "set-down on the coping: 1 = the mod lifts you toward the board's height before the mount by moving you (it only holds where the game finds no floor under you; 0 = you come up about 9 cm at the mount)" },
+    { "DropInSetFeet", "num", 0, 1, "set-down on the coping: how much a foot that is on the animation's board is carried onto the real one (0 = the animation's feet as they are)" },
+    { "DropInSetOver", "num", 0, 1, "set-down on the coping: 1 = you are moved out over the edge as the animation drags its board under you (held back by itself where the game is seen to lower you); 0 = your middle stays on the ledge until just before the mount, your feet are carried to the board from there" },
+    { "DropInSetFly", "num", 0, 1, "set-down on the coping: 1 = your middle stays 2 cm short of the edge until the last 0.15 s before the mount, and for those you are taken over the edge in the engine's flying mode, at your height (on foot the engine set you lower every frame once your middle was past the edge and the mod set you back: the stutter; over a real drop you fell 14 cm before the mount); 0 = as build 215" },
+    { "DropInSetSwitch", "num", 0, 1, "set-down on the coping: 1 = Y tapped twice (switch) is set ON the coping as well: you stand and face the drop as for a regular one, the switch stance's own animation sets the board down, and the game's switch mount turns you half a turn -- you face away from the drop, the nose points at it, your other foot on the tail; 0 = as build 222: a switch drop-in is build 211's set-down (the board set down behind the edge and slid out)" },
+    { "DropInPlain", "num", 0, 1, "1 = off a plain ledge or a plain wall (the same level ground just past the edge and further out, or flat floor right under the hung board) the drop-in is a straight drop: tipped DropInTilt and launched straight out, as it was to build 211; 0 = as build 216, which looked further out for a ramp and took the floor, a step's riser or the wall itself for one" },
+    { "DropInArms", "num", 0, 80, "drop-ins: degrees your arms are raised out to your sides for balance from the moment you drop in (GO: not while you stand on the board at the edge), through the tip-in, until you ride or land (they come down over 0.7 s); each upper arm is turned about its shoulder toward a pose 18 to 24 degrees under level, never past it and not where the game already has it higher, so about 60 is all the way (native v118). 0 = the arms as the game has them" },
+    { "DropInArmsFull", "num", 30, 500, "drop-ins: the drop (cm, from the ledge's top down) that gets all of DropInArms; a smaller one gets its share of it (a 100 cm drop with 200 here: half the degrees), a bigger one all of it. The drop is what the ledge scan measured below the edge" },
+    { "DropInArmsPeak", "num", 10, 100, "drop-ins: how far down the drop the arms are fully out, in percent of its height (50 = halfway down); they come out with the way down from the GO, and go down over 0.7 s once you are down" },
+    { "DropInCrouch", "num", 0, 40, "drop-ins: cm your hips are let down as you drop in, at a drop of DropInArmsFull and more (a smaller drop gets its share): the knees bend to the feet where the game has them and the back leans toward the drop. It comes in with the tip and the first part of the way down and goes back up once you are down. It is a DEPTH (native v120): the crouch stick's own crouch is not added to it, the deeper of the two shows. 0 = no crouch (native v119)" },
+    { "DropInCrouchPeak", "num", 10, 100, "drop-ins: how far down the drop you are at your lowest, in percent of its height (the tip itself takes you halfway there)" },
+    { "DropInNoTwist", "num", 0, 1, "drop-ins: 1 = the game's own shoulder twist is held off from the GO until you are down (as the board tips in the game twists the upper body and swings the back arm behind you); 0 = the game's own" },
+    { "DropInPoses", "num", 0, 1, "1 = the first 8 drop-ins of a run are written to the pose recorder, two recordings each: 150 poses from the moment the arms come up and 240 from the GO (needs RecordPoses and TraceLog); 0 = no" },
     { "DropInAlignTime", "num", 0, 2, "seconds the first move takes: from where the game put you on the board to square to the edge, the board's middle DropInBack cm from it. It was one frame (a teleport); 0 = that again" },
     { "DropInTime",    "num", 0.05, 2, "seconds the board takes to pivot down onto the ramp when you drop in" },
     { "DropInSpeed",   "num", 0, 2000,  "the speed the board is let go with, in cm/s (down the ramp; straight out over a plain ledge)" },
@@ -538,6 +648,20 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "BoardHopTime",  "num", 0.2, 1.5, "how long the hop onto the board takes, in seconds" },
     { "BoardHopHeight","num", 0, 120,  "how high the hop arcs, in cm" },
     { "BoardHopRideZ", "num", 40, 160, "how high over the deck the hop lands you until the mod has measured it while riding, in cm" },
+    { "BoardHopSpeedScale", "num", 0, 3, "BOARD HOP SPEED: how fast you roll away after the hop onto the board, as a multiple of the speed you ran up to it at (1 = as fast as you ran, which is what the game's own throwdown gives; 1.2 = a little faster; 1.5 = half again as fast). The speed goes along the board, the way you ride off; a board already rolling faster that way keeps its own speed. Standing still, nothing is added. 0 = the board only keeps its own roll (builds 128 to 210)" },
+    { "BoardHopSpeedAcross", "num", 0, 1, "board hop speed: a board only rolls along its length. 0 = only the part of your run-up that points along the board is carried onto it (a run-up square to the board gives nothing); 1 = all of your speed, whichever way you came at the board; between the two = that share of the part that points across it" },
+    { "BoardHopSwitchFix", "num", 0, 1, "1 = a hop that mounts you in switch hands the game your capsule half a turn round, because the game's own switch mount turns it half a turn itself (build 211: you land facing the way you flew and stay in switch); 0 = as build 210 (you snap half a turn on landing a switch hop)" },
+    { "BoardHopStanceLock", "num", 0, 1, "1 = as you land from a hop the board is stopped and its old direction of travel wiped (the wipe: native v114), so that the game's mount cannot re-label your stance from the loose board's own travel and turn the deck half a turn under you (10 Oct; which of the game's tests did it that day is not known: the wipe shuts two of the three, the stop the third -- both are needed); 0 = as build 211" },
+    { "BoardHopLandLift", "num", 0, 15, "how many cm over your riding height a hop onto the board ends: clear of the ground, so that the game's own landing does not cut in before the mount (the game lets you down the rest). The riding height is read on level ground only (build 212)" },
+    { "BoardHopAirKeep", "num", 0, 1, "1 = in a hop onto the board you are put back in the air when the game's own landing cuts in on the way (the first two times at the take-off and the first two on the way down, no more); 0 = you are not: the game lands you there by itself, as in build 211. The 'as you land' line of the log counts the frames either way (build 212)" },
+    { "BoardHopTurnHold", "num", 0, 2, "AN EXPERIMENT against the quarter-turn flick as you land from a hop onto the board: your body is kept facing the side of the board by the mesh's own turn, let out as the game blends you into your stance. 1 = the capsule is eased to the riding direction on the way; 2 = the capsule flies as in build 211 and the turn is taken up on the last frame only; 0 = as build 211. On a regular hop; a switch hop only with BoardHopTurnHoldSwitch" },
+    { "BoardHopTurnHoldSwitch", "num", 0, 1, "1 = the hold of BoardHopTurnHold also on a switch hop. Off until the 'frames' lines of a switch hop have shown which way the game turns your body in its own half turn: if that is not as reasoned, the hold would spin you half a turn for a moment" },
+    { "BoardHopRecord", "num", 0, 1, "1 = every hop onto the board writes a line of numbers a frame to the log, from the end of its arc to 0.7 s after the mount (the 'frames' lines); 0 = no" },
+    { "BoardHopKeep", "num", 0, 0.6, "the hop onto the board: seconds your body's heading is held through the mount (native v115). The game turns the capsule a quarter turn to the board on the last frame and blends it away over an eighth of a second: held, you land facing as you flew. 0 = not held (build 212, with its BoardHopTurnHold)" },
+    { "BoardHopFeet", "num", 0, 1, "the hop onto the board: 1 = your feet stand on the deck through the mount -- each ankle is drawn at the height it rides at, its sole flat, and the legs bend to it (the game's own feet dip under the deck and then bounce 28 cm over it, after its board bone, which is still coming down from your hand); the body is not lifted (build 215 lifted it: the stutter). 0 = the game's own feet. Needs native v117" },
+    { "BoardHopHead", "num", 0, 1, "the hop onto the board: 1 = your head is kept level through the hop (the game's jump pose lays it over onto a shoulder); 0 = the game's own head. Needs native v117" },
+    { "LandHoldFix", "num", 0, 1, "1 = while you are in the air on the board the game's hold-still flag is let go of (left up, it stops the board dead at touchdown), and a landing that loses your speed is written to the log; 0 = only the log line" },
+    { "BoardHopPoses", "num", 0, 1, "1 = the first 8 hops onto the board of a run are written to the pose recorder, 120 poses each (needs RecordPoses and TraceLog); 0 = no" },
     { "NativeBoardEase","num", 0.01, 1, "how fast the board eases into (and height follows) the grab's tweak, share per frame" },
     { "NativeEdgeRoll","num", 0, 1,    "grabs: feet may roll onto a sole edge pinned to the deck (Nose: front foot on its outer edge; Tail/Indy/Melon: front foot inner edge, back foot outer edge). 1 = full, 0 = feet flat" },
     { "NativeArmSearch","num", 0, 1,   "1 = the grabbing arm's elbow side is chosen to go round the knees, feet and the deck edge instead of through them" },
@@ -561,7 +685,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "HopFeetFree",   "num", 0, 1,    "a hippie jump's air: 1 = the feet are free to turn with their shins, and a leg the mod has made longer or shorter bends over its own foot (native v100: the game's tuck has the knees out to the sides and the feet straight ahead -- the ankle wrung 43-75 deg, the trouser cuff flat between shin and shoe). 0 = v99's air" },
     { "HopAnkleLimit", "num", 0, 90,   "...the twist a foot may keep against its shin in a hop's air, degrees (18; 15 % of what is over it is left in)" },
     { "AutoUpdate",    "num", 0, 2,    "new versions of the mod: 0 = never looked for. 1 = looked for once a run, at its start, and you are told in ExpandedTricks.log and on the trick display. 2 = also downloaded from the mod's GitHub page (github.com/Portman2/SessionExpandedTricks, its latest release), checked (the release must carry the author's signature, each file its SHA-256) and put in place for the NEXT start of the game; the files before it are kept as main.lua.prev and main.dll.prev (native v101)" },
-    { "PoseRecorder",  "num", 0, 1,    "1 = every trick's skeleton is written to ExpandedTricks.poses.bin beside the logs (up to 96 MB; tools/posedump draws it). For chasing a bad pose; 0 = off (the release's default)" },
+    { "RecordPoses",   "num", 0, 1,    "1 = the skeleton of every trick you do is written to ExpandedTricks.poses.bin beside the logs, and pack-logs.bat puts the newest of them in its zip: a pose that looks wrong can then be looked at exactly as it was on your screen. At 32 MB the file is set aside as ExpandedTricks.poses.bin.old and begun anew (64 MB on disk at most). 0 = nothing is recorded. (It was PoseRecorder, off, until build 195)" },
     { "TraceLog",      "num", 0, 1,    "1 = the native half writes its per-pose traces of hops and plants to ExpandedTricks.native.log (what a bug report needs); 0 = quiet" },
     { "HopCarryTurn",  "num", 0, 1,    "a hop that TURNS: 1 = its feet are carried to their landing spots too, by the share of the turn that is done -- nothing while more than 60 deg are left, all of it from 15 (native v100: a 180 mini hop came down 23-25 cm off the deck's middle line, both ankles 13 cm outside its edge). 0 = v95's: a turned hop comes down where the body has its feet (HopCarry=1)" },
     { "HopHipFix",     "num", 0, 1,    "a hippie jump's air and landing, and a hand on the board: 1 = the hip joints are put back in their sockets (native v99: the game has both thighs 12-19 cm out of the pelvis on the touchdown pose of every hop, and 13-20 cm while a hand is on the board). 0 = left as the game has them" },
@@ -880,8 +1004,15 @@ do
         -- (v97) the two-hand grabs, the mod's own (ids 200+ are the native half's, not the game's)
         -- (v98: + the 14th number, the most the back may fold forward)
         { "Cannonball",    200,  0, 12,  6, 30, 30,   0,   0,  0, 6,  0,  0, 60 },
-        { "Gorilla",       201, 10, 10,  8, 30, 30,   8,  -8,  0, 0, 15,  8, 45 },
+        { "Gorilla",       201, 10, 10,  8, 30, 30,   8,  -8,  0, 0, 15,  8, 45, 18 },
         { "Rocket",        202, 50,  0,  0, 20, 20,   0,   0,  0, 22, 0,  0, 45 },
+        -- (v205) three more, each hand doing what its one-hand grab does (203 Melon + Indy, 204 Mute + Stalefish, 205 Melon +
+        -- Stalefish). Their numbers are put together from the author's ini of 9 Oct: each hand's spot and path, and each
+        -- leg's splay and roll, from that hand's own grab (GRAB_TUNED below has the hands); tilt and back the mean of the
+        -- two; lift, drop and fold the Gorilla's, the two-hand crouch as it was tuned. (+ the 15th number: the bone, cm)
+        { "TruckDriver",   203, -8, -10, 15, 10, -40,  15, -20,  8, 0,  0,  0, 45, 18 },
+        { "DrunkDriver",   204,  0, -10, 15, 25,  10,   8, -10,  5, 0, 15,  8, 45, 18 },
+        { "Squirrel",      205,  3, -10, 15, 10,  10,  15, -10, 18, 0,  0,  0, 45, 18 },
     }
     S.HandRocketAcross, S.Hand2RocketAcross, S.Via2RocketAcross, S.Via2RocketUp = -5, 5, 15, 10   -- (side by side on the nose)
     -- prefix, suffix, the native half's index, lowest, highest, which default column (0 = 0), what it is
@@ -909,6 +1040,10 @@ do
         { "Via2", "Across", 19, -60, 60, 12, "the BACK hand's path: its via point, cm toward your toes (+) / heels (-)", true },
         { "Via2", "Up",     20, -60, 60, 13, "the BACK hand's path: its via point, cm up (+)", true },
         { "Fold", "",      21,   0, 85, 14, "the most the back may fold forward (degrees, spread over the spine) so that BOTH hands reach; the search uses the least it needs", true },
+        -- (v205 / native v109) the edge two-hand grabs' bone
+        -- (v212) its range doubled with the menu's slider, 45 -> 90 ("maybe double the limit or more"). It is what a grab
+        -- ASKS: on 10 Oct no bone came near what was asked (16-28 cm of 45-73), GrabBoneBehind is what lets it out
+        { "Bone", "",      24,   0, 90, 15, "THE BONE (the menu's Grab tweak on bone): cm asked at the full swing of the stick off where it picked the grab -- the body goes back over the back foot, the board poked out toward the nose (or the board itself moves out: GrabBoneMove); 0 = this grab rotates instead. How far a bone really goes is held by GrabBoneBehind" },
         -- (v110) the deck's roll about its long axis; (v113) RELATIVE to the game's own pose, which rolls a regular Nose some 20 deg so the hand wraps the edge
         { "DeckRoll", "",  22, -45, 45,  0, "degrees ADDED to the roll the game's own pose gives the deck in the grab: + the toe-side edge further up, - the heel-side; 0 = as the game poses it (a regular Nose rolls ~20, switch ~0). The same number in both stances" },
         -- (v111) the elbow: with the shoulder and the hand set, swinging the elbow round the reach line is what makes the forearm hang steeper or flatter
@@ -939,6 +1074,9 @@ do
         Cannonball = { Back = -5, Drop = 1, Fold = 10, Hand2Along = -3, Hand2Up = 8, HandAlong = 3, HandUp = 8, Lift = 19, RollBack = -10, RollFront = -10, Slide = 0, Via2Along = -30, ViaAlong = 60 },
         Gorilla = { Drop = 15, Hand2Along = 16, Hand2Up = 7, HandAlong = 15, HandUp = 6, Lift = -10, RollBack = 0, RollFront = 0, SplayBack = 50, SplayFront = 40, SwHand2Along = -8, SwHandAlong = -8, Via2Across = 35, ViaAcross = 25 },
         Rocket = { Hand2Across = 7, Hand2Along = 3, Hand2Up = 8, HandAcross = -11, HandAlong = 3, HandUp = 5, Lift = -10, RollBack = 60, RollFront = -60, SplayBack = -40, SplayFront = 40, SwHand2Along = 1, SwHand2Up = 1, SwHandAcross = 2, SwHandUp = 1, Via2Across = 15, Via2Up = 10, ViaUp = 3 },
+        TruckDriver = { Hand2Along = 3, Hand2Up = 6, HandUp = 6, Via2Across = 40, Via2Along = 40 },
+        DrunkDriver = { Hand2Along = -3, Hand2Up = 6, HandUp = 6, SwHand2Up = 5, Via2Across = 0, Via2Up = 0, ViaAlong = 20 },
+        Squirrel = { Hand2Along = -3, Hand2Up = 6, HandUp = 6, SwHand2Up = 5 },
     }
     -- GRAB_TUNED_END
     for _, g in ipairs(NATIVE.GRABS) do
@@ -946,6 +1084,8 @@ do
             if not p[8] or g[2] >= 200 then
                 local key = p[1] .. g[1] .. p[2]
                 local tv = NATIVE.GRAB_TUNED and NATIVE.GRAB_TUNED[g[1]]   -- (v121) the author's tuned numbers, baked for a fresh install
+                -- (v209) the one-hand grabs on the board's edges bone 15 cm; the ones on its tips (Nose, Tail, Crail, Seatbelt) rotate
+                if S[key] == nil and p[1] == "Bone" and g[2] < 200 then S[key] = ({ Melon = 15, Mute = 15, ChickenSalad = 15, Taipan = 15, Stalefish = 15, Indy = 15, RoastBeef = 15, CanadianBacon = 15 })[g[1]] or 0 end
                 if S[key] == nil then S[key] = (tv and tv[p[1] .. p[2]]) or ((p[6] > 0) and g[p[6]] or 0) end
                 SPEC[#SPEC + 1] = { key, "num", p[4], p[5], g[1] .. ((g[2] >= 200) and " (two hands) -- " or " grab -- ") .. p[7] }
             end
@@ -1011,8 +1151,13 @@ NATIVE.gtDrain = function(hook)
             if it[4] then pcall(it[4]) end
         else
             G.running = it[2] or "an action"
+            local t0, n0 = os.clock(), NATIVE.WK.n                -- (v218, the review) a stick click, a bumper, Y and the timers' work come through here, not through the frame hook: timed the same way
             local ok, err = pcall(it[1])
             G.running = nil
+            if not hook and NATIVE.slow then                     -- (run from the frame hook it is inside that hook's own time already)
+                local dt = os.clock() - t0
+                if dt >= 0.004 then NATIVE.slow(dt, NATIVE.WK.n - n0, it[2] or "a queued action") end
+            end
             if not ok then log("game thread: an action failed: " .. tostring(err)) end
         end
     end
@@ -1035,15 +1180,80 @@ NATIVE.gtPump = function()                              -- every frame, from the
     if now - it[3] < (G.fallback and 0.05 or 0.3) then return end   -- (review) once UE4SS is known to be away the wait is not paid on every input
     if not G.fallback then
         G.fallback = now
-        log(string.format("game thread: UE4SS has not run the mod's queued actions for %.1f s (%d waiting; it last ran them %s%s) -- the frame hook runs them from here on",
-            now - it[3], #G.q, G.servedAt and string.format("%.1f s ago", now - G.servedAt) or "never", G.running and (", and one was still running: " .. tostring(G.running)) or ""))
+        local fg = (type(HJN_Foreground) == "function") and tonumber(HJN_Foreground()) or -1     -- (v203 / native v107)
+        log(string.format("game thread: UE4SS has not run the mod's queued actions for %.1f s (%d waiting; it last ran them %s%s) -- the frame hook runs them from here on [%s]",
+            now - it[3], #G.q, G.servedAt and string.format("%.1f s ago", now - G.servedAt) or "never", G.running and (", and one was still running: " .. tostring(G.running)) or "",
+            (fg == 0) and "the game is NOT the window in front: ExpandedTricks.native.log's 'window:' lines say since when and what is" or ((fg == 1) and "the game is the window in front" or "whether the game is the window in front is not known")))
     end
     NATIVE.gtDrain(true)
 end
 
+-- (v210) THE GAME'S OBJECTS ARE NOT WALKED WHILE THE ENGINE IS CLEARING THEM OUT. The crash at the map change of 9 Oct
+-- 22:37:24 (EXCEPTION_ACCESS_VIOLATION reading 0x6c2cd719; its report shows 82 frames of UE4SS under this file's frame
+-- hook): two seconds into the new map UE4SS's FindAllOf, which walks every object the game has, read one whose class
+-- pointer was garbage. After a level change (and about once a minute in play) the engine destroys the objects it has
+-- dropped ON ANOTHER THREAD, and an object can be freed between the walk reading its slot and reading the object.
+-- This file walked once a second while a trick name was up, at every level change, at the first hop on a map and
+-- twice at every look for a skater that is not there (the menus). Now every walk asks first: the native half (v112,
+-- HJN_GcBusy) reads the engine's own two "a purge is on" flags, and while either is set nothing is walked -- the
+-- caller is told "not now" and each of them asks again later. The skater is looked for twice a second at most. Where
+-- the flags cannot be read (an older native half, a game build they are not found on): no walks for 8 s after a level
+-- change, bar the look for the skater.
+-- (v212) ...twice a second WHILE THERE IS NONE: a look that found the skater holds no later look back (skater()).
+NATIVE.WK = { n = 0, no = 0 }
+-- (v218) A FRAME THE MOD'S OWN WORK MAKES LONG IS SAID. "When I do a grab then I get some stuttering, like a micro
+-- freeze ... and eventually it stops. I was hoping the log showed you the issue." (The Steam tester, 13 Oct.) It did
+-- not: nothing timed the mod. His pose recordings did -- one frame of 29-32 ms (11 usual) every 1.00 s for as long as
+-- the mod held the game's trick display, which a grab's name starts and a bail ends: the display's once-a-second check
+-- walked EVERY object the game has (FindAllOf), 19 ms on a stock map on his machine, 6.5 on the developer's, more on a
+-- map with more objects. That check now looks the widget up by its own name (tdLive), and the other walks that fell on
+-- a trick's first frame are gone (a hop's look for the options, the board's parts). The frame hook is timed from here
+-- on: 4 ms or more of the mod's own work in one frame is a line (the first 200 of a run, one in 2 s unless it is 12 ms
+-- or more), with how many looks through the game's objects were in it.
+NATIVE.slow = function(dt, walks, what)
+    local W, now = NATIVE.WK, os.clock()
+    W.slowN = (W.slowN or 0) + 1
+    if dt > (W.slowMax or 0) then W.slowMax = dt end
+    if (W.slowTold or 0) >= 200 or (W.slowAt and now - W.slowAt < 2 and dt < 0.012) then return end
+    W.slowAt, W.slowTold = now, (W.slowTold or 0) + 1
+    log(string.format("slow frame: the mod's own work (%s) took %.0f ms of this frame (%d look(s) through all the game's objects in it; %d such frames so far, the longest %.0f ms)",
+        tostring(what or "the frame hook"), dt * 1000, walks, W.slowN, W.slowMax * 1000))
+end
+NATIVE.timed = function(fn, ctx)
+    local t0, n0 = os.clock(), NATIVE.WK.n
+    pcall(fn, ctx)
+    local dt = os.clock() - t0
+    if dt >= 0.004 then NATIVE.slow(dt, NATIVE.WK.n - n0) end
+end
+NATIVE.walkOk = function(kind)
+    local W, now = NATIVE.WK, os.clock()
+    local b = -1
+    if type(HJN_GcBusy) == "function" then local ok, r = pcall(HJN_GcBusy) b = ok and tonumber(r) or -1 end
+    local why = nil
+    if b == 1 then why = "the engine is clearing objects out"
+    elseif kind == "skater" then if W.skAt and now - W.skAt < 0.5 then why = "spaced" end
+    elseif b ~= 0 and W.lvlAt and now - W.lvlAt < 8 then why = "a level change under 8 s ago (the engine's purge flags cannot be read)" end
+    if why then
+        if why ~= "spaced" then
+            W.no = W.no + 1
+            if not W.told or now - W.told > 60 then
+                W.told = now
+                log(string.format("objects: a look through the game's objects put off -- %s (%d looks made, %d put off so far)", why, W.n, W.no))
+            end
+        end
+        return false
+    end
+    if kind == "skater" then W.skAt = now end                   -- (v212) taken back by skater() when this look finds one
+    W.n = W.n + 1
+    return true
+end
+NATIVE.all = function(cn) if not NATIVE.walkOk() then return nil end return FindAllOf(cn) end
+NATIVE.first = function(cn) if not NATIVE.walkOk() then return nil end return FindFirstOf(cn) end
+
 local function skater()
     local s = alive(cached)
     if s then return s end
+    if not NATIVE.walkOk("skater") then return nil end          -- (v210) not now: asked again at the next call
     -- (v140) SEVERAL SKATERS: the game's filmer mode has your own and the replay's on the map at once, and FindFirstOf gave
     -- whichever came first (a hop on the replay's skater was the "chaos"). The player-controlled one is yours
     local all = q(function() return FindAllOf("SkaterCharacter") end, nil) or {}
@@ -1057,6 +1267,17 @@ local function skater()
     end
     if #all > 1 then log(string.format("skaters on the map: %d (%s) -- taking %s", #all, table.concat(names, ", "), pick and "the player-controlled one" or "the first")) end
     cached = alive(pick) or alive(q(function() return FindFirstOf("SkaterCharacter") end))
+    -- (v212) ONLY A LOOK THAT FOUND NOBODY HOLDS THE NEXT ONE BACK. The half second between two looks (NATIVE.walkOk) is
+    -- there so that a state with NO skater -- the menus, a map loading -- does not walk the game's objects at every
+    -- call. Build 210 counted it from every look, and a look that FOUND the skater held back the one after it. 10 Oct:
+    -- the 2 s loop found a new map's skater, dropped all it held (forgetWorld) and looked again in the same step --
+    -- "spaced", so it gave up, and did the same two seconds later: "level change (a new skater)" 175 times from
+    -- 09:49:17 to 09:55:06. Two stick clicks in that time (09:54:58.7, 09:55:00.7 in SessionTweaks.log) have no line
+    -- of the mod's -- a look refused as "spaced" says nothing; the third, at 09:55:04.8, found the skater (its "L3
+    -- click" lines), and the loop's next turn was its last. A skater that is found is kept and asks for no look
+    -- while it lives, so the look made right after one that found a skater is not the menus' look over again: it
+    -- is made.
+    if cached then NATIVE.WK.skAt = nil end
     return cached
 end
 
@@ -1078,6 +1299,7 @@ end
 -- The game's own reverts keep their sound.
 NATIVE.audio = nil                         -- { { assetAddress, cueAddress }, ... } once found
 NATIVE.findAudio = function()
+    if not NATIVE.walkOk() then return end                      -- (v210) not now: the 2 s loop asks again (NATIVE.audio stays nil)
     local list = {}
     local all = q(function() return FindAllOf("SkateboardAudioDataAsset") end, nil)
     for _, asset in ipairs(all or {}) do
@@ -1190,6 +1412,9 @@ local BD = { comp = nil, maxAir = 0 }
 local function findFlipper()
     if alive(BD.comp) then return BD.comp end
     BD.comp = nil
+    if BD.lookAt and os.clock() - BD.lookAt < 0.5 then return nil end   -- (v210) a look that found none is not made again at once
+    if not NATIVE.walkOk() then return nil end
+    BD.lookAt = os.clock()
     local ok = pcall(function()
         local all = FindAllOf("PBP_SkateboardEx_C")
         local pcls = StaticFindObject("/Script/Engine.PrimitiveComponent")
@@ -1213,6 +1438,15 @@ local function findFlipper()
         end
     end)
     if not ok then BD.comp = nil end
+    -- (v212) ...AND ONE THAT FOUND THE DECK HOLDS NO LATER LOOK BACK: the skater's trap (see skater()) sat here too.
+    -- boardParts drops the deck it holds and looks again at every call ("the board you stand on now"), and build 210's
+    -- half second, counted from every look, refused the second of two calls made inside it. All four board hops of
+    -- 10 Oct (09:55:27, 09:55:37, 09:56:08, 09:56:22) gave the board its speed with "(7 parts ...)" and 64 to 67 ms
+    -- later "given once more, as always (0 parts)": nothing was given the second time. What the watch after it gives
+    -- again inside that half second would have gone the same way, and the throwdown's second kick, 0.12 s after its
+    -- first. The drop-in's own mount looks too, and its hold looks again 0.45 s after he is first seen riding:
+    -- refused, that is "the board's parts were not found" and the drop-in let go (on 10 Oct 09:47:41 it got its 7).
+    if BD.comp then BD.lookAt = nil end
     logOnce("flipper" .. tostring(BD.comp ~= nil), BD.comp and "   board deck found (its tilt is logged in drops)"
                                                         or "   board deck NOT found -- no tilt in the log")
     return BD.comp
@@ -1235,8 +1469,12 @@ end
 -- .Presets[ActivePresetIndex] (FAdvancedSettings, PDB-confirmed). That object is only
 -- alive around settings load/save, so values are read opportunistically and cached.
 local advCache = {}
-local function readAdvanced(field)
-    local opts = alive(q(function() return FindFirstOf("OptionsSaveGame") end))
+-- (v218) NOT AT A HOP'S START. The object is only there around a settings load / save: 45 of the tester's 45 hops and
+-- 7 of the developer's 8 walked every object of the game for nothing, on the frame of the stick click (+19..22 ms on
+-- his machine). It is looked for when a pause menu comes up (NATIVE.menuWatch: a walk under a menu is not felt, and
+-- that is when the object can be there); a hop takes the kept value.
+local function readAdvanced(field, look)
+    local opts = look and NATIVE.walkOk() and alive(q(function() return FindFirstOf("OptionsSaveGame") end)) or nil   -- (v210) not now = the kept value
     if not opts then return advCache[field], "cached/none" end
     local p   = q(function() return opts.AdvancedSettingsPresets end)
     local idx = p and q(function() return p.ActivePresetIndex end) or nil
@@ -1252,6 +1490,7 @@ end
 local gameNumbersLogged = false
 local function logGameNumbers()
     if gameNumbersLogged then return end
+    if not NATIVE.walkOk() then return end                      -- (v210) said at a later hop
     gameNumbersLogged = true
     local db = alive(q(function() return FindFirstOf("RevertsDatabase") end))
     if db then
@@ -1410,9 +1649,10 @@ NATIVE.hopFlip = function()
 end
 local function airPose(frac)
     if not inst then return end
-    standUp()
+    local ho = NATIVE.HO ~= nil and NATIVE.HO.on == true     -- (v205) the ollie's animation, a test (NATIVE.HO, below)
+    if ho then NATIVE.HO.flags() else standUp() end
     q(function() inst.IsFalling        = true  end)
-    q(function() inst.IsLanding        = true  end)
+    q(function() inst.IsLanding        = (not ho) or frac >= (tonumber(S.HopOllieLand) or 0.72) end)
     q(function() inst.IsGrounded       = false end)
     q(function() inst.IsGroundedWheels = false end)
     q(function() inst.IsJustLanded     = false end)
@@ -1446,6 +1686,212 @@ local function airPose(frac)
         local fp = q(function() return inst.FootPositionType end, nil)
         if fp then q(function() inst.LandingFootPositionType = fp end) end
     end
+end
+
+-- (v205) THE OLLIE'S ANIMATION ON A HIPPIE JUMP (v207: HippieJump = 2, or 3 for one or the other at random; 1 is the hop as it always was).
+-- "I believe we are using the jumping or falling animation for the hippie jumps; I would like to try the ollie animation
+-- if possible in a test. So don't torch the current configs/code." What the hop plays is the game's "Street Trick
+-- PreLand State" (airPose above), reached by standing up out of the crouch. The ollie is another state of the same
+-- machine, "Street Trick State": entered from the crouch or the idle on IsTrickPending, it plays the trick blend space
+-- of one of the anim instance's two trick slots (FlipTrickAnimSet01 / 02, the one FlipTrickAnimSetIndex names) at
+-- FlipTrickPlaybackRate, then goes on to the slot's catch loop (the tucked knees: IsFalling, HasCatchLoop, not landing)
+-- and, once IsLanding is up, to the PreLand and landing states the hop has always used. USkaterAnimInstance::
+-- SetFlipTrick fills a slot when the game starts a trick (read off the exe: the slot whose trick blend space is this
+-- one already, else the other one; the definition's four blend spaces copied in). The same is done here with the
+-- stance's ollie -- the definition by the foot position the crouch has -- and the flags are written every frame, as the
+-- hop's always were. Only the ANIMATION is the ollie's: the game's pop belongs to its movement component, which goes by
+-- the trick it is doing and not by what the graph plays, so the board stays on the ground and rolls on.
+-- The trick animation is fitted into HopOllieSpan of the air (the rate from the animation's own length), the tucked loop
+-- follows, and IsLanding comes up at HopOllieLand of the air. No stand-up and no dip: the animation has its own pop.
+NATIVE.HO = { on = false, DEFS = { [1] = "TRICK_RGS_Ollie", [2] = "TRICK_FKS_Ollie", [3] = "TRICK_NLS_Nollie", [4] = "TRICK_SWS_Ollie" } }
+NATIVE.HO.arm = function(kind)
+    local H = NATIVE.HO
+    H.on, H.rate, H.len, H.s1, H.s2, H.inState = false, nil, nil, nil, nil, nil
+    if H.muted then H.quiet(false) end                    -- (v206) should a hop ever have ended without HO.off
+    H.tb, H.cb = nil, nil
+    -- (v207) "Make it a four-state slider. State one is off, like no jumps. State two is the first animation, our jump
+    -- animation. State three is the ollie animation. State four ... let's just do a random one. Then you can drop the
+    -- experimental setting." HippieJump: 0 off, 1 the jump animation, 2 the ollie's, 3 one or the other, jump by jump
+    local mode = tonumber(S.HippieJump) or 1
+    if not inst or not (mode == 2 or (mode >= 3 and math.random() < 0.5)) then return false end
+    local cls = q(function() return inst:GetClass():GetFName():ToString() end, "?")
+    if cls:find("ABP_AMXX_Skater", 1, true) == nil then
+        logOnce("ho-cls", "hop ollie: this is not the skater's own animation blueprint (" .. cls .. ") -- the hop as it was")
+        return false
+    end
+    local fp = q(function() return inst.FootPositionType end, 1)
+    local nm = H.DEFS[fp] or H.DEFS[1]
+    local d = alive(q(function() return StaticFindObject("/Game/Data/Input/FlipTricks/" .. nm .. "." .. nm) end))
+    if not d then logOnce("ho-def" .. nm, "hop ollie: " .. nm .. " is not in memory -- the hop as it was") return false end
+    local slotN, len, hasCatch
+    local ok, err = pcall(function()
+        local set = d.AnimSet
+        local tb = alive(set.TrickBlendSpace)
+        if not tb then error("the definition has no trick blend space") end
+        local cb = alive(set.CatchBlendSpace)
+        -- the slot the game's own trick is NOT in (the same one when its trick is this very ollie): see HO.hold
+        local idx = tonumber(inst.FlipTrickAnimSetIndex) or 0
+        local cur = alive(((idx == 0) and inst.FlipTrickAnimSet01 or inst.FlipTrickAnimSet02).TrickBlendSpace)
+        H.own = (cur ~= nil and addr(cur) == addr(tb))
+        if not H.own then idx = (idx == 0) and 1 or 0 end
+        H.idx, H.tb, H.cb = idx, tb, cb
+        slotN, hasCatch = idx + 1, cb ~= nil
+        -- how long the animation is: the longest of the blend space's samples (its own AnimLength is only what was last blended)
+        pcall(function()
+            local sd = tb.SampleData
+            for i = 1, sd:GetArrayNum() do
+                local an = alive(q(function() return sd[i]:get().Animation end, nil))   -- (v206: :get(), as this file reads its other arrays)
+                local l = an and tonumber(q(function() return an.SequenceLength end, nil))
+                if l and (not len or l > len) then len = l end
+            end
+        end)
+        if not len then len = tonumber(q(function() return tb.AnimLength end, nil)) end
+    end)
+    if not ok then
+        logOnce("ho-err" .. tostring(err), "hop ollie: the trick slot could not be written (" .. tostring(err) .. ") -- the hop as it was")
+        return false
+    end
+    H.on, H.t0, H.len, H.def, H.slot, H.kind, H.hasCatch = true, os.clock(), len, nm, slotN, kind, hasCatch
+    H.hold()
+    H.quiet(true)
+    return true
+end
+-- (v206) HELD EVERY FRAME. "If you revert and switch stances it's like he ollies in the wrong direction ... he looks
+-- backwards when he ollies." The recording of 9 Oct 20:41:13 (riding switch after a 180 hop, the log saying
+-- "TRICK_SWS_Ollie's animation in trick slot 1"): the feet go through the very poses of the REGULAR hop of 20:37:56, to
+-- the centimetre, the foot at the back of the way he rolls lifting first and sliding away from it. v205 filled the
+-- slot once, at the hop's start -- and USkaterAnimInstance::NativeUpdateAnimation calls SetFlipTrick EVERY frame with
+-- the trick the skater did last (skater + 0x590): a slot whose trick blend space is not that one loses the index to
+-- the other slot, which is filled with the game's trick again. So the hop played the last trick the GAME did,
+-- whatever it was -- the regular ollie all through that session, until one real switch ollie (20:41:18) made the
+-- switch hops right. The slot the game's trick is not in is this hop's, and after the game's update the index is put
+-- on it every frame, the two blend spaces written again; the game goes on filling the other slot and takes the index
+-- back the frame the hop is over.
+NATIVE.HO.hold = function()
+    local H = NATIVE.HO
+    if not inst or not H.tb then return end
+    q(function()
+        local slot = (H.idx == 0) and inst.FlipTrickAnimSet01 or inst.FlipTrickAnimSet02
+        slot.TrickBlendSpace = H.tb
+        if H.cb then slot.CatchBlendSpace = H.cb end
+        inst.FlipTrickAnimSetIndex = H.idx
+        return true
+    end)
+end
+-- (v206) AND QUIET. "It just plays the ollie sound every time he does it, so you're going to have to mute that." The pop
+-- of the board is no sound of the game's code here: the ollie's animations carry their sounds as notifies (in
+-- AMXX_RGS_Ollie_Hi: AnimNotify_PlaySoundRecorded with SCU_Pop_Hi_Jump and the foot on the grip tape, and
+-- AnimNotify_PlaySurfaceTypeSound, which is the same with the ground's kind told to the sound), played whenever the
+-- animation is. Read off the exe, UAnimNotify_PlaySoundRecorded::PlaySound hands the notify's own VolumeMultiplier to
+-- the sound it starts -- so for the length of the hop every sound notify of the trick's and the catch loop's
+-- animations has that at 0, and gets its own back when the hop is over (and before the next hop is silenced, should
+-- that ever have been missed). The notifies are read off the blend spaces' animations; where that finds none they are
+-- looked for by name, once (every sound notify in memory whose animation is this stance's ollie, the landings left
+-- out). HopOllieSound=1 leaves them all as they are.
+NATIVE.HO.quiet = function(on)
+    local H = NATIVE.HO
+    local was = H.muted or {}
+    for i = #was, 1, -1 do                                   -- back as they were
+        local e = was[i]
+        if alive(e.n) then q(function() e.n.VolumeMultiplier = e.vol return true end) end
+    end
+    H.muted = nil
+    if not on or (tonumber(S.HopOllieSound) or 0) ~= 0 then return end
+    local list, seen, names, how = {}, {}, {}, "read off its animations"
+    local function mute(n)
+        local a = n and addr(n)
+        if not a or seen[a] then return end
+        local cls = q(function() return n:GetClass():GetFName():ToString() end, "")
+        if not cls:find("Sound", 1, true) then return end     -- (only a sound notify has the property that is read next)
+        seen[a] = true
+        local vol = tonumber(q(function() return n.VolumeMultiplier end, nil))
+        list[#list + 1] = { n = n, vol = (vol and vol > 0) and vol or 1.0 }
+        q(function() n.VolumeMultiplier = 0.0 return true end)
+        names[cls] = (names[cls] or 0) + 1
+    end
+    for _, bs in ipairs({ H.tb, H.cb }) do
+        pcall(function()
+            local sd = bs.SampleData
+            for i = 1, sd:GetArrayNum() do
+                local an = alive(q(function() return sd[i]:get().Animation end, nil))
+                if an then
+                    local nf = an.Notifies
+                    for j = 1, nf:GetArrayNum() do mute(alive(q(function() return nf[j]:get().Notify end, nil))) end
+                end
+            end
+        end)
+    end
+    if #list == 0 then
+        how = "found by name"
+        local pat = tostring(H.def):gsub("^TRICK_", "AMXX_") .. "_"            -- TRICK_RGS_Ollie -> AMXX_RGS_Ollie_
+        H.byName = H.byName or {}
+        local found = H.byName[pat]
+        if not found and not NATIVE.walkOk() then H.muted = list return end   -- (v210) not now: this hop's ollie is heard, the next hop looks again
+        if not found then
+            found = {}
+            for _, cn in ipairs({ "AnimNotify_PlaySoundRecorded", "AnimNotify_PlaySurfaceTypeSound" }) do
+                for _, o in ipairs(q(function() return FindAllOf(cn) end, nil) or {}) do
+                    local full = q(function() return o:GetFullName() end, "")
+                    if full:find(pat, 1, true) and not full:find("Land", 1, true) and not full:find("Drop", 1, true) then found[#found + 1] = o end
+                end
+            end
+            H.byName[pat] = found
+        end
+        for _, o in ipairs(found) do mute(alive(o)) end
+        if #found > 0 and #list == 0 then H.byName[pat] = nil end             -- (all gone: another level's -- looked for again next hop)
+    end
+    H.muted = list
+    local parts = {}
+    for k, v in pairs(names) do parts[#parts + 1] = v .. " x " .. k end
+    table.sort(parts)
+    local e1 = list[1]
+    logOnce("ho-quiet" .. tostring(H.def), string.format("hop ollie: %d sound notifies of %s's trick and catch animations silenced for the hop (%s; %s)%s", #list, tostring(H.def), how,
+        (#parts > 0) and table.concat(parts, ", ") or "NONE FOUND: its sounds will be heard",
+        e1 and string.format("; the first one's volume reads %s now", tostring(q(function() return e1.n.VolumeMultiplier end, "?"))) or ""))
+end
+NATIVE.HO.flags = function()                          -- every frame of the hop, where the usual hop stands up
+    local H = NATIVE.HO
+    if not inst then return end
+    local el = os.clock() - (H.t0 or os.clock())
+    for i = 1, #BLOCKERS do
+        local k = BLOCKERS[i]
+        if k ~= "IsTrickPending" then q(function() inst[k] = false end) end
+    end
+    q(function() inst.CrankPocketRatio = 0.0 end)
+    H.hold()                                              -- (v206) after the game's own SetFlipTrick of this frame
+    -- (v209 / native v111) "the back foot goes below the board": the ollie's back foot pushes down as the tail would go, and on a
+    -- board that stays flat the native half raises the body by it instead, for the first part of the hop (HopOllieDeck)
+    if (tonumber(S.HopOllieDeck) or 1) ~= 0 and el < (P.pre or 0) + 0.45 * (airT or 0) and type(HJN_Set) == "function" then pcall(HJN_Set, "hopdeck", 8) end
+    if not H.rate then
+        local span = (tonumber(S.HopOllieSpan) or 0) * (airT or 0)
+        H.rate = (H.len and H.len > 0.1 and span > 0.05) and math.max(0.4, math.min(3.0, H.len / span)) or 1.0
+        log(string.format("hop ollie (%s): %s's animation in trick slot %s (%s) -- %s, played x%.2f (to fit %.0f %% of %.2f s of air), then its tucked loop%s; the legs go for the landing from %.0f %% of the air",
+            tostring(H.kind), tostring(H.def), tostring(H.slot), H.own and "the game's last trick was this one: its own slot" or "the game's last trick is another: held against it every frame",
+            H.len and string.format("%.2f s long", H.len) or "its length not known",
+            H.rate, (tonumber(S.HopOllieSpan) or 0) * 100, airT or 0, H.hasCatch and "" or " (this definition has NO catch loop)",
+            (tonumber(S.HopOllieLand) or 0.72) * 100))
+    end
+    -- the way in: up until the machine has taken it (a hop begun while pushing has the push state to leave first), 0.3 s
+    -- at most; the state is left by its own rules. Without it the idle goes to the catch loop on IsFalling: no pop, the tuck
+    if not H.inState and el < 0.3 and q(function() return inst:GetCurrentStateName(5):ToString() end, "") == "Street Trick State" then H.inState = true end
+    q(function() inst.IsTrickPending = (not H.inState) and el < 0.3 end)
+    q(function() inst.HasCatchLoop = true end)
+    q(function() inst.HasTrickLoop = false end)
+    q(function() inst.IsAutoCatching = true end)
+    q(function() inst.FlipTrickPlaybackRate = H.rate end)
+    q(function() inst.FlipTrickPopRatio = 1.0 end)
+    q(function() inst.FlipTrickStanceTransferRatio = 0.0 end)
+    -- what the game's machine made of it, twice a hop (the usual "apex" line says it a third time)
+    if not H.s1 and el >= 0.15 then H.s1 = true log("   hop ollie, 0.15 s in: " .. stateNow()) end
+    if not H.s2 and el >= (P.pre or 0) + 0.88 * (airT or 0) then H.s2 = true log("   hop ollie, 88 % of the air: " .. stateNow()) end
+end
+NATIVE.HO.off = function()                            -- the hop is over, however it ended
+    local H = NATIVE.HO
+    if not H.on then return end
+    H.on = false
+    if inst then q(function() inst.IsTrickPending = false end) end
+    H.quiet(false)                                        -- (v206) the animation's sounds back; the slot's index the game takes back itself
+    H.tb, H.cb = nil, nil
 end
 
 ------------------------------------------------------------------- landing absorb
@@ -1676,7 +2122,7 @@ local bailBroken = false
 local function doBail(why, residual)
     if bailBroken then return false end
     local other = alive(q(function() return s0:GetController() end))
-    if not other then other = alive(q(function() return FindFirstOf("SessionPlayerController") end)) end
+    if not other then other = alive(q(function() return NATIVE.first("SessionPlayerController") end)) end
     if not other then log("   bail: no controller to use as the other actor -- landing it instead") return false end
     log(string.format("   BAIL (%s) -- TRY HandleOnMeshHit  (onBoard=%s falling=%s)", why,
         tostring(q(function() return mv._isOnBoard end, "?")), tostring(q(function() return mv:IsFalling() end, "?"))))
@@ -2070,8 +2516,18 @@ do   -- trick names + swap trace: their helpers stay in here (the 200-locals lim
 -- in after a mod line pushes it up; a mod line pushes the game's lines up one tier when it comes in.
 local TD = { w = nil, panel = nil, cls = nil, pc = nil, wbl = nil, lines = {}, known = {}, failed = 0, later = {}, calmSince = nil }
 NATIVE.forgetUi = function()        -- (map changes: the widgets die with the level -- see forgetWorld)
-    TD.w, TD.panel, TD.cls, TD.pc = nil, nil, nil, nil
-    TD.lines, TD.later, TD.known = {}, {}, {}
+    TD.w, TD.panel, TD.cls, TD.pc, TD.path, TD.full, TD.kept, TD.keptFull = nil, nil, nil, nil, nil, nil, nil, nil
+    TD.lines, TD.later, TD.known, TD.veiled, TD.above = {}, {}, {}, {}, {}
+end
+-- (v218) IS IT THE OBJECT IT WAS? Asked of the object itself, without a look through the game's objects and without
+-- a look-up by name. UE4SS 3.0.1's IsValid is: the pointer is there, the engine has not marked the object unreachable,
+-- and its address is in UE4SS's own list of the objects it has handed to Lua -- from which the engine's "object
+-- deleted" notice takes it the moment the object is freed. So a valid object is a live one at that address: the one
+-- that was found, or one made later in the same place. Its full name tells the two apart: an object's number
+-- ("PBP_TrickDisplayWidget_C_2147482414") is given once in a run of the game.
+TD.same = function(o, full)
+    if type(full) ~= "string" or not alive(o) then return false end
+    return q(function() return o:GetFullName() end, nil) == full
 end
 
 local function tdNum(k, d) local v = q(function() return TD.w[k] end, nil) return type(v) == "number" and v or d end
@@ -2086,16 +2542,39 @@ local function tdFind()
     if not cname then TD.failed = TD.failed + 1 log("   trick names: the controller has no trick display class") return false end
     local pcA, found = addr(pc), nil
     TD.cname = cname                                   -- (v145) for tdLive
-    local all = q(function() return FindAllOf(cname) end, nil)
-    for _, w in ipairs(all or {}) do
-        local full = q(function() return w:GetFullName() end, "")
-        if alive(w) and not full:find("Default__", 1, true) then
-            local owner = alive(q(function() return w:GetOwningPlayer() end))
-            if not found or (owner and addr(owner) == pcA) then found = w end
+    -- (v218) THE DISPLAY HELD BEFORE THE BAIL, WHERE IT IS STILL THE GAME'S. A bail forgets the display (tdBail), and the
+    -- next name looked for it through every object of the game: 0.37 s into the first grab after each bail. The one
+    -- that was held is asked first: is it there under the name it had (TD.same), on the screen, and this player's?
+    -- Then it is the game's display still, and nothing is walked. Any other answer: the look, as before.
+    local kept, keptFull, how = TD.kept, TD.keptFull, "found by a look through the game's objects"
+    if keptFull then
+        if type(HJN_GcBusy) == "function" and tonumber(q(HJN_GcBusy, -1)) == 1 then return false end   -- the engine is clearing objects out: asked again at the next name
+        TD.kept, TD.keptFull = nil, nil
+        if TD.same(kept, keptFull) and q(function() return kept:IsInViewport() end, false) == true
+            and addr(alive(q(function() return kept:GetOwningPlayer() end))) == pcA then
+            found, how = kept, "the one held before the bail (asked: still there, on the screen, this player's) -- no look through the game's objects"
+        end
+    end
+    if not found then
+        if not NATIVE.walkOk() then return false end            -- (v210) not now: not counted as a failure, asked again at the next name
+        local all = q(function() return FindAllOf(cname) end, nil)
+        for _, w in ipairs(all or {}) do
+            local full = q(function() return w:GetFullName() end, "")
+            if alive(w) and not full:find("Default__", 1, true) then
+                local owner = alive(q(function() return w:GetOwningPlayer() end))
+                if not found or (owner and addr(owner) == pcA) then found = w end
+            end
         end
     end
     if not found then TD.failed = TD.failed + 1 log("   trick names: no " .. cname .. " on screen") return false end
-    TD.w, TD.pc = found, pc
+    TD.w, TD.pc, TD.asked = found, pc, nil
+    -- (v218) WHAT IT CALLS ITSELF, for the once-a-second check (tdLive, TD.same). NOT looked up by that name: UE4SS
+    -- 3.0.1's StaticFindObject is a table of the paths it has found before, and a path that is not in it yet (a new
+    -- display's) or not in it any more (a freed one's) is found by going through every object of the game and
+    -- writing out the full name of each one in the same package -- a longer walk than the one this replaces.
+    TD.full = q(function() return found:GetFullName() end, nil)
+    if type(TD.full) ~= "string" or TD.full == "" then TD.full = nil end
+    TD.path = nil
     TD.panel = alive(q(function() return found._trickDisplayPanel end))
     TD.cls = alive(q(function() return found._trickDisplayTextBlueprint end))
     TD.wbl = alive(q(function() return StaticFindObject("/Script/UMG.Default__WidgetBlueprintLibrary") end))
@@ -2106,9 +2585,11 @@ local function tdFind()
         TD.w = nil
         return false
     end
-    log(string.format("   trick names: using %s (tiers %d, %.1fs, scale %.2f..%.2f, alpha %.2f..%.2f, padding %.0f)", cname,
+    log(string.format("   trick names: using %s (tiers %d, %.1fs, scale %.2f..%.2f, alpha %.2f..%.2f, padding %.0f); %s; %s", cname,
         tdNum("NumberOfTiers", 0), tdNum("MaxTextDuration", 0), tdNum("MinTextScale", 0), tdNum("MaxTextScale", 0),
-        tdNum("MinTextAlpha", 0), tdNum("MaxTextAlpha", 0), tdNum("TrickDisplayTextWidgetPadding", 0)))
+        tdNum("MinTextAlpha", 0), tdNum("MaxTextAlpha", 0), tdNum("TrickDisplayTextWidgetPadding", 0), how,
+        TD.full and "checked once a second by asking it its own name (no look through the game's objects)"
+            or "checked once a second by a look through all the game's objects (it gave no name)"))
     return true
 end
 
@@ -2125,6 +2606,38 @@ local function tdChildren()
 end
 
 local function isMod(a) for _, l in ipairs(TD.lines) do if l.a == a then return true end end return false end
+
+-- (v196) A GAME LINE THAT CANNOT BE READ YET IS NOT SEEN YET. "A flip to a grab off a tall ledge: sometimes the tricks come
+-- on screen at the same time and overlap." The game puts its new line at the bottom, where the mod's newest one is; the
+-- mod's line moves up a tier for it -- but only once the game's line has been read (is it one to hide, an ' Ollie' under
+-- a grab's name?), and a line is not read for its first tenth of a second (v141: reading one sooner crashed), half a
+-- second when its text is slow to come. For that long the two lay on top of each other. While one of the mod's lines is
+-- up, a game line that is new and not read yet is drawn at no opacity; the frame it is read it gets its own back and
+-- the mod's line moves up in the same frame, or it is hidden as before. (Only its render opacity: the widget is the
+-- game's, in the game's list, exactly where the game put it.)
+TD.veiled, TD.above = {}, {}
+TD.veilOn = function(c)
+    if TD.veiled[c.a] ~= nil then return end
+    local a = q(function() return c.w:GetRenderOpacity() end, nil)
+    TD.veiled[c.a] = { (type(a) == "number" and a > 0) and a or 1, os.clock() }
+    q(function() c.w:SetRenderOpacity(0.0) end)
+end
+TD.veilOff = function(c)                               -- one line (-> how long it was unseen), or with no argument every one still in the panel
+    if c then
+        local v = TD.veiled[c.a]
+        if not v then return nil end
+        TD.veiled[c.a] = nil
+        q(function() c.w:SetRenderOpacity(v[1]) end)
+        return os.clock() - v[2]
+    end
+    if next(TD.veiled) == nil then return nil end
+    for _, k in ipairs(tdChildren()) do
+        local v = TD.veiled[k.a]
+        if v then q(function() k.w:SetRenderOpacity(v[1]) end) end
+    end
+    TD.veiled = {}
+    return nil
+end
 
 -- one tier up: the game's own step (scale and opacity lose Min/Max each tier, never below Min)
 local function tdStep(v, lo, hi) local n = v - lo / math.max(hi, 1e-3) if n < lo then return lo end return math.min(hi, n) end
@@ -2155,11 +2668,24 @@ end
 
 -- (v145) is the display we hold still the game's? (its address among the live instances, once a second)
 local function tdLive()
-    if not TD.cname or not alive(TD.w) then return false end
+    if not TD.cname or not alive(TD.w) then TD.gone = "it is not a valid object any more" return false end
+    if TD.full then                                             -- (v218) the object is asked itself (TD.same): nothing is looked up, nothing is walked
+        if type(HJN_GcBusy) == "function" and tonumber(q(HJN_GcBusy, -1)) == 1 then return true end   -- the engine is clearing objects out: taken as still there, asked again in a second
+        local nm = q(function() return TD.w:GetFullName() end, nil)
+        TD.asked = (TD.asked or 0) + 1
+        if nm == TD.full then
+            logOnce("tdasked", "   trick names: the display was asked its name -- '" .. nm .. "', as when it was found: still the game's (asked once a second from here on; a line only when the answer changes)")
+            return true
+        end
+        TD.gone = "what is at its address now calls itself '" .. tostring(nm) .. "', not '" .. TD.full .. "'"
+        return false
+    end
     local mine = addr(TD.w)
+    if not NATIVE.walkOk() then return true end                 -- (v210) not now: taken as still there, asked again in a second
     for _, w in ipairs(q(function() return FindAllOf(TD.cname) end, nil) or {}) do
         if addr(w) == mine then return true end
     end
+    TD.gone = "it is not among the game's " .. TD.cname .. " objects any more"
     return false
 end
 
@@ -2187,7 +2713,15 @@ end
 NATIVE.tdBail = function()
     for i = #TD.lines, 1, -1 do tdDrop(i) end
     TD.later, TD.calmSince, TD.hideUntil, TD.known, TD.born = {}, nil, nil, {}, {}
+    if (TD.asked or 0) > 0 and (TD.askTold or 0) < 12 then      -- (v218) what the once-a-second check was, for the log
+        TD.askTold = (TD.askTold or 0) + 1
+        log(string.format("   trick names: the display was asked its name %d time(s) since it was found; the game's objects were not looked through for it", TD.asked))
+    end
+    TD.asked = nil
+    local kept, keptFull = TD.w, TD.full                        -- (v218) not touched while the game rebuilds its display; asked when the next name wants it (tdFind)
+    if not kept then kept, keptFull = TD.kept, TD.keptFull end  -- (a second bail before any name of the mod's: what the first one kept is kept)
     NATIVE.forgetUi()
+    TD.kept, TD.keptFull = kept, keptFull
     TD.quietUntil = os.clock() + 4
 end
 trickName = function(text)
@@ -2200,11 +2734,12 @@ trickName = function(text)
     if not tb then TD.failed = TD.failed + 1 log("   trick names: could not make the text line") return false end
     local ok, err = pcall(function() tb:SetText(FText(text)) end)
     if not ok then TD.failed = TD.failed + 1 log("   trick names: SetText failed: " .. tostring(err)) return false end
+    TD.veilOff()                                         -- (v196) every game line as the game drew it, before it is pushed up
     local before = tdChildren()
     local slot = alive(q(function() return TD.panel:AddChild(line) end))
     if not slot then TD.failed = TD.failed + 1 log("   trick names: AddChild failed") return false end
     q(function() slot:SetAlignment({ X = 1.0, Y = 1.0 }) end)
-    for _, c in ipairs(before) do if not isMod(c.a) then tdNudgeGame(c) end end
+    for _, c in ipairs(before) do if not isMod(c.a) then tdNudgeGame(c) TD.above[c.a] = true end end   -- (v196) remembered: not a new line when it is read later
     for _, l in ipairs(TD.lines) do l.tier = l.tier + 1 tdPlace(l) end
     local l = { w = line, slot = slot, a = addr(line), t0 = os.clock(), tier = 0 }
     table.insert(TD.lines, l)
@@ -2261,6 +2796,8 @@ end
 local function tdForget(seen)
     for a in pairs(TD.born or {}) do if not seen[a] then TD.born[a] = nil end end
     for a in pairs(TD.txt or {}) do if not seen[a] then TD.txt[a] = nil end end
+    for a in pairs(TD.veiled or {}) do if not seen[a] then TD.veiled[a] = nil end end   -- (v196)
+    for a in pairs(TD.above or {}) do if not seen[a] then TD.above[a] = nil end end
 end
 
 local function tdHidden(c, t)
@@ -2304,7 +2841,7 @@ trickNameTick = function(now)
     if alive(TD.panel) and now - (TD.validAt or -1e9) > 1 then                     -- (v145) still the game's display?
         TD.validAt = now
         if not tdLive() then
-            log("   trick names: the game rebuilt its trick display -- ours forgotten, found afresh for the next name")
+            log("   trick names: the game rebuilt its trick display (" .. tostring(TD.gone or "?") .. ") -- ours forgotten, found afresh for the next name")
             TD.lines, TD.later = {}, {}
             NATIVE.forgetUi()
             TD.quietUntil = now + 2
@@ -2319,10 +2856,26 @@ trickNameTick = function(now)
     -- the panel, so a name on screen when the replay editor opened stayed on screen for good ("some trick names stay on the
     -- screen": the Switch Cannonball of 17:22:54, the editor opened two seconds later). They are left alone while the replay
     -- is up and taken out, by age, on the first frame after it
-    if NATIVE.rawMode() == 6 then TD.hideUntil = nil return end
+    if NATIVE.rawMode() == 6 then
+        TD.hideUntil = nil
+        -- (v208) ...AND NOT LEFT UP FOR THE WHOLE REPLAY. "A lot of the trick names are staying on the screen during the replay
+        -- editor." v150 left the mod's lines alone in this mode -- their clock stands still here, so a name up when the editor
+        -- opened stayed for as long as it was open (the game's own lines fade by themselves). The widget reads that crashed
+        -- on 3 Oct were made in the very frames a bail threw the game into this mode: so half a second in, and only when the
+        -- once-a-second check above has just found the display to be the game's own still, the mod's lines are taken out.
+        TD.m6At = TD.m6At or now
+        if #TD.lines > 0 and now - TD.m6At >= 0.5 and alive(TD.panel) and now - (TD.validAt or -1e9) <= 1 then
+            local n = #TD.lines
+            for i = n, 1, -1 do tdDrop(i) end
+            log(string.format("   trick names: %d of ours taken off the screen -- the replay editor (or a replay camera) is up", n))
+        end
+        return
+    end
+    TD.m6At = nil
     local hiding = TD.hideUntil and now < TD.hideUntil
     if not alive(TD.panel) then TD.lines = {} TD.hideUntil = nil return end
     if #TD.lines == 0 and not hiding then
+        TD.veilOff()                                     -- (v196) none of ours is up: nothing of the game's stays unseen
         local cm = modeNow()
         if cm == MODE_AIR then TD.airAt = now end
         if not (TD.airAt and now - TD.airAt < 0.8) or now - (TD.scanAt or -1e9) < 0.1 then return end
@@ -2348,9 +2901,22 @@ trickNameTick = function(now)
         if not TD.known[c.a] and not isMod(c.a) then
             local tx, settled = tdText(c, now)                        -- (v141) a new game line, once its text is there
             if settled then
+                local unseen = TD.veilOff(c)                  -- (v196) seen from this frame on, and ours moves up in this frame
                 if tx and NATIVE.gameLine then pcall(NATIVE.gameLine, tx, now) end
-                if not (hiding and tdHidden(c, tx)) then bumped = bumped + 1 end
+                if hiding and tdHidden(c, tx) then TD.above[c.a] = nil
+                elseif TD.above[c.a] then                     -- (v196) pushed above ours when ours was put up: ours stays where it is
+                    TD.above[c.a] = nil
+                    log("   trick names: the game's '" .. tostring(tx or "?") .. "' line was up, unread, when ours was put under it -- ours stays (it used to be moved up onto it)")
+                else
+                    bumped = bumped + 1
+                    if #TD.lines > 0 then
+                        log(string.format("   trick names: the game's '%s' line came up %.2f s after ours -- ours moved up a tier%s", tostring(tx or "?"), now - TD.lines[#TD.lines].t0,
+                            unseen and string.format(" (it was kept unseen for the %.0f ms until it could be read)", unseen * 1000) or ""))
+                    end
+                end
                 seen[c.a] = true                              -- (v109) hidden or not, it is known now
+            elseif (#TD.lines > 0 or hiding) and not TD.above[c.a] then
+                TD.veilOn(c)                                  -- (v196) not read yet: not seen yet (one already pushed above ours is in nobody's way)
             end
         else
             seen[c.a] = true
@@ -2815,9 +3381,64 @@ GR.blocked = function(id)
     end
     return GR.blockedSet[id] == true
 end
-local function gameGrabFor(bumper, x, y)
+-- (v199) THE GAME'S LEFT-FOOT / RIGHT-FOOT STICK MODE. "There is a stick input mode. I play front and back foot: my left
+-- stick is always front and right is always back. The other mode is left and right foot, so depending on which way the
+-- player is facing the sticks swap. We need to tap into that mode and switch our grabs around -- find what flag the game
+-- uses itself, and just swap RB and LB for the grabs." The game's own grab pick (InAirHandler::CheckForGrabs, read off the
+-- exe) is LB + the left stick = the front hand's six grabs, RB + the right stick = the back hand's six -- EXCEPT when
+-- IsSkatingSwitch and the controller's input mode is not FrontFootBackFoot (EInputModeType: 1 LeftFootRightFoot,
+-- 2 FrontFootBackFoot, 3 Legacy; InputHandler+0x20, the controller's reflected GetInputModeType): then RB + the right
+-- stick picks the front hand's and LB + the left stick the back hand's. The mod's own pick (the map below) knew only the
+-- first half, so in that mode, riding switch, it handed the game the other hand's grab. GR.swap() is the game's test;
+-- every place of the mod's that tells LB from RB asks it: the air grabs, the two-hand grabs, the click grabs, and the
+-- hand on the board while riding (the rolling grab, the boneless, the bean plant, the finger flip). Each stick keeps
+-- its own reading (the right stick's Y is the other way round in the game's read, whichever hand it picks for).
+-- GrabFollowStickMode=0 switches it off.
+GR.MODE_NAME = { [0] = "none", [1] = "left foot / right foot", [2] = "front foot / back foot", [3] = "legacy" }
+GR.swap = function(now)
+    if S.GrabFollowStickMode == 0 then return false end
+    now = now or os.clock()
+    if not GR.modeAt or now - GR.modeAt > 1 or now < GR.modeAt then
+        GR.modeAt = now
+        local pc = alive(SB.pc) or (alive(s0) and alive(q(function() return s0:GetController() end)))
+        local m = pc and tonumber(q(function() return pc:GetInputModeType() end, nil)) or nil
+        if m ~= nil and m ~= GR.mode then
+            GR.mode = m
+            log(string.format("grabs: the game's stick mode is '%s' (%d) -- %s", GR.MODE_NAME[m] or "?", m,
+                (m == 1 or m == 3) and "LB is the LEFT hand and RB the right, as the sticks are the left and the right foot: they change places whenever the left foot is the back one (a regular rider riding switch, a goofy rider riding forward)"
+                    or "LB is the front hand and RB the back hand, whichever way you ride"))
+        elseif m == nil and GR.mode == nil then
+            logOnce("grabmode", "grabs: the game's stick mode could not be read (GetInputModeType) -- LB stays the front hand")
+        end
+    end
+    -- (v200) ...BY THE FEET, NOT BY THE GAME'S GRAB PICK. "I think you have it reversed." v199 took the game's own test
+    -- (switch, and not the front-foot / back-foot mode), and the game's grab pick does not look at goofy: for the goofy
+    -- rider of 7 Oct 23:18-23:20 it left LB the front hand riding forward -- his RIGHT hand, with the left stick his
+    -- left, back, foot -- and made it the back hand riding switch, where his left foot leads. The sticks themselves the
+    -- game does turn for goofy (InputHandler::ConvertToCurrentInputModeInput takes switch AND goofy): in this mode the
+    -- left stick is the left foot whoever rides and however. So LB is the left hand: the back hand whenever the left
+    -- foot is the back foot -- a regular rider riding switch, a goofy rider riding forward.
+    return (GR.mode == 1 or GR.mode == 3) and ((NAT.goofy == true) ~= (NAT.switch == true))
+end
+-- (v201) THE STICK POINTS AT THE SIDE OF THE BOARD THE HAND GOES TO. "A left stick, left direction plus the left bumper
+-- should be the Mute, and to the right the Melon. And vice versa for the right side" -- from a goofy rider. The game's
+-- map is right = the toe-side grabs (Mute, Taipan / Indy, Canadian Bacon), left = the heel-side ones, whoever rides:
+-- right IS the toe side for a regular rider rolling forward, the camera behind him -- and the heel side for a goofy
+-- one, whose toes point left (7 Oct 23:32: left gave him the Stalefish and the Melon, right the Indy and the Mute).
+-- The click grabs have had it by the board from the start (grabDirection: "goofy, or rolling switch/fakie, flips
+-- that"); the bumpers' map takes the same rule. GrabToeSide: 1 = by the rider (this), 0 = right always, 2 = left always.
+GR.toeLeft = function()
+    local how = tonumber(S.GrabToeSide) or 1
+    if how < 0.5 then return false elseif how > 1.5 then return true end
+    return (NAT.goofy == true) ~= (NAT.switch == true)
+end
+-- the game's own grab pick's test (v199's): it differs from GR.swap for a goofy rider, and only there
+GR.gameSwap = function() return (GR.mode == 1 or GR.mode == 3) and NAT.switch == true end
+NATIVE.grabSwap = GR.swap                              -- (the hand on the board is outside this block, where GR is not known)
+local function gameGrabFor(bumper, x, y, swap)
+    local front = (bumper == "LB") ~= (swap == true)       -- (v199) the front hand's grabs, or the back hand's
     if math.sqrt(x * x + y * y) < 0.3 then
-        local name = (bumper == "LB") and S.GrabLBNeutral or S.GrabRBNeutral
+        local name = front and S.GrabLBNeutral or S.GrabRBNeutral
         return type(name) == "string" and GRAB_ID[name:lower():gsub("[%s_%-]", "")] or nil
     end
     -- the game reads the right stick with Y the other way round (its RightStick_Y is +1 pulled DOWN): the
@@ -2825,8 +3446,9 @@ local function gameGrabFor(bumper, x, y)
     if bumper == "RB" then y = -y end
     local a = math.atan(x, y) / math.pi
     local m, right = math.abs(a), a > 0
+    if GR.toeLeft() then right = not right end           -- (v201) 'right' below = toward the toes
     local id
-    if bumper == "LB" then
+    if front then
         if m < 0.28 then id = 1                                         -- Nose
         elseif m <= 0.6 then id = right and 3 or 2                      -- Mute / Melon
         elseif m < 0.84 then id = right and 5 or 4                      -- Taipan / Chicken Salad
@@ -2855,7 +3477,16 @@ GR.turnName = function(base)
     local sw = GR.sw if sw == nil then sw = NAT.switch end          -- (v129) the stance the grab started in (hippie jumps say Switch the same way)
     return sw and ("Switch " .. name) or name
 end
-GR.DOUBLES = { { "Cannonball", 200, "Cannonball" }, { "Gorilla", 201, "Gorilla Grab" }, { "Rocket", 202, "Quasimodo" } }   -- (v129) the third is the display name
+GR.DOUBLES = { { "Cannonball", 200, "Cannonball" }, { "Gorilla", 201, "Gorilla Grab" }, { "Rocket", 202, "Quasimodo" },   -- (v129) the third is the display name
+               -- (v205) "A double grab that is both bumpers with a left or right stick direction ... depending on stance
+               -- could be a melon or a mute plus an indy or a stalefish ... technically 4 button/stick states, our current
+               -- gorilla the one with both sticks toeside." Skateboarding has no names for the other three; snowboarding
+               -- has all of them (chosen: the snowboard names). Each stick picks toe side or heel side for its own hand by
+               -- the map the one-hand grabs go by (gameGrabFor: the stick mode, the stance, the toes' side), so the four
+               -- states fall out of the pairs: toe + toe the Gorilla, heel + toe the Truck Driver, toe + heel the Drunk
+               -- Driver, heel + heel the Squirrel.
+               { "TruckDriver", 203, "Truck Driver" }, { "DrunkDriver", 204, "Drunk Driver" }, { "Squirrel", 205, "Squirrel" } }
+GR.EDGE = { [201] = true, [203] = true, [204] = true, [205] = true }      -- (v205) the two-hand grabs on the board's edges: the ones that bone
 GR.doubleFor = function(idL, idR)
     for _, d in ipairs(GR.DOUBLES) do
         local a, b = tostring(S["Double" .. d[1]] or ""):match("^%s*([^%+]-)%s*%+%s*([^%+]-)%s*$")
@@ -2871,6 +3502,7 @@ local function grabSet(id, why)
     local ok, err = pcall(function() s0:ServerRPCSetGrab(id) end)
     if not ok then log("   grab start failed: " .. tostring(err)) return false end
     log("   " .. why)
+    GR.setId, GR.setAt = id, os.clock()                  -- (v202) the mod's own: GR.ownPick leaves it alone
     -- (v117) the game's catch orient, set as its own grab pick would have (the deck follows the board bone only in that
     -- state: a grab started with it at 0 took no tilt at all -- the Crail / Seatbelt / Stalefish "sometimes")
     if S.NativeCatchHold ~= 0 and type(HJN_CatchOrient) == "function" then
@@ -2909,6 +3541,41 @@ grabKick = function(bumper)
     GR.want = { bumper = bumper, t0 = os.clock() }
 end
 
+-- (v202) A GRAB THE GAME PICKED ITSELF GOES BY THE MOD'S MAP TOO. "Mute and Indy should always be toe-side grabs: the
+-- stick direction should match depending on the stance, not be the same every time. Riding goofy my toes point left, so
+-- an Indy is the right bumper and the right stick to the LEFT; in switch they point right, and it is the right stick to
+-- the RIGHT ... a dynamic system instead of a stale direction always equals a certain grab." v201 did that for the
+-- grabs the MOD picks -- but with a stick already pushed when the bumper comes down, the game's catch-orient is up and
+-- its own pick takes the grab in that very frame, by its own map: right = the toe-side grabs for everyone, LB = the
+-- front hand whatever the feet. The mod's latch then found a grab held and stood back. 7 Oct 23:45-23:47, one goofy
+-- rider, rolling forward: bumper and stick together (the mod's pick) left = Mute, left = Indy, right = Stalefish; stick
+-- first (the game's) right = Mute twice, left = Melon twice, right = Indy -- "stale". So a grab that appears without
+-- the mod having handed it over is looked at once, the tick it appears: where the game's map is not the mod's (the
+-- toes are on the left, or the bumpers have changed places and the game's own swap has not) the mod's map is asked,
+-- with the bumper that was pressed (the latch's; else the one the game's pick goes by) and the DIRECTION of its stick
+-- alone -- the game picks by direction at any deflection -- and the game is handed that grab instead. Elsewhere the
+-- game's pick stands, as it always has. Twice a grab at most; not with both bumpers down (the two-hand grabs').
+GR.ownPick = function(now, native)
+    local sw, toeLeft = GR.swap(now), GR.toeLeft()
+    if not toeLeft and sw == GR.gameSwap() then return native end           -- the game's map is the mod's here
+    if type(HJN_Bumpers) == "function" and (tonumber(HJN_Bumpers()) or 0) == 3 then return native end
+    local bumper = (GR.want and GR.want.bumper) or (((native < 100) ~= GR.gameSwap()) and "LB" or "RB")
+    local stick = (bumper == "LB") and "Left" or "Right"
+    local x, y = stickNow(stick, now)
+    local mag = math.sqrt(x * x + y * y)
+    if mag < 0.05 then return native end                                    -- (no direction to go by)
+    local id = gameGrabFor(bumper, x / mag, y / mag, sw)
+    if not id or id == native then return native end
+    GR.ownFixes = (GR.ownFixes or 0) + 1
+    if not grabSet(id, string.format("%s in the air: the game picked the %s itself (the %s stick was pushed first: %.2f,%.2f) -- by its own map, which has %s -> %s",
+            bumper, grabTitle(native), stick, x, y,
+            ((native < 100) ~= (id < 100)) and "this bumper as the other hand in this stick mode" or "the toe side on the right for everyone (yours is on the left now)",
+            grabTitle(id))) then return native end
+    GR.kick, GR.kicks = { id = id, at = now, bumper = bumper }, GR.kicks + 1
+    local n2 = q(function() return s0:GetGrabState() end, 0) or 0
+    return (type(n2) == "number" and n2 ~= 0) and n2 or id
+end
+
 local function grabLatchTick(now, native)
     local wnt = GR.want
     if wnt then
@@ -2916,15 +3583,19 @@ local function grabLatchTick(now, native)
         local x, y, how = stickNow(stick, now)
         local mag = math.sqrt(x * x + y * y)
         if native ~= 0 then                               -- the game picked one itself (its catch-orient was up)
-            GR.want, GR.pick = nil, { bumper = wnt.bumper, at = now }
+            local sw = GR.swap(now)
+            GR.want, GR.pick = nil, { bumper = wnt.bumper, at = now, swap = sw }
+            -- (v202: a grab the game picked against the mod's map has been put right before this is called -- GR.ownPick)
         elseif mag >= 0.5 or now - wnt.t0 >= S.GrabWait then
             GR.want = nil
-            local id = gameGrabFor(wnt.bumper, x, y)
+            local sw = GR.swap(now)                          -- (v199) the game's own swap of the bumpers, as it is at the pick
+            local id = gameGrabFor(wnt.bumper, x, y, sw)
             if not id then log(string.format("%s in the air: no grab for that direction", wnt.bumper)) return end
-            if grabSet(id, string.format("%s in the air: %s (%s stick %s %.2f,%.2f, chosen %.0f ms after the press) -- handed to the game",
-                wnt.bumper, grabTitle(id), stick, how, x, y, (now - wnt.t0) * 1000)) then
+            if grabSet(id, string.format("%s in the air: %s (%s stick %s %.2f,%.2f, chosen %.0f ms after the press)%s -- handed to the game",
+                wnt.bumper, grabTitle(id), stick, how, x, y, (now - wnt.t0) * 1000,
+                sw and " [left/right-foot sticks, the left foot is the back one: this bumper is the " .. ((id < 100) and "front" or "back") .. " hand's]" or "")) then
                 GR.kick, GR.kicks = { id = id, at = now, bumper = wnt.bumper }, GR.kicks + 1
-                GR.pick = { bumper = wnt.bumper, at = now }
+                GR.pick = { bumper = wnt.bumper, at = now, swap = sw }
             end
         end
         return
@@ -2936,9 +3607,222 @@ local function grabLatchTick(now, native)
     if S.GrabKeepFirst ~= 0 and native ~= 0 then GR.pick = nil return end
     local x, y = stickNow((pk.bumper == "LB") and "Left" or "Right", now)
     if math.sqrt(x * x + y * y) < 0.6 then return end
-    local id = gameGrabFor(pk.bumper, x, y)
+    local id = gameGrabFor(pk.bumper, x, y, pk.swap)
     if id and id ~= native then
         grabSet(id, string.format("   ...switched to %s (stick %.2f,%.2f)", grabTitle(id), x, y))
+    end
+end
+
+-- (v205 - v208) THE BONE came with the three edge pairs: "curious if there is a way to tweak them ... not a rocket or dip this
+-- time, but to 'bone' them", and of the ways to read it "board toward the nose: the front leg straightens and pokes the board
+-- forward along its length while the back knee stays tucked; the board stays level". v205 waited for the right stick
+-- pulled DOWN (the game's read of that stick is the other way up: v206), then for both sticks within 20 degrees of
+-- straight up (v207: the diagonal) -- and all along the native half pushed the hips more down than back (native v111).
+-- (v209) ROTATE OR BONE, FOR EVERY GRAB. "The setting should be a rotate versus bone setting. Something like just the base
+-- melon grab: we should be boning that, but right now that move creates a rotational move, which is not bad -- some
+-- players may want that instead ... even the double grabs might benefit from this: they can either bone or they can
+-- either rotate." GrabTweakStyle: 0 = the stick moved off where it picked the grab TWISTS the legs and the board (the
+-- game's own tweak, through the gate in GR.tweak); 1 = the same move BONES the grab instead -- the body goes back over
+-- the back foot and the board is poked out toward the nose, Bone<Grab> cm (+ GrabAllBone) at the full swing -- and the
+-- game is shown no swing at all. A grab whose own Bone is 0 (the grabs on the board's tips) twists in either style.
+-- The swing is the gate's: GrabTweakDead degrees of play, full GrabTweakRamp further, either way round; a stick that
+-- was centred at the pick counts by how far it is pushed. A one-hand grab goes by its own stick, a two-hand grab by
+-- whichever stick is swung further (once its pick is settled: a pair picked with a stick still centred may yet change).
+GR.KEY = {}
+for _, g in ipairs(NATIVE.GRABS) do GR.KEY[g[2]] = g[1] end
+GR.boneCm = function(kind)                             -- cm this grab bones by; 0 = it twists
+    if (tonumber(S.GrabTweakStyle) or 0) == 0 then return 0 end
+    local own = tonumber(S["Bone" .. tostring(GR.KEY[kind] or "?")]) or 0
+    if own <= 0 then return 0 end
+    return math.max(0, own + (tonumber(S.GrabAllBone) or 0))
+end
+GR.stickOf = function(native, now)                     -- the stick a ONE-hand grab was picked with
+    local k, p = GR.kick, GR.pick
+    local b = (k and k.id == native and (k.bumper == "LB" or k.bumper == "RB") and k.bumper) or (p and p.bumper)
+        or ((((native < 100) ~= (GR.swap(now) == true))) and "LB" or "RB")
+    return (b == "LB") and "Left" or "Right"
+end
+-- (v211) WHAT MOVES IN A BONE, AND THE HANDS STAY ON. "During the tweak move the hands just come off the board ... it
+-- just has to not move. ... in the game the bones are happening by the body moving backwards. IRL it would be the
+-- opposite, where the torso, the upper body stays put and the board moves. I got a feeling that's going to break a
+-- lot of stuff though. So we can try it, but be revert ready." (9 Oct.) Measured on that night's 15 boned grabs: past
+-- 16 cm of bone the hand's spot itself was slid toward the tail (an Indy's hand went 20.8 cm along the edge), and with
+-- the arm at 98 % of its length and the lean at its 40 deg limit the hand also lifted 5 to 9 cm off the board. Both
+-- were the native half's own doing. v113 mends them, and three settings go to it (NATIVE.hands):
+--   GrabBoneHands  1 = the spots stay put, the back may lean GrabBoneLean deg further (25) to keep the hand on, and
+--                  what the arm still cannot reach the bone gives back on the same pose; 0 = the hands of v112;
+--   GrabBoneMove   0 = the body goes back over the back foot (what ships); 1 = THE TEST: the real board is pushed out
+--                  toward the nose under a body that stays. The game only holds the board off its place that way in
+--                  an air that began with a pop: in any other air the body goes back, as with 0.
+-- Revert: "Bone moves" 0 in the menu (GrabBoneMove=0) is the body's way with the new hands; GrabBoneHands=0 as well is
+-- build 210's bone. What moved is in the grab's "bone:" line below.
+-- (v212) HOW FAR OUT. "I feel like the tweak is working, but it's not moving as much as I would hope. So maybe double the
+-- limit or more of the tweak slider in the menu, and I'll try that out." (10 Oct.) That morning's 13 boned grabs, on the
+-- native trace and in the pose recorder: the slider was never what held them. Every one stopped where the hips came
+-- over the back foot's place on the board -- 16-21 cm of bone in the one-hand grabs, 22-28 in the Truck Driver -- with
+-- 45 to 73 cm asked; "All grabs: bone distance" went 30 -> 40 in mid-session and the next Melon was asked 19.6 for the
+-- 19-20 before. That stop was a rule of the native half's (v111), not the rig's: the front leg stood at 45-74 % of its
+-- length there and the arms allowed 60. So:
+--   GrabBoneBehind     cm the hips may end BEHIND the back foot's place (20; the menu's "Boned grabs: how far out");
+--                      0 = build 211's stop. What holds a bone then is the front leg's reach and the arms (native
+--                      v114). A two-hand grab gets it only where the board is what moves;
+--   the ranges         doubled as asked -- the menu's slider to 80, GrabAllBone to 100 and every Bone<Grab> to 90 in
+--                      the ini, the native half's own stops 60 -> 80 -- but they are not the lever: with 20 behind a
+--                      Melon's or a Mute's slider is used up from about +25, and nothing ever moves more than 80;
+--   GrabBoneShowStick  "some tricks the board moved forward and some tricks the guy moved backwards": the grabs picked
+--                      with the stick centred (GR.tweak, below).
+GR.boneK = { Left = 0, Right = 0 }
+GR.boneSet = function(amt, title, cm, key)             -- told to the native half when it changes; said once a grab
+    if type(HJN_Set) ~= "function" then return end
+    if amt ~= GR.boneNow then
+        GR.boneNow = amt
+        pcall(HJN_Set, "bone", amt)
+    end
+    if amt > 0.5 and key ~= nil and GR.boneSaid ~= key then
+        GR.boneSaid = key
+        local old = (tonumber(NATIVE.v) or 0) < 113           -- (v211) which of the two moves, and what the hands do
+        local board, hands = not old and (tonumber(S.GrabBoneMove) or 0) ~= 0, not old and (tonumber(S.GrabBoneHands) or 1) ~= 0
+        -- (v212) ...and how far out it may go, so that the distance is not read as a promise: it is what is ASKED, and
+        -- on 10 Oct every bone was held at 16-28 cm of 45-73 by the hips over the back foot's place. With the native
+        -- half v114 and the hands staying on, that stop is GrabBoneBehind's (two hands: only where the board moves)
+        local far = ""
+        if hands and (tonumber(NATIVE.v) or 0) >= 114 then
+            local behind = tonumber(S.GrabBoneBehind) or 0
+            if GR.dbl and not board then far = ", and no further than where the hips are over the back foot's place (two hands get GrabBoneBehind only where the board is what moves) or a hand would come off"
+            elseif behind > 0 then far = string.format(", and no further than where the hips are %g cm behind the back foot's place (GrabBoneBehind%s), the front leg is straight or a hand would come off",
+                behind, GR.dbl and "; two hands: only while the board is what moves" or "")
+            else far = ", and no further than where the hips are over the back foot's place (GrabBoneBehind 0) or a hand would come off" end
+            if (tonumber(cm) or 0) > 80 then far = far .. "; 80 cm is the most that is ever moved" end
+        end
+        log(string.format("   bone: the %s is boned (a stick swung off where it picked the grab) -- %s: %s cm at the full swing%s; %s",
+            tostring(title),
+            board and "the BOARD is pushed out toward the nose and the body stays (GrabBoneMove 1; in an air that began without a pop the body goes back over the back foot instead)"
+                   or ("the body goes back over the back foot, the board out toward the nose" .. (old and "" or " (GrabBoneMove 0)")),
+            tostring(cm), far,
+            hands and string.format("the hands stay on their spots: the back may lean %g deg further to keep them on, and what the arm cannot reach the bone gives back", tonumber(S.GrabBoneLean) or 0)
+                   or (old and "the native half is older than v113: the bone and its hands are as before build 211" or "the hands as before build 211 (GrabBoneHands 0)")))
+    end
+end
+GR.tweak = function(now, native)
+    local boneCm = (native ~= 0) and GR.boneCm((GR.dbl and GR.dbl[2]) or native) or 0
+    if native ~= 0 and GR.gate and AS.mode and (S.GrabTweakGate ~= 0 or boneCm > 0) then   -- (v125) from the first frame: the stick the game is shown is deflected, so its catch comes from it
+        local pc = alive(SB.pc) or alive(q(function() return s0:GetController() end))
+        if pc then
+            SB.pc = pc
+            -- (v212) ...AND A SECOND CHANCE for a pick the game is shown pushed (THE CENTRED PICK, below). From no catch at
+            -- all the game takes one only on the tick a stick BECOMES pushed (its CanCatchOrient, read off the exe: a
+            -- stick counts if it was not pushed last tick and is now), and only if its other conditions hold on that
+            -- very tick (the controller's action flags, no pop pending). A stick shown pushed from the grab's first
+            -- frame gives it exactly one such tick. So where the game still has no catch 0.15 s on, the stick is shown
+            -- centred for ONE tick -- the next tick's push is a fresh one -- three times a grab at most. One decision a
+            -- tick, so both sticks of a two-hand grab drop together. (On the tick of the mod's own nudge, v118, the
+            -- state reads as a catch until the game clears it: no drop on that tick, the next one decides.)
+            local stickDrop = false
+            if GR.stickShown and (GR.stickTries or 0) < 3 and now - (GR.stickEdgeAt or GR.stickShown) > 0.15
+                and type(HJN_CatchState) == "function" and (tonumber(HJN_CatchState()) or 0) <= 0 then
+                GR.stickTries, GR.stickEdgeAt, stickDrop = (GR.stickTries or 0) + 1, now, true
+            end
+            local function masked(which)
+                local x, y = analogStick(which)
+                if not x then return nil end
+                local b = GR.gate[which]
+                local m = math.sqrt(x * x + y * y)
+                if boneCm > 0 then
+                    -- (v209) THIS GRAB BONES (GrabTweakStyle 1): the swing is the bone's, and the game is shown the stick as it
+                    -- stood at the pick -- straight, or centred -- so none of its own twist comes with it
+                    local centred = (not b) or b[3] < 0.3
+                    local k = 0
+                    if centred then k = math.max(0, math.min(1, (m - 0.3) / 0.4))                 -- picked with the stick centred: pushing it
+                    elseif m >= 0.25 then
+                        local rel = (math.deg(math.atan(y, x)) - b[4] + 180) % 360 - 180
+                        k = math.max(0, math.min(1, (math.abs(rel) - S.GrabTweakDead) / math.max(1, S.GrabTweakRamp)))
+                    end
+                    GR.boneK[which] = k
+                    if centred then
+                        -- (v212) THE CENTRED PICK HAD NO CATCH, SO NO BOARD TO MOVE. "I also feel like some tricks the board
+                        -- moved forward and some tricks the guy moved backwards." 10 Oct, Bone moves on 1: 8 boned grabs
+                        -- went by the board and 2 by the body -- the Gorilla of 09:45:27 and the Indy of 09:46:21, the two
+                        -- picked with no stick. The native trace reads 'catch-orient state 0' on every line of both, and
+                        -- without that state the game does not read the board's offset. Its catch comes from the sticks
+                        -- (v57 / v118: its handler rebuilds the state every tick from which sticks are pushed), and this
+                        -- gate showed it a centred one. So while the board is what a bone moves, such a grab is shown its
+                        -- stick pushed straight, from its first frame -- exactly what a grab picked with the stick is
+                        -- shown ('return 0, m, 1' below). One hand: its own stick; two hands: both, where neither was
+                        -- pushed at the pick (sent as +1 and -(+1) like every pair's: the game's state 5, never its
+                        -- dark-slide 10 / 11 -- the minus on the right stick's Y further down is not to be tidied away).
+                        -- Such a grab then has the game's catch whether you bone it or not: the game's own board offset
+                        -- for that state and a deck that follows the board bone, as a stick-picked one always had.
+                        -- Read off the exe and the trace, NOT yet seen in the game: the log says what came of it.
+                        -- GrabBoneShowStick 0 = as build 211; so is GrabBoneHands 0 (there no board is ever moved).
+                        local ob = GR.gate[(which == "Left") and "Right" or "Left"]
+                        local mine = (GR.dbl and ((not ob) or ob[3] < 0.3)) or ((not GR.dbl) and which == GR.stickOf(native, now))
+                        if mine and (tonumber(S.GrabBoneMove) or 0) ~= 0 and (tonumber(S.GrabBoneHands) or 1) ~= 0
+                            and (tonumber(S.GrabBoneShowStick) or 1) ~= 0 and (tonumber(NATIVE.v) or 0) >= 113 then
+                            GR.stickShown = GR.stickShown or now
+                            if stickDrop then return 0, 0, 1 end        -- one tick centred: the next tick's push is a fresh one
+                            return 0, 1, 1
+                        end
+                        return 0, 0, 1
+                    end
+                    return 0, m, 1
+                end
+                if m < 0.25 or not b or b[3] < 0.3 then return x, y, 1 end     -- (centred, or picked with a centred stick: as it is)
+                local rel = (math.deg(math.atan(y, x)) - b[4] + 180) % 360 - 180
+                local d = math.abs(rel)
+                local k = math.max(0, math.min(1, (d - S.GrabTweakDead) / math.max(1, S.GrabTweakRamp)))
+                -- (v125) THE GAME'S TWEAK IS THE STICK'S SIDEWAYS PART. Its catch orient takes a yaw ratio from the stick's X
+                -- and a pitch ratio from its Y (the mod holds the deck's pitch anyway): a side grab picked with the stick full
+                -- sideways twisted the body some 30 deg at once, and swinging it only changed the pitch ("no response"); the
+                -- up/down grabs twisted a little from the thumb's slant. So the game is shown the stick STRAIGHT along the
+                -- vertical (up for an up pick, down otherwise), at the stick's own deflection -- it has its catch from that --
+                -- and your swing off the pick becomes its sideways part: no twist at the pick for any grab, and the same swing
+                -- gives the same twist for all of them (never further than GrabTweakMaxTurn: past the diagonal the game would
+                -- pick the next grab over). The old sticks still pick the grab; only what the game sees after is remapped
+                -- (v126) the side picks are shown on the SAME vertical as Nose/Tail (+y), not the opposite one: the game's twist
+                -- comes from the stick's X alone, and a swing from the top and the same swing from the bottom give opposite X,
+                -- so a side grab shown on the bottom twisted the other way from Nose/Tail for the same turn of the stick.
+                -- Only a pick on the far vertical (Crail, Seatbelt: the stick pushed the other way) stays where it is
+                -- (v127) ...and Crail / Seatbelt too: EVERY pick is shown on the +y vertical, so one turn of the stick is one
+                -- twist, whatever the grab. GrabTweakInvert turns all of them the other way (the menu's "Invert tweak direction")
+                local inv = (S.GrabTweakInvert ~= 0) and -1 or 1
+                local swing = math.rad(k * math.max(-S.GrabTweakMaxTurn, math.min(S.GrabTweakMaxTurn, rel)))
+                return -inv * m * math.sin(swing), m * math.cos(swing), k
+            end
+            GR.boneK.Left, GR.boneK.Right = 0, 0
+            local lx2, ly2, lk = masked("Left")
+            local rx2, ry2, rk = masked("Right")
+            if boneCm > 0 then                               -- (v209) what the swing comes to: a one-hand grab's own stick, a two-hand grab's further one
+                local amt = 0
+                if not GR.dbl then amt = GR.boneK[GR.stickOf(native, now)] or 0
+                elseif (GR.dblPick and GR.dblPick.both) or now - (GR.dblT0 or now) > S.GrabRepick then amt = math.max(GR.boneK.Left or 0, GR.boneK.Right or 0) end
+                GR.boneSet(amt, (GR.dbl and GR.dbl[3]) or grabTitle(native), boneCm, (GR.dbl and GR.dblT0) or GR.nativeT0)
+            elseif (GR.boneNow or 0) ~= 0 then GR.boneSet(0) end
+            if not GR.gateLogged and ((lk and lk < 1) or (rk and rk < 1)) then
+                GR.gateLogged = true
+                log(string.format("   tweak gate: the game is shown the stick straight along the vertical, your swing as its sideways part (picks: L %.0f deg, R %.0f deg): dead %g, ramp %g",
+                    GR.gate.Left[4], GR.gate.Right[4], S.GrabTweakDead, S.GrabTweakRamp))
+            end
+            pcall(function()
+                if lx2 then pc:SimulateInput_LeftStick_X_Axis(lx2)  pc:SimulateInput_LeftStick_Y_Axis(ly2) end
+                if rx2 then pc:SimulateInput_RightStick_X_Axis(rx2) pc:SimulateInput_RightStick_Y_Axis(-ry2) end
+            end)
+            -- (v212) THE CENTRED PICK SHOWN PUSHED: what came of it, said once, 0.3 s in -- and once more where the game had
+            -- no catch by then: when it has one, or when the three more pushes are used up. Never read on the tick
+            -- of the mod's own nudge (v118: its SetCatchOrient reads as a state until the game clears it the next frame)
+            if GR.stickShown and GR.stickShownSaid ~= 2 and GR.catchAt ~= now then
+                local cs = type(HJN_CatchState) == "function" and (tonumber(HJN_CatchState()) or 0) or nil
+                local what = tostring((GR.dbl and GR.dbl[3]) or grabTitle(native))
+                if not GR.stickShownSaid and now - GR.stickShown >= 0.3 then
+                    GR.stickShownSaid = (cs == nil or cs > 0) and 2 or 1
+                    log(string.format("   tweak gate: the %s was picked with the stick centred -- the game is shown it pushed straight so that it has its catch (GrabBoneShowStick 1): catch-orient state %s after 0.3 s (%d more pushes)",
+                        what, tostring(cs or "?"), GR.stickTries or 0))
+                elseif GR.stickShownSaid == 1 and cs and (cs > 0 or ((GR.stickTries or 0) >= 3 and now - (GR.stickEdgeAt or now) > 0.15)) then
+                    GR.stickShownSaid = 2
+                    log((cs > 0) and string.format("   tweak gate: ...the %s has its catch now: catch-orient state %d, %.2f s after its stick was first shown, %d more pushes", what, cs, now - GR.stickShown, GR.stickTries or 0)
+                        or string.format("   tweak gate: ...the %s never had a catch: catch-orient state 0 after %d more pushes -- with no catch the board cannot be moved, the body is what bones this grab", what, GR.stickTries or 0))
+                end
+            end
+        end
     end
 end
 
@@ -2947,6 +3831,7 @@ GR.doubleTick = function(now, native, cm)
     if GR.dbl and (cm ~= MODE_AIR or (native == 0 and now - (GR.dblT0 or 0) > 0.15)) then   -- the grab is over, the two-hand grab with it
         log(string.format("   two-hand grab %s ended after %.2fs", GR.dbl[3], now - (GR.dblT0 or now)))
         GR.lastKind, GR.dbl, GR.dblLock = GR.dbl[2], nil, true     -- (the next one needs a bumper let go first)
+        GR.dblPick = nil                                          -- (v209: the bone goes with the game's grab -- GR.boneSet(0) in the grab tick)
         pcall(HJN_Set, "double", 0)
         return native
     end
@@ -2960,8 +3845,18 @@ GR.doubleTick = function(now, native, cm)
     local rx, ry = stickNow("Right", now)
     -- a moment for the sticks to get there (as with one bumper): until GrabWait is over only pushed sticks count
     if (math.sqrt(lx * lx + ly * ly) < 0.5 or math.sqrt(rx * rx + ry * ry) < 0.5) and now - GR.bothSince < S.GrabWait then return native end
-    local idL, idR = gameGrabFor("LB", lx, ly), gameGrabFor("RB", rx, ry)
+    local sw = GR.swap(now)                                  -- (v199) which is the front hand's grab and which the back's does not matter to the pair
+    local idL, idR = gameGrabFor("LB", lx, ly, sw), gameGrabFor("RB", rx, ry, sw)
     local d = idL and idR and GR.doubleFor(idL, idR)
+    local ml, mr = math.sqrt(lx * lx + ly * ly), math.sqrt(rx * rx + ry * ry)
+    -- (v205) "Both sticks must be pushed": the Truck Driver, Drunk Driver and Squirrel need each stick pushed to its side.
+    -- With one stick alone (a centred stick is the toe-side grab of its hand) the pair is the Gorilla, as with none
+    if d and d[2] >= 203 and S.DoubleBothSticks ~= 0 and (ml < 0.3 or mr < 0.3) then
+        for _, e in ipairs(GR.DOUBLES) do if e[2] == 201 then d = e end end
+    end
+    -- (v205) a pair picked with both sticks pushed to a side stays an edge grab: both sticks UP from there is the bone,
+    -- not a Cannonball (a Gorilla begun with a stick still centred becomes one inside GrabRepick, as before)
+    if d and GR.dbl and GR.EDGE[GR.dbl[2]] and GR.dblPick and GR.dblPick.both and not GR.EDGE[d[2]] then return native end
     if not d or d == GR.dbl then return native end
     local base = GR.idOf(S["Double" .. d[1] .. "Base"]) or 102
     -- the FRONT hand as the mesh has it: the animation's left hand riding forward, its right riding switch/fakie
@@ -2988,6 +3883,19 @@ GR.doubleTick = function(now, native, cm)
     log(string.format("TWO-HAND GRAB %s -- front hand = the mesh's %s, %s%s", d[3], frontLeft and "LEFT" or "RIGHT",
         visualGoofy() and "goofy" or "regular", NAT.switch and " switch" or "") .. over)
     GR.dbl, GR.dblT0, GR.lastKind, GR.named, GR.sw = d, now, d[2], true, NAT.switch   -- (v129)
+    -- (v205) where the sticks stood at this pick (degrees off straight up, and how far out): the bone is measured from
+    -- here. And the game's tweak too, for an edge pair picked with both sticks: its gate kept the sticks as they were when
+    -- the BASE grab began -- a stick still centred then is shown to the game as it is, and pushed full to a side for the
+    -- pair that is the game's whole twist at once
+    GR.dblPick = { both = (ml >= 0.3 and mr >= 0.3) }
+    GR.boneSaid, GR.boneNow = nil, nil
+    if GR.dblPick.both and GR.gate then
+        GR.stickShown, GR.stickTries, GR.stickEdgeAt = nil, nil, nil   -- (v212) picked with both sticks pushed: no centred pick any more, the game has the real sticks' catch
+        local gx, gy = analogStick("Left")
+        if gx then GR.gate.Left = { gx, gy, math.sqrt(gx * gx + gy * gy), math.deg(math.atan(gy, gx)) } end
+        gx, gy = analogStick("Right")
+        if gx then GR.gate.Right = { gx, gy, math.sqrt(gx * gx + gy * gy), math.deg(math.atan(gy, gx)) } end
+    end
     trickNameLater(function() return GR.turnName(d[3]) end)
     trickNameHide("ollie", 6)
     return native
@@ -3013,7 +3921,8 @@ grabClick = function(which)
     SB.pc = alive(SB.pc) or alive(q(function() return s0:GetController() end))
     local x, y, how = stickNow(stick, now)
     local dir, toeRight = grabDirection(x, y)
-    local name = S["Grab" .. stick .. dir]
+    -- (v199) the click grabs' two lists are the front hand's (GrabLeft...) and the back hand's (GrabRight...): the same swap
+    local name = S["Grab" .. (GR.swap(now) and ((stick == "Left") and "Right" or "Left") or stick) .. dir]
     local id = type(name) == "string" and GRAB_ID[name:lower():gsub("[%s_%-]", "")] or nil
     local where = string.format("%s stick %s (%s %.2f,%.2f; %s%s, toes %s)", stick, dir, how, x, y,
         visualGoofy() and "goofy" or "regular", NAT.switch and " switch" or "", toeRight and "right" or "left")
@@ -3237,9 +4146,10 @@ grabTick = function(now)
     end
     -- (v97) an angle grab that is switched off (GrabBlocked), picked by the game itself: handed back as its neighbour
     if native ~= 0 and cm == MODE_AIR and not GR.dbl and GR.blocked(native) then
-        local bumper = (native < 100) and "LB" or "RB"
+        local sw = GR.swap(now)                              -- (v199) the bumper that picks this hand's grabs now
+        local bumper = ((native < 100) ~= sw) and "LB" or "RB"
         local x, y = stickNow((bumper == "LB") and "Left" or "Right", now)
-        local id = gameGrabFor(bumper, x, y)
+        local id = gameGrabFor(bumper, x, y, sw)
         if id and id ~= native and now - (GR.unblockAt or -1) > 0.2 then
             GR.unblockAt = now
             if grabSet(id, string.format("   the game picked the %s, which is switched off (GrabBlocked) -> %s", grabTitle(native), grabTitle(id))) then
@@ -3253,6 +4163,14 @@ grabTick = function(now)
         local okd, nat2 = pcall(GR.doubleTick, now, native, cm)
         if okd and type(nat2) == "number" then native = nat2
         elseif not okd then logOnce("dblerr", "   two-hand grab error: " .. tostring(nat2)) end
+    end
+    -- (v202) a grab that is new this tick and not one the mod handed over = the game's own pick: by the mod's map too
+    if native == 0 then GR.ownFixes = 0
+    elseif native ~= GR.native and cm == MODE_AIR and not GR.dbl and (GR.ownFixes or 0) < 2
+        and not (GR.setId == native and now - (GR.setAt or -1e9) < 0.5) then
+        local okf, natf = pcall(GR.ownPick, now, native)
+        if okf and type(natf) == "number" then native = natf
+        elseif not okf then logOnce("ownpick", "   grab map error: " .. tostring(natf)) end
     end
     -- LB/RB: the latch that waits for the stick, and the early re-pick
     if cm ~= MODE_AIR then GR.want, GR.pick = nil, nil
@@ -3281,6 +4199,8 @@ grabTick = function(now)
             GR.gate = { Left = { lx or 0, ly or 0, lx and math.sqrt(lx * lx + ly * ly) or 0, lx and math.deg(math.atan(ly, lx)) or 0 },
                         Right = { rx or 0, ry or 0, rx and math.sqrt(rx * rx + ry * ry) or 0, rx and math.deg(math.atan(ry, rx)) or 0 } }
             GR.gateLogged, GR.turn, GR.turnEnd = false, 0, nil
+            GR.boneNow, GR.boneSaid = nil, nil               -- (v209) the first amount of this grab is told, whatever the last one's was
+            GR.stickShown, GR.stickShownSaid, GR.stickTries, GR.stickEdgeAt = nil, nil, nil, nil   -- (v212) nor is the last grab's centred pick this one's (GR.tweak)
             GR.caught, GR.catchTries = nil, 0           -- (v118) the gate waits for the game's catch
             GR.turnYaw = q(function() return s0:K2_GetActorRotation().Yaw end, nil)
             log(string.format("GAME GRAB %s (LB/RB) -- sticks L %s R %s, %s%s  [land ratio %s]", GRAB_NAME[native] or tostring(native),
@@ -3334,50 +4254,8 @@ grabTick = function(now)
     -- the pick instead, which turned the lower half the whole grab: the flat hand it meant to cure was the deck held
     -- level under the game's hand, native v50.) (SimulateInput writes what the game's trick logic reads next frame;
     -- the mod's own stick reads go through the engine's input state, untouched.)
-    if native ~= 0 and GR.gate and AS.mode and S.GrabTweakGate ~= 0 then   -- (v125) from the first frame: the stick the game is shown is deflected, so its catch comes from it
-        local pc = alive(SB.pc) or alive(q(function() return s0:GetController() end))
-        if pc then
-            SB.pc = pc
-            local function masked(which)
-                local x, y = analogStick(which)
-                if not x then return nil end
-                local b = GR.gate[which]
-                local m = math.sqrt(x * x + y * y)
-                if m < 0.25 or not b or b[3] < 0.3 then return x, y, 1 end     -- (centred, or picked with a centred stick: as it is)
-                local rel = (math.deg(math.atan(y, x)) - b[4] + 180) % 360 - 180
-                local d = math.abs(rel)
-                local k = math.max(0, math.min(1, (d - S.GrabTweakDead) / math.max(1, S.GrabTweakRamp)))
-                -- (v125) THE GAME'S TWEAK IS THE STICK'S SIDEWAYS PART. Its catch orient takes a yaw ratio from the stick's X
-                -- and a pitch ratio from its Y (the mod holds the deck's pitch anyway): a side grab picked with the stick full
-                -- sideways twisted the body some 30 deg at once, and swinging it only changed the pitch ("no response"); the
-                -- up/down grabs twisted a little from the thumb's slant. So the game is shown the stick STRAIGHT along the
-                -- vertical (up for an up pick, down otherwise), at the stick's own deflection -- it has its catch from that --
-                -- and your swing off the pick becomes its sideways part: no twist at the pick for any grab, and the same swing
-                -- gives the same twist for all of them (never further than GrabTweakMaxTurn: past the diagonal the game would
-                -- pick the next grab over). The old sticks still pick the grab; only what the game sees after is remapped
-                -- (v126) the side picks are shown on the SAME vertical as Nose/Tail (+y), not the opposite one: the game's twist
-                -- comes from the stick's X alone, and a swing from the top and the same swing from the bottom give opposite X,
-                -- so a side grab shown on the bottom twisted the other way from Nose/Tail for the same turn of the stick.
-                -- Only a pick on the far vertical (Crail, Seatbelt: the stick pushed the other way) stays where it is
-                -- (v127) ...and Crail / Seatbelt too: EVERY pick is shown on the +y vertical, so one turn of the stick is one
-                -- twist, whatever the grab. GrabTweakInvert turns all of them the other way (the menu's "Invert tweak direction")
-                local inv = (S.GrabTweakInvert ~= 0) and -1 or 1
-                local swing = math.rad(k * math.max(-S.GrabTweakMaxTurn, math.min(S.GrabTweakMaxTurn, rel)))
-                return -inv * m * math.sin(swing), m * math.cos(swing), k
-            end
-            local lx2, ly2, lk = masked("Left")
-            local rx2, ry2, rk = masked("Right")
-            if not GR.gateLogged and ((lk and lk < 1) or (rk and rk < 1)) then
-                GR.gateLogged = true
-                log(string.format("   tweak gate: the game is shown the stick straight along the vertical, your swing as its sideways part (picks: L %.0f deg, R %.0f deg): dead %g, ramp %g",
-                    GR.gate.Left[4], GR.gate.Right[4], S.GrabTweakDead, S.GrabTweakRamp))
-            end
-            pcall(function()
-                if lx2 then pc:SimulateInput_LeftStick_X_Axis(lx2)  pc:SimulateInput_LeftStick_Y_Axis(ly2) end
-                if rx2 then pc:SimulateInput_RightStick_X_Axis(rx2) pc:SimulateInput_RightStick_Y_Axis(-ry2) end
-            end)
-        end
-    end
+    if native == 0 and (GR.boneNow or 0) ~= 0 then GR.boneSet(0) end           -- (v209) the bone ends with its grab
+    GR.tweak(now, native)                                    -- (v108 / v209) the game's tweak, gated -- or the bone: GR.tweak, further up
     -- its name, once it has really taken hold (not a grab the game threw away the same instant)
     if native ~= 0 and not GR.named and not GR.on and not GR.dbl and now - (GR.nativeT0 or now) >= S.GrabRepick + 0.02 then
         GR.named = true
@@ -3911,6 +4789,14 @@ NATIVE.groundGrab = function(cm, now)
         local held = tonumber(type(HJN_Bumpers) == "function" and HJN_Bumpers() or 0) or 0
         lb, rb = (held == 1 or held == 3), (held == 2 or held == 3)
     end
+    -- (v199) from here on 'lb' is the FRONT hand's bumper and 'rb' the BACK hand's: in the game's left-foot / right-foot
+    -- stick mode they change places whenever the left foot is the back one (GR.swap). Kept as it was when the hand went on: a turn with the
+    -- hand on the board must not read as the bumper let go. (NATIVE.grabSwap: GR is a local of the grabs' block)
+    do
+        local sw
+        if GG.kind then sw = GG.swap == true else sw = (NATIVE.grabSwap and NATIVE.grabSwap(now)) == true GG.swap = sw end
+        if sw then lb, rb = rb, lb end
+    end
     -- (v152) THE HAND STAYS ON INTO THE AIR. v151 kept it on the ground and through a no comply only, and let go 0.2 s after
     -- every no comply's pop (18:03:58.6, 18:04:04.1, 18:04:21.4: each time a fifth of a second after the pop -- the "is it
     -- grinding" test, new in v151, is the suspect; it now only stops a grab from STARTING) and in every other air ("if I'm
@@ -3987,7 +4873,7 @@ NATIVE.groundGrab = function(cm, now)
             why = "THE BONELESS: " .. blOff .. " -- the hand lets go (press the bumper again for a new grab)"
             GG.ffLatch, GG.offSince = true, now - 1
         elseif canKeep and held then want = GG.kind
-        elseif not held then why = string.format("%s let go (the pad reads %s)", (GG.kind == 102) and "RB" or "LB", btn and string.format("0x%04x", btn) or "no XInput")
+        elseif not held then why = string.format("%s let go (the pad reads %s)", ((GG.kind == 102) ~= (GG.swap == true)) and "RB" or "LB", btn and string.format("0x%04x", btn) or "no XInput")
         elseif busy then why = active and "a hippie jump" or "a drop-in"
         elseif ncOff then why = "a no comply with the boneless switched off" GG.offSince = now - 1   -- (v186) at once: it stayed on 0.13 s into the trick and read as a boneless
         else why = "off the board (mode " .. tostring(cm) .. ")" end
@@ -4041,8 +4927,8 @@ NATIVE.groundGrab = function(cm, now)
         GG.left = (NATIVE.grabLeftHand(want) == true) ~= (NATIVE.mirrorAsset ~= nil)   -- (review) the mirror switch fakes NAT.mirror; which hand trails is the game's real mirror's
         GG.told = (GG.told or 0) + 1
         if GG.told <= 60 then
-            log(string.format("rolling grab: %s held %s -- the %s hand goes to the %s spot on the board (the hips down to %g cm over the deck, %g cm at most; the back up to %g deg)", (want == 102) and "RB" or "LB",
-                inNC and "in a no comply" or "on the board", GG.left and "left" or "right", (want == 102) and "Indy's" or "Mute's", S.GroundGrabHips, S.GroundGrabCrouch, S.GroundGrabLean))
+            log(string.format("rolling grab: %s held %s -- the %s hand goes to the %s spot on the board (the hips down to %g cm over the deck, %g cm at most; the back up to %g deg)", ((want == 102) ~= (GG.swap == true)) and "RB" or "LB",
+                (inNC and "in a no comply" or "on the board") .. (GG.swap and " [left/right-foot sticks, the left foot is the back one: LB and RB have changed places]" or ""), GG.left and "left" or "right", (want == 102) and "Indy's" or "Mute's", S.GroundGrabHips, S.GroundGrabCrouch, S.GroundGrabLean))
         end
     end
     -- (v153) in the air the hips come down less ("it doesn't really pop that high": the game's pop was the same 132 cm with
@@ -4646,7 +5532,10 @@ NATIVE.yawGuard = function()
         stanceSwap(false)
         log("body yaw: a stance swap was still on with nothing running -- your own stance again")
     end
-    if active or YS.t0 or BY.pending or RV.pending or BV.pending or swapLive then Y.offAt = nil return end
+    -- (v212) ...nor while a hop onto the board holds your body's turn in the mesh (BoardHopTurnHold, NATIVE.hopTry). A
+    -- stamp, not a flag: the hop renews it at every tick it writes the mesh, so a hop that dies half way leaves a stamp
+    -- that runs out in 0.3 s, and this watch then puts the mesh back a quarter second on
+    if active or YS.t0 or BY.pending or RV.pending or BV.pending or swapLive or (NATIVE.hopTurnUntil ~= nil and os.clock() < NATIVE.hopTurnUntil) then Y.offAt = nil return end
     yaw0 = Y.base
     local d = wrap180(y - Y.base)
     if math.abs(d) <= 1 then Y.offAt = nil return end
@@ -4663,8 +5552,16 @@ NATIVE.yawGuard = function()
 end
 
 local function onFrame(ctx)
-    if not isMine(ctx) then return end
+    -- (v203) THE QUEUE IS RUN FROM ANY SKATER'S FRAME. "I couldn't grab or hippie jump any more after switching to the beach
+    -- map" (9 Oct). At 17:56:29 UE4SS had stopped running what the mod hands to its game thread (v185's case: eight seconds
+    -- after two Win+Alt key presses in the replay editor), and the frame hook ran the queue instead -- but only on a frame
+    -- of the skater the mod HOLDS. The one thing that takes up a new map's skater is the 2 s tick, and that is in the
+    -- queue: at 18:05:28 the beach map's skater came, no frame was "ours" any more, the queue was never run again, and
+    -- the mod never learned of the skater it was waiting for. (The night before the same build followed two map changes:
+    -- UE4SS was running the queue then.) The pump does not need the skater to be ours -- any skater's frame is the game
+    -- thread -- so it comes first.
     pcall(NATIVE.gtPump)                                                             -- (v185)
+    if not isMine(ctx) then return end
     -- (v185) ALLOW GRABS OFF MEANS NO GRABS. GrabStart=0 only stopped the mod STARTING a grab; the game starts its own from
     -- the same bumper (its grabs are on in the save), so the switch did nothing (5 Oct 17:50:41 off, 17:50:51 a Nose Grab).
     -- With it off the game is not shown LB / RB while you are in the air (the native half's bumper mask)
@@ -4699,7 +5596,7 @@ local function onFrame(ctx)
         if P.dip > 0 then
             applyLift(-P.dip * smooth(el / P.pre))           -- the mini hop's dip
         elseif S.Pose ~= 0 then
-            standUp()
+            if NATIVE.HO.on then NATIVE.HO.flags() else standUp() end   -- (v205)
         end
         if not stateLogged.stand and el >= P.pre * 0.8 then
             stateLogged.stand = true
@@ -4798,7 +5695,7 @@ local function onFramePost(ctx)
     if liftMode == LIFT_COUNTER and lastDz > 0.5 then footIK(NATIVE.hopPull()) end
     local el = os.clock() - t0
     if el < P.pre then
-        if P.dip == 0 and S.Pose ~= 0 then standUp() end
+        if P.dip == 0 and S.Pose ~= 0 then if NATIVE.HO.on then NATIVE.HO.flags() else standUp() end end   -- (v205)
         return
     end
     if S.Pose == 0 then return end
@@ -4810,8 +5707,8 @@ local hooked = false
 ensureHook = function()
     if not hooked then
         local ok, err = pcall(function()
-            RegisterHook(HOOK, function(ctx) pcall(onFrame, ctx) end,
-                               function(ctx) pcall(onFramePost, ctx) end)
+            RegisterHook(HOOK, function(ctx) NATIVE.timed(onFrame, ctx) end,       -- (v218) timed: a frame the mod makes long is said (NATIVE.slow)
+                               function(ctx) NATIVE.timed(onFramePost, ctx) end)
         end)
         hooked = ok
         log(ok and "hook registered" or ("hook FAILED: " .. tostring(err)))
@@ -4859,6 +5756,7 @@ end
 -- crouchStick = "Right"/"Left": the stick held in the crouch that started it (eased back to
 -- centre for the game by the trick block); nil for the mini hop and the keyboard
 NATIVE.rotBack = function()                                -- (v106) the spin mode put back after a jump
+    if NATIVE.HO and NATIVE.HO.on then NATIVE.HO.off() end  -- (v205) every way a hop ends comes through here
     local m = NATIVE.rotRestore
     NATIVE.rotPending = nil                                 -- (v120)
     if m == nil then return end
@@ -4869,7 +5767,7 @@ local function hippie(source, requireCrouch, kind, crouchStick)
     kind = kind or "hippie"
     if active then return end
     if kind == "mini" and S.MiniHop == 0 then return end
-    if kind == "hippie" and S.HippieJump == 0 then logOnce("hjoff" .. math.floor(os.clock() / 10), "hippie jumps are switched off (HippieJump=0; the menu's Allow hippie jumps)") return end   -- (v136)
+    if kind == "hippie" and S.HippieJump == 0 then logOnce("hjoff" .. math.floor(os.clock() / 10), "hippie jumps are switched off (HippieJump=0; the menu's Hippie jumps)") return end   -- (v136)
     if not refs() then return end
     if requireCrouch and not crouching() then
         log(source .. ": ignored -- not crouched")
@@ -4911,6 +5809,7 @@ local function hippie(source, requireCrouch, kind, crouchStick)
         P = { kind = "hippie", height = S.Height, pre = S.StandTime, dip = 0, footPull = 0, absorb = S.LandAbsorb }
     end
     P.switch = q(function() return inst.IsSkatingSwitch end, false) == true   -- for its name
+    if S.Pose ~= 0 and NATIVE.HO.arm(kind) then P.pre, P.dip = math.max(0, tonumber(S.HopOlliePre) or 0.06), 0 end   -- (v205) the ollie's animation, a test
 
     gravityUsed = (S.GameGravity ~= 0)
     if gravityUsed then
@@ -5051,19 +5950,31 @@ local function groundClick(which, now)
     -- (v132) the stick-direction key events do not arrive in the game's filmer mode (its focused widget takes them as menu
     -- navigation; the clicks still come, so every click saw a stick "held 30 s ago"): the analog read says where the
     -- stick is NOW, and that is what the crouch is taken from
-    if NATIVE.analog then
-        local ax, ay = NATIVE.analog(stick)
-        if ay and math.abs(ay) >= 0.5 then dir, at, held, age = (ay > 0) and "Up" or "Down", now, true, 0 end
+    -- (v209) ...AND A PRESS THAT IS OVER IS NO CROUCH. "If I did a hippie jump and then just pressed one of the sticks, it
+    -- would do another hippie jump ... it seemed like there was a window after the hippie jump that allowed that."
+    -- 9 Oct 22:02:49: 'L3 click  the Right stick Down | held, 0.27s ago, crouched=false -> JUMP  [sticks L 0,0 R 0,0]', and
+    -- again 1.78, 2.91, 1.59 and 3.00 s after the crouch of the jump before -- 'held' only ever meant that a push of the
+    -- stick had been SEEN, and one up to FRESH (4 s) old counted as the crouch (v105: for the frames the game's own crank
+    -- flag lags a push). With a read of the sticks themselves the crouch is a stick that is pushed NOW (the paired one, or
+    -- v135's other one) or the game's own flag; the remembered press counts only where there is no such read.
+    local function pushedNow(st)                             -- true / false, and its y; nil = no read of this stick
+        if not NATIVE.analog then return nil end
+        local ax, ay = NATIVE.analog(st)
+        if not ay then return nil end
+        return math.abs(ay) >= 0.5, ay
     end
-    -- (v135) the crouch may sit on the clicked stick's own side (the filmer mode puts its camera on one stick): a fresh
-    -- push of EITHER stick counts, the paired one first
-    if age > FRESH then
-        local o = (stick == "Right") and "Left" or "Right"
+    local o = (stick == "Right") and "Left" or "Right"
+    local p1, y1 = pushedNow(stick)
+    local p2, y2 = pushedNow(o)
+    if p1 then dir, at, held, age = (y1 > 0) and "Up" or "Down", now, true, 0
+    elseif p2 then stick, dir, at, held, age = o, (y2 > 0) and "Up" or "Down", now, true, 0      -- (v135: the crouch on the clicked stick's own side)
+    elseif p1 == nil and age > FRESH then                    -- (no read at all: v135 by the key presses)
         local d2, a2, h2, g2 = fresh(o)
         if h2 and g2 <= FRESH then stick, dir, at, held, age = o, d2, a2, h2, g2 end
     end
     local crouched = crouching()
-    local ok = (S.NeedCrouch == 0) or (held and (crouched or age <= FRESH))
+    local freshOk = (age <= FRESH) and (p1 == nil or p1 == true or p2 == true)
+    local ok = (S.NeedCrouch == 0) or (held and (crouched or freshOk))
     local function sv(st) if not NATIVE.analog then return "?" end local x, y = NATIVE.analog(st) return x and string.format("%.2f,%.2f", x, y) or "nil" end
     log(string.format("%s click  the %s stick %s | %s, %.2fs ago, crouched=%s -> %s  [sticks L %s R %s; pad %s]",
         which, stick, dir, held and "held" or "not held", age, tostring(crouched),
@@ -5100,6 +6011,10 @@ end
 -- a key pressed (its engine name: the stick-direction keys, the clicks, the triggers, the bumpers, Y)
 local function onKey(key)
     if NATIVE.off then return end
+    -- (v198) a pause menu is up (NATIVE.mg.a, from the look four times a second) and this press reached the game: see NATIVE.menuWatch
+    if NATIVE.mg and NATIVE.mg.a and NATIVE.menuWatch and (key:find("^Gamepad_DPad_") or key == "Gamepad_FaceButton_Bottom" or key == "Gamepad_FaceButton_Right") then
+        NATIVE.gt(function() pcall(NATIVE.menuWatch, key) end)
+    end
     local stick, dir = key:match("^Gamepad_(%a+)Stick_(%a+)$")
     if stick == "Left" or stick == "Right" then
         pressedAt[stick][dir] = os.clock()
@@ -5143,6 +6058,68 @@ local function pollController()
 end
 
 LoopAsync(POLL_MS, function() pcall(pollController) return false end)
+
+-- (v211) WHAT THE OTHER MODS SAY IS KEPT IN THIS LOG. "Got another fatal error crash in the last session" (9 Oct
+-- 23:30:15, and 19:00:08 before it): both in the first seconds of a new map, in the engine's own drawing, nothing of
+-- this mod's on the game, render or crashing thread. The one thing caught using dead objects in that window is
+-- SessionTweaks: its log has "[quad] pump faulted (1)" at 23:30:15.358 and "(2)" at .562, and the crash followed at once
+-- (three more at the map change of 23:25:55, which the game survived). But SessionTweaks.log and SessionOpenMP.log
+-- start again at every launch: for the crashes of 19:00 and 22:37 nothing of theirs was left to read. This log is kept
+-- over a launch. So their fault lines and their level-change lines are copied into it as they are written: looked at
+-- every 50 ms (the first fault line came 204 ms before the crash; a slower look would miss it), from the byte the look
+-- before stopped at. The FIRST look starts at the log's end -- with SessionTweaks switched off for a test, its log of
+-- the session before is still on disk and must not be told again as this session's; a log that has become SHORTER has
+-- started again and is read from its start. Only whole lines are taken (the rest waits for the next look), 500 a
+-- session at most. "fault" is not taken where it is the end of "default" or a count ("faults=3", SessionOpenMP's
+-- statistics). Nothing of the game is touched; it runs on UE4SS's own timer thread, like the pad's tail above.
+NATIVE.STW = { n = 0, files = {
+    { TWKLOG, "SessionTweaks", { "faulted", "FAULTED", "caught fatal", "replay mode 1 -> 0", "garment component is gone", "new character", "garment component BUILT" } },
+    { "SessionOpenMP.log", "SessionOpenMP", { "[drop/map]", "own pawn", "fault", "FAULT" } } } }
+NATIVE.stwHit = function(line, words)                    -- does the line hold one of the words (as plain text)?
+    for _, w in ipairs(words) do
+        local p = 1
+        while true do
+            local a, b = line:find(w, p, true)
+            if not a then break end
+            if not ((a > 2 and line:sub(a - 2, a + 4):lower() == "default") or line:sub(b + 1, b + 2) == "s=") then return true end
+            p = b + 1
+        end
+    end
+    return false
+end
+NATIVE.stwTail = function()
+    local T = NATIVE.STW
+    for _, F in ipairs(T.files) do
+        local size = sizeOf(F[1])
+        if size then
+            if F.pos == nil then F.pos = size elseif size < F.pos then F.pos = 0 end   -- the first look: from its end; shorter than it was: it started again
+            if size > F.pos then
+                local f = io.open(F[1], "rb")
+                if f then
+                    f:seek("set", F.pos)
+                    local chunk = f:read(math.min(size - F.pos, 262144)) or ""
+                    f:close()
+                    local lastNL = chunk:match("^.*()\n")
+                    if lastNL then
+                        F.pos = F.pos + lastNL
+                        for line in chunk:sub(1, lastNL):gmatch("[^\r\n]+") do
+                            if NATIVE.stwHit(line, F[3]) then
+                                T.n = T.n + 1
+                                if T.n <= 500 then log(F[2] .. " said: " .. line:sub(1, 200))
+                                elseif T.n == 501 then log("the other mods' logs: 500 of their lines are in this log now -- no more are copied this session") end
+                            end
+                        end
+                    elseif #chunk >= 262144 then F.pos = F.pos + #chunk end   -- (a quarter megabyte without a line end: passed over)
+                end
+            end
+        end
+    end
+end
+LoopAsync(50, function()
+    local ok, err = pcall(NATIVE.stwTail)
+    if not ok then logOnce("stwerr", "the other mods' logs: the look at them failed: " .. tostring(err)) end
+    return false
+end)
 end   -- controller
 
 ------------------------------------------------------------------- the ini
@@ -5236,12 +6213,13 @@ NATIVE.MENU = {
     { "General gameplay settings", {
         { "slider", "SpeedScale", "Max speed", 100, 10, "How fast pushing can take you, as a percentage (%) of the game's own top speed. 100 = unchanged, 150 = half again as fast. Hills can still carry you faster. Each push is as strong as before (see Push strength).", 0.5, 3, unit = "%" },
         { "slider", "PushScale", "Push strength", 100, 10, "How hard each push accelerates you, as a percentage (%) of the game's own push. 100 = unchanged. Raise it to get up to speed in fewer pushes.", 0.5, 3, unit = "%" },
+        { "slider", "ThrowdownScale", "Throwdown speed", 100, 10, "How fast the game's own throwdown (Y on foot) sends you off, as a percentage (%) of the speed you were moving at. 100 = unchanged. The throw plays faster to match. Standing still, nothing is added.", 1, 4, unit = "%" },
         { "toggle", "StickTurn", "Left stick steers the board", 1, 1, "On: the game's own steering, where pushing the left stick sideways leans and turns the board. Off: only the triggers turn you, so doing a stick trick no longer pulls the board off its line." },
         { "toggle", "TrickNames", "Show trick names", 1, 1, "Shows this mod's tricks in the game's trick display when you land them, for example 180 Hippie Jump, Crail Grab, No Comply, Boneless or Bean Plant. Off: none of them are shown." },
         { "slider", "AutoUpdate", "Automatic updates", 1, 1, "0 = off. 1 = tells you, in the log and on the trick display, when a new version of the mod is out. 2 = also downloads it from the mod's GitHub page, checks it and installs it for the next time you start the game.", 0, 2 },
     } },
     { "Hippie Jumps", {
-        { "toggle", "HippieJump", "Allow hippie jumps", 1, 1, "Jump straight up off the board while it rolls on under you, then land back on it. Hold one stick down to crouch, then click the other stick (L3 or R3) to jump." },
+        { "slider", "HippieJump", "Hippie jumps", 1, 1, "Hold one stick down to crouch, then click the other stick (L3 or R3) to jump off the board while it rolls on. 0 = off. 1 = the jump animation. 2 = the ollie animation. 3 = one or the other at random, jump by jump.", 0, 3 },
         { "toggle", "MiniHop", "Allow mini hippie jumps", 1, 1, "A small, quick hop off the board: click both sticks (L3 + R3) at the same time. No crouch is needed. Its height is set by Mini hippie jump height." },
         { "slider", "Height", "Hippie jump height", 1, 5, "How high your body rises off the board in a hippie jump, in centimetres (cm). 60 = a low jump, 95 = a medium one, 150 = a big one.", 30, 220, unit = "cm" },
         { "slider", "MiniHeight", "Mini hippie jump height", 1, 5, "How high your body rises off the board in a mini hippie jump, in centimetres (cm).", 20, 120, unit = "cm" },
@@ -5249,21 +6227,38 @@ NATIVE.MENU = {
         { "toggle", "VarialBail", "Bail on a bad rotation", 1, 1, "On: landing too far from a clean half or full turn makes you bail, as it would on a real board. Off: your body is turned the rest of the way for you and you ride away." },
         { "toggle", "VarialInvert", "Swap the rotation triggers", 1, 1, "Swaps which trigger spins you which way. Turn it on if LT and RT rotate you the opposite way to what feels natural." },
         { "toggle", "BoardHop", "Allow jumping onto the board", 1, 1, "On foot next to your board lying on the ground (after a bail, for example), click a stick (L3 or R3) to jump onto it and ride away the way you are facing." },
+        { "slider", "BoardHopSpeedScale", "Jumping onto the board: speed", 100, 10, "How fast you roll away after jumping onto your board, as a percentage (%) of the speed you ran up to it at. 100 = as fast as you ran. 0 = the board only keeps its own roll. Standing still, nothing is added.", 0, 3, unit = "%" },
+        { "slider", "BoardHopSpeedAcross", "Jumping onto the board: side-on run-ups", 100, 10, "A board only rolls along its length. 0 = only the part of your run-up that points along the board counts, so running at it from the side gives no speed. 100 = all of your speed counts, from any side.", 0, 1, unit = "%" },
     } },
     { "Drop-ins", {
         { "toggle", "DropIn", "Allow drop-ins", 1, 1, "On foot at the edge of a ledge, bank or ramp, press Y (Triangle) to set up with the tail on the edge. Then push a stick up to drop in, press LB or RB to go back onto the ledge, or Y to step off." },
         { "slider", "DropInSpeed", "Drop-in launch speed", 0.036, 1, "How fast the board is launched when you drop in, in km/h: down a ramp, or straight out over a plain ledge. 10 km/h is about 6 mph.", 0, 2000, unit = "km/h" },
         { "slider", "DropInPitch", "Drop-in deck angle", 1, 5, "How steeply the deck points up from the tail while you wait on the edge, in degrees. It is raised by itself when a coping is in the way.", 0, 45, unit = "degrees" },
+        { "slider", "DropInArms", "Drop-in: arms out for balance", 1, 5, "How far your arms come up and out to your sides for balance as you tip in and drop, in degrees. About 60 is as far as they go. They drop again once you ride away or land. 0 = the game's own arms.", 0, 80, unit = "degrees" },
+        { "slider", "DropInArmsFull", "Drop-in arms: full at a drop of", 1, 10, "The height of drop that gets all of the arms slider, in cm. A smaller drop gets its share: with 200, a 1 m drop gets half. Small drops, small arms; big drops, big arms.", 30, 500, unit = "cm" },
+        { "slider", "DropInArmsPeak", "Drop-in arms: fully out at", 1, 5, "How far down the drop your arms are fully out, in percent of its height. 50 = halfway down. They rise with the way down from the moment you drop in.", 10, 100, unit = "%" },
+        { "slider", "DropInCrouch", "Drop-in: crouch", 1, 1, "How far your hips go down as you drop in, in cm, on a drop of the full height (a smaller drop gets its share). The knees bend and you lean toward the drop; holding the crouch stick takes you further down. 0 = no crouch.", 0, 40, unit = "cm" },
+        { "slider", "DropInCrouchPeak", "Drop-in crouch: lowest at", 1, 5, "How far down the drop you are at your lowest, in percent of its height. The tip-in itself takes you halfway there.", 10, 100, unit = "%" },
+        { "toggle", "DropInNoTwist", "Drop-in: hold the shoulder twist", 1, 1, "On: the game's own twist of the upper body, which swings the back arm behind you as the board tips in, is held off until you are down. Off: the game's own." },
         { "slider", "DropInRange", "Drop-in edge distance", 1, 10, "How close to the edge you have to stand to set up a drop-in, in centimetres (cm) from the middle of your body. Higher = you can set up from further back.", 20, 200, unit = "cm" },
         { "slider", "DropInFace", "Drop-in facing limit", 1, 15, "How far off straight toward the drop you may face and still set up, in degrees to either side. 30 = up to 30 degrees left or right. 0 = no limit, any direction works.", 0, 180, unit = "degrees" },
         { "slider", "DropInVertSpeed", "Vert wall: launch speed", 0.036, 1, "On a ramp that goes vertical at the top: how fast the board is let go, in km/h. Lower lets the wheels meet the wall sooner; the wall itself gives you speed.", 0, 2000, unit = "km/h" },
         { "slider", "DropInVertBoost", "Vert wall: speed boost", 0.036, 1, "On a vert wall: extra speed added down the wall once the wheels are riding it, about 0.3 seconds after the board is let go, in km/h.", 0, 2000, unit = "km/h" },
         { "slider", "DropInVertTilt", "Vert wall: nose-down tilt", 1, 5, "On a vert wall: how far the board is tipped nose-down before it is let go, in degrees. It has to be steep so the wheels meet the wall instead of flying out over it.", 20, 89, unit = "degrees" },
         { "slider", "DropInVertBack", "Vert wall: push toward the wall", 0.036, 1, "On a vert wall: how fast the board is pushed back toward the wall as it is let go, in km/h. It helps the wheels catch a wall that hangs back under the coping.", 0, 400, unit = "km/h" },
+        -- (v212) the variant has its own switch, so one test compares both ways without a new build (his ini has DropInSetDown=1)
+        -- (v213) the two test rows of builds 211 and 212 are gone: the set-down on the coping IS the drop-in now (DropInSetDown and DropInSetEdge stay in the ini)
     } },
     { "Grabs", {
-        { "toggle", "GrabStart", "Allow grabs", 1, 1, "Hold LB or RB in the air to grab, let go to release. LB = front hand, picked with the left stick (Nose, Mute, Melon...). RB = back hand, picked with the right stick (Tail, Indy, Crail...)." },
-        { "toggle", "DoubleGrabs", "Allow two-hand grabs", 1, 1, "Hold LB and RB together in the air for a two-hand grab. The two grabs your sticks point at make the pair: Cannonball, Gorilla Grab or Quasimodo." },
+        { "toggle", "GrabStart", "Allow grabs", 1, 1, "Hold LB or RB in the air to grab, let go to release. LB = front hand with the left stick, RB = back hand with the right. Push toward your toes for Mute or Indy, toward your heels for Melon or Stalefish." },
+        { "toggle", "DoubleGrabs", "Allow two-hand grabs", 1, 1, "Hold LB and RB together in the air for a two-hand grab. The two grabs your sticks point at make the pair: Cannonball, Gorilla, Quasimodo, or with both sticks to a side Truck Driver, Drunk Driver or Squirrel." },
+        { "slider", "GrabTweakStyle", "Grab tweak", 1, 1, "What moving the stick off its grab direction does while you hold a grab. 0 = rotate: your legs and the board twist. 1 = bone: the board is poked out toward the nose; your back leans further to keep the hand on. See Bone moves.", 0, 1 },
+        { "slider", "GrabAllBone", "All grabs: bone distance", 1, 1, "With Grab tweak on bone: centimetres (cm) added to what each grab asks for at the full swing of the stick. How far the board really goes is held by Boned grabs: how far out. 0 = no change.", -20, 80, unit = "cm" },
+        { "slider", "GrabBoneBehind", "Boned grabs: how far out", 1, 5, "With Grab tweak on bone: how far a boned board may go. 0 = until your hips are over your back foot, as before. Higher = that many centimetres (cm) further. It stops where the front leg is straight or a hand would come off.", 0, 45, unit = "cm" },
+        { "slider", "GrabBoneMove", "Bone moves", 1, 1, "With Grab tweak on bone: what moves. 0 = your body goes back over the back foot. 1 = a test: your body stays and the board is pushed out toward the nose, in airs that began with a pop (in other airs as 0).", 0, 1 },
+        { "slider", "GrabBoneLean", "Boned grabs: extra lean", 1, 5, "How much further your back may lean toward the board while a grab is boned, so that the hand stays on it, in degrees. 0 = no further: the bone gets smaller wherever the arm cannot reach.", 0, 45, unit = "degrees" },
+        { "slider", "GrabHeadUp", "Grabs: head up", 1, 5, "How far your head is raised in a grab, at the most, in degrees: you look ahead instead of down at the deck. It stops by itself when you look just under level. 0 = the head as the game has it.", 0, 90, unit = "degrees" },
+        { "slider", "GrabHeadTurn", "Grabs: head toward travel", 1, 5, "How far your gaze is turned toward the way you travel in a grab, at the most, in degrees. It stops by itself when you look that way. 0 = not turned.", 0, 90, unit = "degrees" },
         { "toggle", "GrabTweakInvert", "Invert grab tweak direction", 1, 1, "Reverses the grab tweak: turning the stick clockwise twists your legs and board counter-clockwise. Applies to every grab. Needs Tweak only when the stick moves." },
         { "toggle", "GrabTweakGate", "Tweak only when the stick moves", 1, 1, "On: a grab starts untweaked, and your legs and board twist only once you move the stick away from where it picked the grab. Off: the game's own behaviour, where the tweak can come in straight away." },
         { "toggle", "GrabKeepFirst", "Lock the grab until release", 1, 1, "On: the grab you took stays until you let go of the bumper, and moving the stick only tweaks it. Off: moving the stick just after grabbing can switch you to a different grab." },
@@ -5324,8 +6319,8 @@ NATIVE.menuSend = function()
     for _, sp in ipairs(SPEC) do by[sp[1]] = sp end
     -- (v123) SessionOpenMP's dll stays loaded when mods.txt disables it, and its menu is never shown: our page went into a
     -- menu nobody sees. So mods.txt decides -- disabled there (or MenuOwnPages=1) means the mod's own pages
+    local own = S.MenuOwnPages ~= 0
     if type(HJN_Set) == "function" then
-        local own = S.MenuOwnPages ~= 0
         local mf = io.open("Mods\\mods.txt", "r")
         if mf then
             local txt = mf:read("*a") or "" mf:close()
@@ -5337,13 +6332,15 @@ NATIVE.menuSend = function()
     HJN_MenuPage("")                                   -- (a reload starts over)
     local pages, rows = 0, 0
     for _, pg in ipairs(NATIVE.MENU) do
-        if (tonumber(HJN_MenuPage(pg[1])) or 0) > 0 then
+        -- (v224) the user dropped the Quick settings page from the mod's own nested pages; it stays only as what
+        -- SessionOpenMP's one flat page shows (MenuOwnPages=0)
+        if not (own and pg[1] == "Quick") and (tonumber(HJN_MenuPage(pg[1])) or 0) > 0 then
             pages = pages + 1
             for _, r in ipairs(pg[2]) do
                 local kind, key, label, scale, step, desc = r[1], r[2], r[3], r[4], r[5], r[6]
                 local sp = by[key]
                 if kind == "page" then
-                    if (tonumber(HJN_MenuRow(3, key, label, desc, 0, 0, 0, "", "")) or 0) > 0 then rows = rows + 1 end   -- (review: it returns the page's running count)
+                    if not (own and key == "Quick") and (tonumber(HJN_MenuRow(3, key, label, desc, 0, 0, 0, "", "")) or 0) > 0 then rows = rows + 1 end   -- (review: it returns the page's running count)
                 elseif not sp or sp[2] ~= "num" then
                     log("menu: no ini setting called " .. tostring(key) .. " -- row skipped")
                 else
@@ -5492,7 +6489,7 @@ local function boardProbe()
     -- boards carry numbered names). GetSkateboardMesh came back empty in v58.
     logOnce("probe1", "   TRY FindAllOf PBP_SkateboardEx_C (first time)")
     local owner = nil
-    local all = q(function() return FindAllOf("PBP_SkateboardEx_C") end)
+    local all = q(function() return NATIVE.all("PBP_SkateboardEx_C") end)
     if type(all) == "table" then
         for _, b in ipairs(all) do
             local nm = q(function() return b:GetFName():ToString() end, "")
@@ -5739,10 +6736,10 @@ function NATIVE.sync()
         end
     end
     do                                                   -- (v183) native v99: the knee's hinge, a hop's hips, the plant foot's swivel and ankle, the other stance's foot sockets
-        if tostring(S.PoseRecorder) ~= NATIVE.set101 then            -- (v189) native v101: the pose recorder is off unless the ini asks
-            NATIVE.set101 = tostring(S.PoseRecorder)
-            pcall(HJN_Set, "posedump", (tonumber(S.PoseRecorder) or 0) ~= 0 and 1 or 0)
-            log("native: the pose recorder is " .. (((tonumber(S.PoseRecorder) or 0) ~= 0) and "ON (ExpandedTricks.poses.bin)" or "off (PoseRecorder=1 switches it on)"))
+        if tostring(S.RecordPoses) ~= NATIVE.set101 then            -- (v189) native v101: the pose recorder is off unless the ini asks -- (v196) which it does as it ships: RecordPoses
+            NATIVE.set101 = tostring(S.RecordPoses)
+            pcall(HJN_Set, "posedump", (tonumber(S.RecordPoses) or 0) ~= 0 and 1 or 0)
+            log("native: the pose recorder is " .. (((tonumber(S.RecordPoses) or 0) ~= 0) and "ON (ExpandedTricks.poses.bin)" or "off (RecordPoses=1 switches it on)"))
         end
         local k100 = tostring(S.HopFeetFree) .. " " .. tostring(S.HopAnkleLimit) .. " " .. tostring(S.HopCarryTurn)   -- (v184) native v100: a hop's feet free in its air, a turned hop carried to its spots
         if k100 ~= NATIVE.set100 then
@@ -5863,7 +6860,7 @@ NATIVE.hands = function(force)
         end
     end
     parts[#parts + 1] = tostring(S.NativeHandAvoid)
-    parts[#parts + 1] = tostring(S.GrabAllAlong) .. "/" .. tostring(S.GrabAllAcross) .. "/" .. tostring(S.GrabAllUp)   -- (v184)
+    parts[#parts + 1] = tostring(S.GrabAllAlong) .. "/" .. tostring(S.GrabAllAcross) .. "/" .. tostring(S.GrabAllUp) .. "/" .. tostring(S.GrabAllBone) .. "/" .. tostring(S.GrabTurnedSense) .. "/" .. tostring(S.GrabHeadUp) .. "/" .. tostring(S.GrabHeadTurn) .. "/" .. tostring(S.GrabBoneMove) .. "/" .. tostring(S.GrabBoneHands) .. "/" .. tostring(S.GrabBoneLean) .. "/" .. tostring(S.GrabBoneBehind)   -- (v184; v207; v211; v212)
     parts[#parts + 1] = tostring(S.GrabBlockFlips)
     parts[#parts + 1] = tostring(S.NativeHandAim) .. "/" .. tostring(S.NativeFingerCurl) .. "/" .. tostring(S.NativeFingerCurlRoot) .. "/" .. tostring(S.NativeFingerCurlMid) .. "/" .. tostring(S.NativeFingerCurlTip) .. "/" .. tostring(S.NativeCatchHold) .. "/" .. tostring(S.NativeGrabStance)
     local key = table.concat(parts, " ")
@@ -5879,6 +6876,7 @@ NATIVE.hands = function(force)
                     -- in a two-hand grab), here, on the way to the native half -- the per-grab numbers stay as they are in the ini
                     local v = tonumber(S[p[1] .. g[1] .. p[2]]) or 0
                     if (p[1] == "Hand" or p[1] == "Hand2") and p[2] ~= "" then v = v + (tonumber(S["GrabAll" .. p[2]]) or 0) end
+                    if p[1] == "Bone" then v = (v > 0) and math.max(0, v + (tonumber(S.GrabAllBone) or 0)) or 0 end   -- (v207) "a global boned setting ... a global adder for all of them" (v209: where a grab has a bone)
                     HJN_GrabSet(g[2], p[3], v)
                 end
             end
@@ -5888,6 +6886,14 @@ NATIVE.hands = function(force)
     HJN_Set("grabstance", S.NativeGrabStance)              -- (v119) the tail layout for every grab
     HJN_Set("catchhold", S.NativeCatchHold)               -- (v116) the deck keeps following the bone through the game's grabs
     HJN_Set("lateblock", S.GrabBlockFlips)               -- (v97) no late flips out of a grab
+    pcall(HJN_Set, "turnsense", S.GrabTurnedSense)       -- (v207 / native v110) a deck that turned round in this air is steered the other way
+    pcall(HJN_Set, "boneboard", S.GrabBoneMove)          -- (v211 / native v113) a boned grab: 1 = the board moves out and the body stays, 0 = the body goes back
+    pcall(HJN_Set, "bonehands", S.GrabBoneHands)         --   1 = its hands stay on their spots (0 = as v112)
+    pcall(HJN_Set, "boneleanadd", S.GrabBoneLean)        --   deg the back may lean further to keep them there
+    pcall(HJN_Set, "headup", S.GrabHeadUp)             -- (v213) the head in a grab: raised by this much at the most (native v115; an older one answers 0)
+    pcall(HJN_Set, "headturn", S.GrabHeadTurn)         --   and turned toward the way of travel
+    pcall(HJN_Set, "hophead", S.BoardHopHead)          -- (v216) the hop onto the board: the head kept level (native v117)
+    pcall(HJN_Set, "bonebehind", S.GrabBoneBehind)       -- (v212 / native v114) cm its hips may end behind the back foot's place: how far out it goes (0 = no further than over it, as v113)
     HJN_Set("handaim", S.NativeHandAim)                  -- (v98) the hand turned to the board, the fingers round its edge
     HJN_Set("fingercurl", S.NativeFingerCurl)
     HJN_Set("curlroot", S.NativeFingerCurlRoot)           -- (v115) the three joints' own degrees
@@ -5909,6 +6915,11 @@ NATIVE.forgetWorld = function(why)
         if NCm and NCm.flip then NCm.flip, NCm.flipYaw, NCm.flipN = nil, nil, nil if type(HJN_Set) == "function" then pcall(HJN_Set, "plantfoot", -1) end end
         VS.graph = nil
     end
+    -- (v212) A SKATER THAT LIVES IS DROPPED (the 2 s loop found a new one and lets go of all it held): the look that
+    -- comes after is not the menus' look over again, and the half second is not counted against it. skater() already
+    -- sees to that -- a skater held alive means the last look found one -- so this says it a second time, at the one
+    -- place the skater is dropped, for whoever calls this next. A skater that is gone (dead) changes nothing here.
+    if alive(cached) then NATIVE.WK.skAt = nil end
     cached, s0, mesh, inst, mv = nil, nil, nil, nil, nil
     active = false if NATIVE.rotBack then NATIVE.rotBack() end
     SB.pc, BD.comp = nil, nil
@@ -5931,6 +6942,7 @@ NATIVE.forgetWorld = function(why)
     if NATIVE.forgetDrop then pcall(NATIVE.forgetDrop) end   -- (v98)
     if type(HJN_SetPC) == "function" then pcall(HJN_SetPC, 0) pcall(HJN_Set, "double", 0) end
     if type(HJN_SetMesh) == "function" then pcall(HJN_SetMesh, 0, 0, 0) end
+    NATIVE.WK.lvlAt = os.clock()                          -- (v210) see NATIVE.walkOk
     log("level change (" .. why .. "): cached game objects dropped, the native half stood down")
 end
 
@@ -5960,9 +6972,28 @@ do
         if not d or not loc then return end
         local off = loc.Z - d.z
         if off < 20 or off > 200 then return end
-        local first = HOP.rideZ == nil
-        HOP.rideZ = first and off or (HOP.rideZ + (off - HOP.rideZ) * 0.2)
-        if first then log(string.format("board hop: the skater rides %.0f cm over the deck (the hop lands there)", off)) end
+        -- (v212) ON LEVEL GROUND ONLY. The reading is world z, and on a bank the capsule stands along the board's up: 85 cm
+        -- reads 65 on a 40 deg transition. 10 Oct, after the quarter pipe of 09:47-09:49: the four hops landed 67, 70,
+        -- 77 and 77 cm over the deck where all 13 hops of 9 Oct had 83 to 85 and every session's first reading is 85 --
+        -- 8 to 18 cm low, the arc's last 23 to 55 ms spent pushing the capsule into the ground. In three of the four
+        -- the engine landed you on foot by itself 66, 51 and 33 ms before the mount (SessionTweaks.log: "movement
+        -- 1/0"), and the game had to lift you back to riding height after it: a part of "every time he lands on the
+        -- board, it's still a bit sketchy. It jitters" (only a part: he saw it on 9 Oct too, at 83 to 85). A deck that
+        -- leans more than 10 deg is not read; what was read on the flat is kept. Nor is one read round a drop-in (the
+        -- mod places the board's parts itself while it holds them).
+        -- THAT THE TILT PULLED THE AVERAGE DOWN IS A FIT, NOT A MEASUREMENT: the three drop-in holds of that session
+        -- lasted 1 to 3 s and the riding between them is in no log. So a LEVEL reading more than 4 cm from the average
+        -- is said (once in 20 s at the most): if such a line ever shows a level reading far from 85, the tilt was not
+        -- the cause, and the line has what was read
+        if (d.upz or 0) >= 0.985 and not (NATIVE.dropBusy and NATIVE.dropBusy()) then
+            local first = HOP.rideZ == nil
+            if not first and math.abs(off - HOP.rideZ) > 4 and os.clock() - (HOP.rideSaid or -1e9) > 20 then
+                HOP.rideSaid = os.clock()
+                log(string.format("board hop: riding height read %.0f cm on level ground, the average stands at %.0f", off, HOP.rideZ))
+            end
+            HOP.rideZ = first and off or (HOP.rideZ + (off - HOP.rideZ) * 0.2)
+            if first then log(string.format("board hop: the skater rides %.0f cm over the deck (the hop lands there)", off)) end
+        end
         -- (v127) which way your chest faces on the board, from your toes: they point to the toe side, across the capsule's
         -- forward (right for a regular rider, left for goofy; the game keeps the pose natural to the capsule in switch too,
         -- the capsule being the thing it turns round). A hop lands you facing that way
@@ -5979,8 +7010,20 @@ do
             if math.abs(across) > 6 and math.abs(across) > math.abs(along) then
                 local side = (across > 0) and 1 or -1
                 if HOP.chest ~= side then
-                    HOP.chest = side
-                    log(string.format("board hop: riding, your toes point to the %s of the way the capsule faces -- a hop lands you facing that way", side > 0 and "right" or "left"))
+                    -- (v211) A NEW SIDE ONLY AFTER FIVE READINGS IN A ROW (this runs every 2 s: 8 s of the one side); the first
+                    -- one is taken as it comes. 9 Oct: "toes point to the right" was read four times, each in the second of a
+                    -- powerslide try, and at 22:57:05 you stepped off the board with that wrong side stored -- a hop then
+                    -- would have flown you facing the other side of the deck. FIVE, not three: a fifth wrong one, at
+                    -- 23:20:31 with no powerslide (what it was is not known), was only read back at 23:20:37 -- it may have
+                    -- stood for three turns of this loop. The side is a constant of the stance: a slow yes costs nothing
+                    HOP.chestN = (HOP.chestSeen == side) and ((HOP.chestN or 0) + 1) or 1
+                    HOP.chestSeen = side
+                    if HOP.chest == nil or HOP.chestN >= 5 then
+                        HOP.chest = side
+                        log(string.format("board hop: riding, your toes point to the %s of the way the capsule faces -- a hop lands you facing that way", side > 0 and "right" or "left"))
+                    end
+                else
+                    HOP.chestN, HOP.chestSeen = 0, nil
                 end
             end
         end
@@ -6024,11 +7067,14 @@ do
             HOP.bp[1], HOP.bp[2], HOP.bp[3], HOP.bt = d.x, d.y, d.z, now
         end
         local rem = math.max(0, math.max(0.1, S.BoardHopTime) - (now - HOP.t0))
-        local rideZ = HOP.rideZ or S.BoardHopRideZ
+        local rideZ = (HOP.rideZ or S.BoardHopRideZ) + math.max(0, tonumber(S.BoardHopLandLift) or 0)   -- (v212) BoardHopLandLift over the riding height: clear of the ground, so that the game's own landing does not cut in before the mount (the game lets you down the rest)
         HOP.p1 = { d.x + HOP.bv[1] * rem, d.y + HOP.bv[2] * rem, d.z + HOP.bv[3] * rem + rideZ }
         local H = HOP.nose and d.yaw or (d.yaw + 180)
-        HOP.yc = HOP.sw and (H + 180) or H                            -- the capsule's yaw at the mount (the game turns the board to it)
+        HOP.H = H                                                     -- (v211) the way you will roll: the end taken as the front (the speed goes that way)
+        HOP.yc = HOP.sw and (H + 180) or H                            -- the capsule's yaw ON the board: with the roll, against it in switch (the game turns the board to the capsule)
         HOP.y1 = HOP.y0 + wrapA(HOP.yc + HOP.side * 90 - HOP.y0)     -- in the air: the chest to the toe side, the feet along the deck
+        HOP.ym = (HOP.sw and HOP.fix) and (HOP.yc + 180) or HOP.yc    -- (v211) the yaw HANDED TO the mount: the game's switch mount turns the capsule half a turn itself (see hopTry; HOP.fix = BoardHopSwitchFix as it stood at the click)
+        HOP.c1 = (HOP.c1 or HOP.y0) + wrapA(HOP.ym - (HOP.c1 or HOP.y0))   -- (v212) where the capsule's yaw ends when it is turned to the mount on the way (BoardHopTurnHold 1): the yaw handed over, the short way round from where you faced -- and from where it stood a tick ago, so a board that turns under the hop cannot flip it the long way round
     end
 
     NATIVE.hopTry = function(which)
@@ -6065,17 +7111,232 @@ do
         -- while riding; until measured, regular = right, goofy = left), the feet along the deck -- you used to fly facing
         -- along the deck and land across it. The capsule must face the ride at the mount (the game turns the board to the
         -- capsule's yaw), so the last frame turns it there: the riding pose faces the chest the same way, so nothing swings
+        -- (v211: true of a regular hop only -- in a switch mount the game turns the capsule half a turn first, see below)
         local side = HOP.chest or (NAT.goofy and -1 or 1)                -- (NAT is the global frame table; visualGoofy is out of scope here)
         local now = os.clock()
+        -- (v211) A SWITCH HOP NO LONGER SWINGS YOU HALF A TURN AS YOU LAND. 9 Oct, twelve mounted hops: the six regular
+        -- ones ended standing as planned, all six switch ones half a turn from it (nose-first and tail-first alike), and
+        -- five of those six lost "switch" within the second. For a switch mount (foot position 4) the game's
+        -- ApplyToggleOnBoard turns the capsule half a turn ITSELF (exe 0xfeaca0) before the board is snapped to it. The
+        -- hop handed over the yaw it wanted you to ride at (yc): you flew with your chest to one side of the deck and
+        -- were stood on it with it to the other, facing along the roll, which the game calls not-switch. Now a switch
+        -- hop is handed over half a turn round (HOP.ym, hopAim) and the game's own turn lands the capsule on yc.
+        -- THE FLIP FLAG GOES WITH IT -- the two change together, or the deck spins under you instead. v78's rule (switch
+        -- XOR tail-first) kept the deck's heading only because the capsule had been turned away; with the capsule
+        -- ending on yc the deck keeps its heading when the flag says "riding tail-first", switch or not.
+        -- BoardHopSwitchFix=0 = build 210's yaw and flag
+        -- ...AND BOTH FROM ONE READING OF THE SETTING, made here (HOP.fix). The flag is fixed at the click, the yaw is
+        -- worked out again on every tick of the hop (hopAim) and read the setting as it stood THEN: an ini saved in the
+        -- 0.45 s of a switch hop would have handed over one half of the pair without the other
+        local fix = S.BoardHopSwitchFix ~= 0
+        local flipFlag = (sw ~= (not nose))
+        if fix then flipFlag = not nose end
+        -- (v211) HOW FAST YOU RAN UP TO IT, for the speed the board gets at the mount (BoardHopSpeedScale): the movement
+        -- component's Velocity, or the mesh's own travel over the ground when that says more (after a SessionTweaks run-out
+        -- Velocity reads 0 for half a second while you run on: v180). Its way: Velocity's, else the way you face
+        local rv = q(function() return mv.Velocity end, nil)
+        local rx, ry = rv and (tonumber(rv.X) or 0) or 0, rv and (tonumber(rv.Y) or 0) or 0
+        local rvel = math.sqrt(rx * rx + ry * ry)
+        local rmesh = type(HJN_MeshSpeed) == "function" and tonumber(HJN_MeshSpeed()) or -1
+        local rsp, rhow = rvel, "the game's Velocity"
+        if rvel >= 30 then rx, ry = rx / rvel, ry / rvel else rx, ry = math.cos(math.rad(F)), math.sin(math.rad(F)) end
+        if rmesh > 30 and rmesh > rvel and rmesh < 1200 then rsp, rhow = rmesh, (rvel >= 30) and "the mesh's own travel" or "the mesh's own travel, taken the way you face" end
+        -- (v212) NO QUARTER-TURN FLICK AS YOU LAND -- AN EXPERIMENT (BoardHopTurnHold): reasoned from the code, not yet
+        -- seen in any recording. In the air the capsule faces a quarter turn off the ride (your chest to the toe side);
+        -- the last frame turned it to the yaw the mount wants; and the game's anim blueprint then draws a SNAPSHOT of
+        -- the on-foot pose (root state OnFootToOnBoard, entered with no blend) and crossfades to the riding pose in
+        -- 0.15 s. The on-foot pose faces along the capsule, the riding pose stands side-on to it: so the body would
+        -- snap a quarter turn in one frame and turn back over 0.15 s, at every mount, regular and switch -- "every
+        -- time he lands on the board, it's still a bit sketchy. It jitters". Now your body's facing through the hop
+        -- stays what it was, but wherever the capsule does not face the chest's way the MESH's yaw against its capsule
+        -- carries the difference (setYaw, the hippie jump's own way), and that turn is let out as the game's blend
+        -- turns the pose (the watch in hopTick):
+        --   1 = the capsule is eased to the mount's yaw over the whole arc (hopping on the way you ran it hardly turns
+        --       at all), and nothing turns on the last frame;
+        --   2 = the capsule flies as in build 211 and the mesh takes up the turn on the last frame only -- for when the
+        --       capsule turned on the way shows anything odd on foot (the camera, another mod);
+        --   0 = build 211.
+        -- It rests on the snapshot being drawn as it was taken and on the blend turning the pose the short way; where
+        -- one of them does not hold the body is off by up to a quarter turn for those 0.15 s, as it is today. The
+        -- frame lines (NATIVE.hopFrame, column t) say what it did, with the hold on and with it off.
+        -- ON REGULAR HOPS ONLY, UNLESS BoardHopTurnHoldSwitch. A quarter turn, a HALF on a switch hop: there the hold
+        -- also rests on the game turning its snapshot with the capsule's own half turn, and of the function that takes
+        -- the snapshot (SaveFootToBoardTransition) only a switch test (exe+0xf61fe6) and a half-turn about up have been
+        -- read, not the whole. If it does not turn it, the hold would spin you half a turn for those 0.15 s -- which
+        -- would read as "it still rotates 180" and muddle the test of the real fix for that (BoardHopStanceLock). So a
+        -- switch hop flies as build 211 until its frame lines have been seen. What they must show, hold off, on the
+        -- first riding frame: column t near the yaw HANDED OVER (the snapshot was turned with the capsule: the hold's
+        -- arithmetic is right as it stands and BoardHopTurnHoldSwitch can go on), or near the capsule's RIDING yaw (not
+        -- turned: the mesh's turn for a switch mount must then be the chest against the riding yaw, not against the
+        -- yaw handed over). Both yaws are in the frame lines' legend
+        local th = math.floor((tonumber(S.BoardHopTurnHold) or 0) + 0.5)
         HOP = { on = true, t0 = now, rideZ = HOP.rideZ, chest = HOP.chest,
                 p0 = { loc.X, loc.Y, loc.Z }, b0 = { d.x, d.y }, bp = { d.x, d.y, d.z }, bt = now, bv = { 0, 0, 0 },
-                y0 = F, nose = nose, sw = sw, side = side, flip = (sw ~= (not nose)) }
+                y0 = F, nose = nose, sw = sw, side = side, flip = flipFlag, fix = fix, d0 = d.yaw,
+                -- (v213) THE BODY'S HEADING IS KEPT BY THE NATIVE HALF NOW (BoardHopKeep, native v115: the note at HopKeep there).
+                -- 10 Oct, the frame lines of four hops: in the three that had no hold the toes went 71 -> -16 on the arc's last
+                -- frame (the capsule handed to the mount) and came back over eight frames of the game's blend: "for like one
+                -- frame when he lands just does that 90 degree turn ... and then he tweaks back 90 again". In the one that had
+                -- build 212's hold: 29 -> 2 -> 53 -> 63 -> 64 -> 57 -> 44. With keep, the turn is not carried in the mesh at all
+                -- (hold = nil, whatever BoardHopTurnHold says): the capsule turns on the last frame as in build 211 and the
+                -- pose itself is turned back to the heading it had in the air, closed loop, until the blend is over.
+                keep = ((tonumber(S.BoardHopKeep) or 0) > 0 and (tonumber(NATIVE.v) or 0) >= 115 and type(HJN_Set) == "function") and math.min(0.6, tonumber(S.BoardHopKeep) or 0.3) or nil,
+                hold = ((tonumber(S.BoardHopKeep) or 0) <= 0 or (tonumber(NATIVE.v) or 0) < 115) and (mesh ~= nil and (th == 1 or th == 2) and (not sw or (tonumber(S.BoardHopTurnHoldSwitch) or 0) ~= 0)) and th or nil,   -- (v212) the turn held in the mesh (above): a regular hop, or a switch one with BoardHopTurnHoldSwitch
+                fr = {}, n = (HOP.n or 0) + 1, rideSaid = HOP.rideSaid,       -- (v212) this hop's frame lines (NATIVE.hopFrame), which hop of the run it is, and when a level riding height off the average was last said (NATIVE.hopMeasure): kept over the hop like rideZ
+                run = { x = rx, y = ry, sp = rsp, vel = rvel, mesh = rmesh },                                       -- (v211) the run-up, as read above
+                glide = ((tonumber(S.BoardHopSpeedScale) or 0) > 0 and rsp >= 30) and math.min(1, rsp / 300) or 0 }   -- (v211) how much of the arc's braking into the landing is taken out (hopTick)
         hopAim(d, now)
+        local mm0 = q(function() return mv.MovementMode end, nil)           -- (v212) 1 = the game has you walking at the click (the standing height in the line below)
         q(function() mv:SetMovementMode(3, 0) end)                          -- airborne: the on-foot jump pose
-        log(string.format("board hop (%s): %.0f cm to the board, riding %s %s, facing the deck's %s side in the air (%s), landing %.0f cm over the deck",
-            which, dist, nose and "nose-first" or "tail-first", sw and "switch" or "regular", side > 0 and "right" or "left",
-            HOP.chest and "your toes while riding" or "by your stance", HOP.rideZ or S.BoardHopRideZ))
+        -- (v211) the DECK's side, as the line says: it printed the capsule's toe side, and the capsule rides the deck either
+        -- way round (tail-first regular and nose-first switch have it facing the tail) -- 8 of the 13 lines of 9 Oct were wrong
+        local dside = (math.abs(wrapA(HOP.yc - d.yaw)) < 90) and side or -side
+        -- (v212) the landing height as hopAim has it and where it is from; and, when the game has you walking at the
+        -- click, how high you stand over the deck's level: on level ground that is the capsule's STANDING height, the
+        -- figure the lift is to clear (85 fits the three engine landings of 10 Oct, and so does 90: it was never read)
+        local lift = math.max(0, tonumber(S.BoardHopLandLift) or 0)
+        log(string.format("board hop (%s): %.0f cm to the board, riding %s %s, facing the deck's %s side in the air (your toes point to the %s of the capsule: %s), landing %.0f cm over the deck (%s%s)%s",
+            which, dist, nose and "nose-first" or "tail-first", sw and "switch" or "regular", dside > 0 and "right" or "left", side > 0 and "right" or "left",
+            HOP.chest and "your toes while riding" or "by your stance", (HOP.rideZ or S.BoardHopRideZ) + lift,
+            HOP.rideZ and "measured on level ground" or "not measured yet: BoardHopRideZ", (lift > 0) and string.format(", and BoardHopLandLift %g over it", lift) or "",
+            (mm0 == 1) and string.format("; you stand %.0f cm over the deck's level", loc.Z - d.z) or ""))
+        log(string.format("board hop:    plan: you face %.0f, the deck's nose points %.0f; on the board the capsule will face %.0f, your chest %.0f; handed to the game at %.0f%s; flip flag %d",
+            F, d.yaw, wrapA(HOP.yc), wrapA(HOP.yc + side * 90), wrapA(HOP.ym), (HOP.ym ~= HOP.yc) and " (switch: the game turns it half a turn itself)" or "", HOP.flip and 1 or 0))
+        do
+            local Hr = math.rad(HOP.H or F)
+            local c = math.max(-1, math.min(1, rx * math.cos(Hr) + ry * math.sin(Hr)))
+            log((rsp >= 30) and string.format("board hop:    you ran up at %.0f cm/s (%s; Velocity %.0f, the mesh %.0f), %.0f deg off the way the board will roll; BoardHopSpeedScale x%.2f, BoardHopSpeedAcross %.2f",
+                    rsp, rhow, rvel, rmesh, math.deg(math.acos(c)), tonumber(S.BoardHopSpeedScale) or 0, tonumber(S.BoardHopSpeedAcross) or 0)
+                or string.format("board hop:    you stood still (Velocity %.0f cm/s, the mesh %.0f): nothing of yours to give the board", rvel, rmesh))
+        end
+        -- (v212) THE POSE RECORDER OVER THE HOP (BoardHopPoses: the first 8 hops of a run). No board hop has ever been
+        -- recorded -- a hop opens none of the recorder's windows -- so what the frames at a mount look like is known
+        -- from the code alone. A trick trace is one of those windows: 120 poses, the click to about a second and a half
+        -- after the mount (the whole skeleton, the mesh in the world, the deck in the mesh's space: RecordPoses writes
+        -- them to ExpandedTricks.poses.bin, TraceLog the trace's own lines to the native log). Not the word "switch"
+        -- in the tag: the native half then logs every pose instead of every third. New ground for the native pose
+        -- pass, which does not as a rule run on while you are on foot: "fault while posing" in the native log after a
+        -- hop = BoardHopPoses=0
+        if (tonumber(S.BoardHopPoses) or 0) ~= 0 and S.TraceLog ~= 0 and HOP.n <= 8 and type(HJN_TrickTrace) == "function" then
+            pcall(HJN_TrickTrace, 120, string.format("board hop %d %s %s", HOP.n, nose and "nose-first" or "tail-first", sw and "sw" or "reg"))
+        end
         return true
+    end
+
+    -- (v211) WHICH WAY THE MOUNT STOOD YOU, said on the first frame riding and half a second on: the capsule against the
+    -- plan (about 0 off = right; 180 off = the yaw handed over is wrong), the deck's nose against where it pointed (turned
+    -- 180 = the flip flag is wrong), and the game's own foot position and switch flag (after a switch hop they must still
+    -- say 4 and true half a second on: until build 210 the game took "switch" back within the second in 5 of 6).
+    -- BoardHopSwitchFix=0 must show 180 off on the switch hops: the A/B without a rebuild
+    NATIVE.hopFacing = function(A, tag)
+        local ay = tonumber(q(function() return s0:K2_GetActorRotation().Yaw end, nil))
+        local d = deckWorld()
+        if not ay or not d or not d.yaw then log("board hop:    facing " .. tag .. ": not read") return end
+        local cs = (type(HJN_CtrlYaw) == "function") and tostring(HJN_CtrlYaw(ay) or "") or "?"
+        log(string.format("board hop:    facing %s: capsule %.0f (planned %.0f, %+.0f off; handed over at %.0f), deck nose %.0f (was %.0f, turned %+.0f), board target to capsule / deck offset / reverting [%s], foot position %s, the game says switch %s (asked %s)",
+            tag, wrapA(ay), wrapA(A.yc), wrapA(ay - A.yc), wrapA(A.ym or A.yc), d.yaw, wrapA(A.d0), wrapA(d.yaw - A.d0), cs,
+            tostring(q(function() return s0:GetCurrentFootPosition() end, "?")), tostring(q(function() return s0:IsSkatingSwitch() end, nil)), tostring(A.sw)))
+        -- (v212) THE DECK'S 180 OF 10 OCT 09:55:37, NAMED WHEN IT HAPPENS, AND ON WHICH SIDE OF THE MOUNT'S LAST ResetBoard: on
+        -- the first frame riding the game's switch flag is not the one the hop asked for, or the deck's nose has turned
+        -- more than a quarter turn. The deck offset in the bracket of the line above says which of the game's tests did
+        -- it. The mount's last ResetBoard writes that offset from "is switch" against the flip flag (unequal = 180), and
+        -- SnapToGround turns the board on the same compare a moment later. An offset that is NOT what the stance asked
+        -- for gives against the flip flag = the stance was re-labelled BEFORE that ResetBoard: the game's first two
+        -- tests, which go by the board's old direction of travel -- the wipe should have shut them (10 Oct 09:55:37 was
+        -- this: asked regular, flip flag 0, offset 180). The offset as asked WITH the deck turned = re-labelled AFTER
+        -- it, between the two compares: the third test, which reads what the game's own stop leaves of the board's
+        -- motion, its vertical speed, along a pitched deck -- the stop of the board did not hold. With
+        -- BoardHopStanceLock, native v114 and "stopped before the mount" none of it should come again; if it does,
+        -- that hop's "mounting where the board lies" line in the native log and its "as you land" line here have the
+        -- numbers each test goes by
+        if tag == "on the first frame riding" then
+            local swn = q(function() return s0:IsSkatingSwitch() end, nil)
+            local turned = math.abs(wrapA(d.yaw - A.d0)) > 90
+            if (swn ~= nil and swn ~= (A.sw == true)) or turned then
+                local dof = tonumber(cs:match("^%S+ (%S+)"))
+                local asked = ((A.sw == true) ~= (A.flip == true)) and 180 or 0
+                local route
+                if not turned then route = "the deck was not turned: the label changed after the board was snapped to you, not in one of the mount's three tests"
+                elseif not dof then route = "the deck offset was not read, so which of the mount's tests did it cannot be said"
+                elseif math.abs(wrapA(dof - asked)) > 90 then route = string.format("deck offset %.0f where the stance and flip flag asked for give %d: re-labelled BEFORE the mount's last ResetBoard, by one of its first two tests (the board's own travel taken for the way you move) -- the wipe of the board's old direction should have shut those", dof, asked)
+                else route = string.format("deck offset %.0f, as the stance and flip flag asked for give it, and the deck turned all the same: re-labelled AFTER the mount's last ResetBoard, by its third test (a pitched board with vertical speed) -- the stop of the board should have shut that", dof) end
+                log("board hop:    THE MOUNT RE-LABELLED YOUR STANCE OR TURNED THE DECK (the game's switch flag is not the one asked for, or the deck's nose turned over a quarter turn): the 180 under you. " .. route
+                    .. ". This hop's 'mounting where the board lies' line in ExpandedTricks.native.log has the board's old move direction, its speed along it and whether the game counted it grounded; the 'as you land' line here its tilt and vertical speed")
+            end
+        end
+    end
+
+    -- (v212) THE HOP'S FRAMES, IN NUMBERS (BoardHopRecord): an entry a frame of the game from the last third of the arc
+    -- to 0.7 s after the mount call, written to the log when the watch ends. "Every time he lands on the board, it's
+    -- still a bit sketchy. It jitters" -- and no hop has ever been looked at frame by frame: the two lines above have
+    -- no pose in them and the pose recorder never ran over one. What the columns are for:
+    --   t  the way your toes point (both feet, ankle to toe) = the way your chest faces, on foot and riding alike.
+    --      With BoardHopTurnHold 0 a jump of about 90 deg at the mount that is back by +150 ms IS the quarter-turn
+    --      flick; with the hold on it should stay within about 20 deg of the planned chest. No jump with the hold
+    --      off = there is no flick, and the hold comes out again;
+    --   z  the capsule over the deck: a dip under its riding value = you were let into the ground and lifted back;
+    --   the movement mode: 3/0 (in the air) until 6/x (riding); a 1/0 before the mount = the engine's own landing;
+    --   v  the capsule's travel over the ground since the entry before, w the native half's reading of the same (the
+    --      mesh's travel pose to pose, eased by half). The game's mount stops the board dead for a frame or two
+    --      before the speed is given (its ForceStop): at 400 cm/s that is an entry of v near 0 between two near 400,
+    --      or a dip of w to about half -- v only when this loop's tick falls on the same side of the game's own in
+    --      both frames, w whenever a pose was drawn;
+    --   a / r  the deck ahead of / to the right of the capsule: how far the mount had to bring the two together.
+    -- An entry is read BEFORE the mod's own writes of that tick, and only when the game's own clock has moved on (two
+    -- ticks of this loop can fall into one frame of the game, and would read as a standstill): the pose and the
+    -- places of one drawn frame, as near as a loop that is not the game's tick gets to it. A dozen reflected calls an
+    -- entry, some 60 entries a hop
+    NATIVE.hopFrame = function(F, ms)
+        if not F or #F >= 90 or (tonumber(S.BoardHopRecord) or 0) == 0 then return end
+        local now = os.clock()
+        local gt = (not F.noClock) and tonumber(q(function() return s0:GetGameTimeSinceCreation() end, nil)) or nil
+        if gt and F.gt == gt then
+            if now - F.at < 0.05 then return end                          -- the same frame of the game
+            F.noClock, gt = true, nil                                     -- 50 ms on the same stroke: that clock does not run -- this loop's own from here on
+        end
+        if not gt and F.at and now - F.at < 0.012 then return end         -- (the game's clock not read: 12 ms apart at the least)
+        local rot = q(function() return s0:K2_GetActorRotation() end, nil)
+        local loc = q(function() return s0:K2_GetActorLocation() end, nil)
+        local d = deckWorld()
+        if not rot or not loc or not d then return end
+        local my = tonumber(q(function() return mesh:K2_GetComponentRotation().Yaw end, nil))
+        local tl = q(function() return mesh:GetSocketLocation(fname("AMXX_L_Toe0")) end)
+        local fl = q(function() return mesh:GetSocketLocation(fname("AMXX_L_Foot")) end)
+        local tr = q(function() return mesh:GetSocketLocation(fname("AMXX_R_Toe0")) end)
+        local fr = q(function() return mesh:GetSocketLocation(fname("AMXX_R_Foot")) end)
+        local toe = (tl and fl and tr and fr) and math.deg(math.atan((tl.Y - fl.Y) + (tr.Y - fr.Y), (tl.X - fl.X) + (tr.X - fr.X))) or nil
+        local yr = math.rad(rot.Yaw)
+        local dx, dy = d.x - loc.X, d.y - loc.Y
+        local v = nil
+        if F.px then
+            local dt = (gt and F.gt and gt - F.gt > 0.001) and (gt - F.gt) or (now - F.at)
+            if dt > 0.001 then v = math.sqrt((loc.X - F.px) ^ 2 + (loc.Y - F.py) ^ 2) / dt end
+        end
+        F.px, F.py, F.at, F.gt = loc.X, loc.Y, now, gt
+        local w = type(HJN_MeshSpeed) == "function" and tonumber(HJN_MeshSpeed()) or nil
+        F[#F + 1] = string.format("%+.0f:%s/%s z%.0f c%.0f m%s t%s d%.0f a%+.0f r%+.0f f%s v%s w%s", ms,
+            tostring(q(function() return mv.MovementMode end, "?")), tostring(q(function() return mv.CustomMovementMode end, "?")),
+            loc.Z - d.z, wrapA(rot.Yaw), my and string.format("%+.0f", wrapA(my - rot.Yaw - yaw0)) or "?", toe and string.format("%.0f", toe) or "?",
+            d.yaw, dx * math.cos(yr) + dy * math.sin(yr), dy * math.cos(yr) - dx * math.sin(yr),
+            tostring(q(function() return s0:GetCurrentFootPosition() end, "?")), v and string.format("%.0f", v) or "?", (w and w >= 0) and string.format("%.0f", w) or "?")
+    end
+    NATIVE.hopFramesOut = function(A)
+        local F = A and A.fr
+        if not F or #F == 0 then return end
+        log(string.format("board hop:    frames (BoardHopTurnHold %s), ms from the mount call, one a frame of the game, each as it stood before the mod's own writes of that frame: movement mode / custom, z = capsule over the deck cm, c = capsule yaw, m = the mesh's turn against it, t = the way your toes point (your chest: planned %.0f, and still turning there in the arc; the capsule was handed to the mount at %.0f and rides at %.0f), d = the deck's nose, a / r = the deck ahead of / to the right of the capsule cm, f = foot position, v = the capsule's travel over the ground cm/s since the entry before, w = the same as the native half has it (eased by half a pose)",
+            (A.sw and not A.hold and (tonumber(S.BoardHopTurnHold) or 0) ~= 0) and "not used -- a switch hop without BoardHopTurnHoldSwitch" or tostring(A.hold or 0), wrapA(A.chest or 0), wrapA(A.ym or A.yc or 0), wrapA(A.yc or 0)))
+        for i = 1, #F, 8 do log("board hop:      " .. table.concat(F, " | ", i, math.min(#F, i + 7))) end
+    end
+    -- (v212) THE ONE WAY OUT OF THE WATCH: what the hop left in the mesh's yaw is taken out, the yaw watch is let back
+    -- in, the frame lines are written. Whatever ends the watch calls this -- a turn left in the mesh is the "he faces
+    -- one direction and runs the other" of v166
+    NATIVE.hopEnd = function()
+        local A = HOP.after
+        HOP.after = nil
+        if not A then return end
+        if A.m1 then A.m1 = nil pcall(setYaw, 0, true) end
+        NATIVE.hopTurnUntil = nil
+        pcall(NATIVE.hopFramesOut, A)
     end
 
     NATIVE.hopTick = function()
@@ -6084,33 +7345,172 @@ do
             -- still, whatever it was doing. So once the game has you on it, every part gets the velocity the board was met
             -- with (HJN_BoardKick: the drop-in's own release), and again a frame or two later should the mount's first frame
             -- have zeroed it; then the game's own speed reading is logged
+            -- (v211) ...AND GETS YOUR RUN-UP. "When I mount the board, the velocity seems stifled ... you run up to it and you
+            -- jump on it. You should be imparting velocity into it." 9 Oct, twelve hops: the board rolled off with 0 to 311
+            -- cm/s (its own roll, half of them under 105) from a run of 460. The game does this itself when it mounts you
+            -- from a board in the hand or thrown (USkateboardExMovementComponent::OnMovementModeChanged hands the walk's
+            -- velocity to ApplyOnFootVelocityTransfer: 460 in, 460 out); from a board lying loose it calls ForceStop
+            -- instead. So the mod gives it: the speed you ran up at (read at the click) x BoardHopSpeedScale ("there should
+            -- be a little speed boost": 1.2), ALONG THE BOARD the way you ride off (a board only rolls along its length: a
+            -- kick across it is scrubbed off or tips it) -- the part of the run-up that points along the board, and
+            -- BoardHopSpeedAcross of the part that points across. A board already rolling faster that way keeps its own
+            -- speed (v128); standing still nothing is added.
+            -- ForceStop also sets the game's "hold still" (board movement +0x7eb bit 4, a timer of SkaterConfig
+            -- SlopeDetectionSpawnDelay = 0.5 s): while it is up PrePhysSkateboarding zeroes the board's speed over the
+            -- ground every tick. On level ground it drops on the first tick; on a slope over about 11 deg it stays the
+            -- half second. HJN_Set("boardgo") (native v113) lets go of it -- what the game does when it hands a walk's
+            -- velocity on -- and with or without it the speed is given again whenever the game reads under half of it,
+            -- for 0.8 s, until it has once been read at half or more: from then on a slower board is the world's doing,
+            -- not the hold's (the note at the test below). (v128's "the game reads" line was taken right after its own
+            -- second kick: it read back what had just been written, 7 of 10 to the cm/s.)
+            -- The same watch says which way the mount stood you (NATIVE.hopFacing), at once and half a second on. How it
+            -- runs: the first frame riding -> the facing, then what the board is to get; nothing to give -> said, and only
+            -- the second facing line is waited for; else given, read 60 ms on and then every 0.2 s (and given again when
+            -- taken back) until 0.8 s; over when both are done. A bail or a drop-in ends it at once; off the board
+            -- again ends it; never mounted within 0.6 s -> the board's flag is put back, as before
+            -- (v212) ONE KICK, NOT TWO. "Given once more 60 ms on" gave nothing in any of the four hops of 10 Oct -- "(0
+            -- parts)": the second look for the board's parts inside half a second was refused (findFlipper) -- and the
+            -- speed held without it: the game read 131, 370, 148 and 494 cm/s at 65 ms and the same to within 5 cm/s half
+            -- a second on. With the look mended it would be a second shove at a board already rolling. What stays is
+            -- "given again when the game has taken it back", and that now reaches the board: the parts are the ones
+            -- looked up as you landed (A.parts), for as long as the deck they belong to lives (A.deck) -- a list of
+            -- addresses is not used on a board the game has put away (an engine call on a dead part corrupts the
+            -- engine's object tables: the native half's note at its board parts).
+            -- (v212, the review of 10 Oct) THEIR deck, kept with them as you landed -- not BD.comp, which is whichever
+            -- deck the mod holds by now: every look for a board's parts drops it and takes the nearest board's, and the
+            -- list would then pass on the strength of ANOTHER board's deck. No such order of events was found in play
+            -- (it takes the hop's board gone and another found inside the 0.8 s, while you ride), but the list is
+            -- raw addresses and goes to the engine as it is. The other way round too: a deck the mod has let go of
+            -- (a look put off while the engine clears objects out drops it and finds none) no longer costs the watch
+            -- the parts of a board that is still there.
+            -- The watch also takes the frame lines (NATIVE.hopFrame) and lets out the turn the hop left in the mesh
+            -- (BoardHopTurnHold, the note in hopTry); every way out of it goes through NATIVE.hopEnd
             local A = HOP.after
             local now = os.clock()
             local onb = q(function() return s0:IsOnBoard() end, false) == true
-            if onb then
-                if A.kicks == 0 or (A.kicks == 1 and now >= A.nextKick) then
-                    local n = 0
-                    if A.speed >= 30 and type(HJN_BoardKick) == "function" and type(HJN_BoardParts) == "function" and NATIVE.boardParts then
-                        local parts = NATIVE.boardParts()
-                        local took = parts and tonumber(HJN_BoardParts(table.unpack(parts))) or 0
-                        if took > 0 then n = tonumber(HJN_BoardKick(A.vx, A.vy, 0, 0, A.vx / A.speed, A.vy / A.speed)) or 0 end
-                        pcall(HJN_BoardParts)                                  -- (the parts let go of again)
-                    end
-                    A.kicks, A.nextKick = A.kicks + 1, now + 0.06
-                    if A.kicks == 1 then
-                        log((A.speed >= 30) and string.format("board hop: riding -- the board's %.0f cm/s given back to it (%d parts%s)", A.speed, n, (n > 0) and "" or " -- NOT kicked")
-                            or "board hop: riding")
-                    elseif A.kicks >= 2 then
-                        HOP.after = nil
-                        if A.speed >= 30 then
-                            log(string.format("board hop:    the game reads %.0f cm/s %.0f ms after the mount", tonumber(q(function() return mv:GetCurrentSpeed() end, -1)) or -1, (now - A.t0) * 1000))
-                        end
+            if A.fr and now - A.t0 < 0.7 then pcall(NATIVE.hopFrame, A.fr, (now - A.t0) * 1000) end   -- (v212) the frame as it stood, before anything below is written
+            if A.m1 then                                                   -- (v212) the body's turn still in the mesh
+                if active then
+                    -- a hippie jump of yours inside that tenth of a second: the mesh's yaw is its own from here on. What
+                    -- the hop still has in it is taken out FIRST: the jump starts from the mesh's base without looking at
+                    -- the mesh, and with the body varial off (Varial 0) it writes no yaw at all until it ends -- left in,
+                    -- up to a quarter turn stood in the mesh for as long as the jump ran (the stand-in world: 88 deg at
+                    -- a jump started one frame after the mount). The rest of the game's blend then shows as it did in
+                    -- build 211
+                    A.m1, NATIVE.hopTurnUntil = nil, nil
+                    pcall(setYaw, 0, true)
+                else
+                    NATIVE.hopTurnUntil = now + 0.3                        -- (the yaw watch stands back the while: NATIVE.yawGuard)
+                    if A.mounted then
+                        -- from the tick AFTER the one that first saw you riding (A.mounted and A.tm are set further down, on
+                        -- purpose: the game's first riding frame draws the snapshot unblended, so that tick keeps the whole turn).
+                        -- By the game's own clock where it runs (A.gm): the blend is counted in the game's frames, and two
+                        -- ticks of this loop inside one frame then write the same turn -- by this loop's own clock they are
+                        -- 10 ms of the blend apart, up to 6 deg mid-way, a wobble of the hold's own making
+                        local el = now - A.tm
+                        local g = A.gm and tonumber(q(function() return s0:GetGameTimeSinceCreation() end, nil)) or nil
+                        if g and (g > A.gm or el < 0.05) then el = g - A.gm end
+                        local xx = math.min(1, el / 0.15)                  -- the game's blend out of the on-foot snapshot: 0.15 s (anim blueprint, OnFootToOnBoard -> OnBoard)
+                        local al = xx * xx * (3 - 2 * xx)                  -- its curve (HermiteCubic)
+                        pcall(setYaw, A.m1 * (1 - math.deg(math.atan(al, 1 - al)) / 90), true)   -- a quarter turn blended in by a share al has turned atan(al / (1 - al))
+                        if xx >= 1 then A.m1 = nil pcall(setYaw, 0, true) NATIVE.hopTurnUntil = nil end
                     end
                 end
+            end
+            if onb then
+                if not A.mounted then                                      -- the first frame on the board
+                    A.mounted, A.tm, A.checkAt = true, now, now + 0.5      -- the mount as the mod first sees it; the facing is read again half a second on
+                    A.gm = A.m1 and tonumber(q(function() return s0:GetGameTimeSinceCreation() end, nil)) or nil   -- (v212) ...and by the game's own clock, for the turn that is let out of the mesh (above)
+                    pcall(NATIVE.hopFacing, A, "on the first frame riding")   -- (before anything is given: what the mount alone did)
+                    local R = A.run or { x = 1, y = 0, sp = 0 }
+                    local Hr = math.rad(A.H or 0)
+                    local ux, uy = math.cos(Hr), math.sin(Hr)
+                    local uz = 0
+                    -- the deck as the game's mount left it: the same line to the degree, and its rise on a slope (the speed goes along the deck, not into the bank)
+                    local fx, fy, fz = tostring(type(HJN_DeckAxes) == "function" and HJN_DeckAxes() or ""):match("^(%S+) (%S+) (%S+)")
+                    fx, fy, fz = tonumber(fx), tonumber(fy), tonumber(fz)
+                    local fl = fx and fy and fz and math.sqrt(fx * fx + fy * fy) or 0
+                    if fl > 0.7 then
+                        local sgn = ((fx * ux + fy * uy) >= 0) and 1 or -1
+                        if (fx * ux + fy * uy) * sgn / fl > 0.7 then ux, uy, uz = fx * sgn / fl, fy * sgn / fl, fz * sgn / fl end
+                    end
+                    local dot = math.max(-1, math.min(1, R.x * ux + R.y * uy))
+                    local along = math.max(0, dot)
+                    local share = along + (tonumber(S.BoardHopSpeedAcross) or 0) * (1 - along)
+                    local scale = tonumber(S.BoardHopSpeedScale) or 0
+                    local mine = (R.sp >= 30) and math.min(2000, R.sp * share * scale) or 0
+                    local own = A.vx * ux + A.vy * uy                      -- the board's own roll, the same way
+                    if math.abs(own) < 0.5 then own = 0 end                -- (a board that lay still: 0, not the "-0" of a rounding crumb in the log)
+                    if mine >= 30 and mine > own then
+                        A.want, A.tx, A.ty, A.tz, A.ux, A.uy = mine, ux * mine, uy * mine, uz * mine, ux, uy
+                        A.what = string.format("%.0f cm/s (%.0f km/h) given to the board, along it: your run-up's %.0f cm/s x %.0f %% (it came in %.0f deg off the board's line) x BoardHopSpeedScale %.2f; the board's own roll that way was %.0f",
+                            mine, mine * 0.036, R.sp, share * 100, math.deg(math.acos(dot)), scale, own)
+                    else
+                        A.want, A.tx, A.ty, A.tz = A.speed, A.vx, A.vy, 0
+                        A.ux, A.uy = (A.speed >= 30) and A.vx / A.speed or ux, (A.speed >= 30) and A.vy / A.speed or uy
+                        A.what = (A.speed >= 30) and string.format("the board's own %.0f cm/s given back to it (your run-up would have given %.0f: %.0f cm/s x %.0f %% x BoardHopSpeedScale %.2f)", A.speed, mine, R.sp, share * 100, scale)
+                            or string.format("nothing given (the board lay still and your run-up gives %.0f: %.0f cm/s x %.0f %% x BoardHopSpeedScale %.2f)", mine, R.sp, share * 100, scale)
+                    end
+                end
+                if not A.over then                                         -- the speed (over = settled: only the second facing line is still waited for)
+                    local function give()
+                        local n = 0
+                        if type(HJN_BoardKick) == "function" and type(HJN_BoardParts) == "function" and NATIVE.boardParts then
+                            local parts = (A.parts and alive(A.deck)) and A.parts or NATIVE.boardParts()   -- (v212) the parts looked up as you landed, while THEIR deck lives (the note above); else looked up afresh
+                            local took = parts and tonumber(HJN_BoardParts(table.unpack(parts))) or 0
+                            if took > 0 then n = tonumber(HJN_BoardKick(A.tx, A.ty, A.tz or 0, 0, A.ux, A.uy)) or 0 end
+                            pcall(HJN_BoardParts)                              -- (the parts let go of again)
+                        end
+                        return n
+                    end
+                    if A.want < 30 then
+                        A.over = true
+                        log("board hop: riding -- " .. A.what)
+                    elseif modeNow() == MODE_BAILING or (NATIVE.dropBusy and NATIVE.dropBusy()) then
+                        log(string.format("board hop:    a bail or a drop-in %.0f ms after the mount -- the speed is left alone", (now - A.tm) * 1000))
+                        NATIVE.hopEnd()
+                    elseif A.kicks == 0 then
+                        local go = type(HJN_Set) == "function" and tonumber(HJN_Set("boardgo", 1)) or 0   -- 1 = the game's hold was up and is let go, 2 = it was not up, 0 = not looked at: v112 and older have no such thing, and v113 answers so on another build of the game or when it finds no board
+                        local n = give()
+                        A.kicks, A.nextKick = 1, now + 0.06
+                        log(string.format("board hop: riding -- %s (%d parts%s; the game's hold-still after a mount: %s)", A.what, n, (n > 0) and "" or " -- NOT kicked",
+                            (go == 1) and "let go" or (go == 2) and "was not up" or "not looked at by this native half (v112 and older have no such thing; v113 says so on another build of the game or when it finds no board)"))
+                    elseif now >= A.nextKick then
+                        -- (read BEFORE anything is given again: the game's reading is the board's velocity as it stands, so read
+                        -- right after a kick, as build 128 did, it only says what was just written)
+                        local cur = tonumber(q(function() return mv:GetCurrentSpeed() end, -1)) or -1
+                        local real = type(HJN_MeshSpeed) == "function" and tonumber(HJN_MeshSpeed()) or -1
+                        local ms = (now - A.tm) * 1000
+                        -- taken back = the game reads under half AND the mesh's own travel does not say otherwise (the game's
+                        -- reading is the velocity along ITS move direction, which may not have turned to the board's line yet)
+                        -- (v211) ...AND ONLY UNTIL THE SPEED HAS BEEN READ ONCE (A.took). The hold wipes it from the first tick
+                        -- on, so a board that HAS rolled at the speed and is slower afterwards was slowed by the world -- a
+                        -- bank rolled up, a kerb, your own brake -- not by the hold. Without this it was shoved again at the
+                        -- full speed along the line of the mount and logged as "the game had taken it back": in the
+                        -- stand-in world, 552 cm/s kept for 0.3 s and then down to 150 on a bank = shoved at 663 and 863 ms.
+                        -- With native v113 letting go of the hold that would have been most of what the watch ever did.
+                        -- (The mesh's travel counts from the third reading on: 60 ms after the mount it still carries the
+                        -- hop's own arc.)
+                        if cur >= 0.5 * A.want or (A.kicks >= 2 and real >= 0.5 * A.want) then A.took = true end
+                        if not A.took and cur >= 0 and cur < 0.5 * A.want and real < 0.5 * A.want and A.kicks < 7 then   -- (v212) no longer "once more, as always" at the first reading: the note at the top
+                            local n = give()
+                            log(string.format("board hop:    %.0f ms after the mount the game reads %.0f cm/s, you move %.0f over the ground (%.0f asked for) -> given AGAIN: the game had taken it back (%d parts)", ms, cur, real, A.want, n))
+                        else
+                            log(string.format("board hop:    %.0f ms after the mount the game reads %.0f cm/s, you move %.0f over the ground (%.0f asked for)", ms, cur, real, A.want))
+                        end
+                        A.kicks, A.nextKick = A.kicks + 1, now + 0.2
+                        if now - A.tm > 0.8 then A.over = true end
+                    end
+                end
+                if HOP.after and A.checkAt and now >= A.checkAt then A.checkAt = nil pcall(NATIVE.hopFacing, A, "0.5 s on") end
+                if HOP.after and A.over and not A.checkAt then NATIVE.hopEnd() end
+            elseif A.mounted then                                          -- (v211) mounted, and off the board again inside the watch: nothing to put back, and no "did not mount you"
+                log(string.format("board hop:    off the board again %.0f ms after the mount", (now - A.tm) * 1000))
+                NATIVE.hopEnd()
             elseif now >= A.deadline then
-                HOP.after = nil
                 if type(HJN_BoardRagdoll) == "function" then HJN_BoardRagdoll() end
                 log("board hop: the game did not mount you (board flag put back) -- mode " .. tostring(modeNow()))
+                NATIVE.hopEnd()
             end
             return
         end
@@ -6121,31 +7521,179 @@ do
         if d and d.upz > 0.5 then hopAim(d, now) end                     -- (v127) the board may be rolling: aim again
         local k = math.min(1, (now - HOP.t0) / math.max(0.1, S.BoardHopTime))
         local e = k * k * (3 - 2 * k)
-        local x = HOP.p0[1] + (HOP.p1[1] - HOP.p0[1]) * e
-        local y = HOP.p0[2] + (HOP.p1[2] - HOP.p0[2]) * e
-        local z = HOP.p0[3] + (HOP.p1[3] - HOP.p0[3]) * e + 4 * S.BoardHopHeight * k * (1 - k)
-        local yaw = (k < 1) and (HOP.y0 + (HOP.y1 - HOP.y0) * e) or HOP.yc   -- the last frame: the capsule faces the ride
-        pcall(function() s0:K2_SetActorLocationAndRotation({ X = x, Y = y, Z = z }, { Pitch = 0, Yaw = yaw, Roll = 0 }, false, {}, true) end)
+        local eh = e + (k - e) * (HOP.glide or 0)                       -- (v211) over the ground: no braking into the landing when you ran up (the height and the turn keep their ease)
+        if k >= 0.7 then pcall(NATIVE.hopFrame, HOP.fr, (now - HOP.t0 - math.max(0.1, S.BoardHopTime)) * 1000) end   -- (v212) the last third of the arc, each frame as it stood before this tick's writes
+        -- (v212) STILL IN THE AIR, FOR THE GAME TOO. 10 Oct, the hop of 09:55:26: the engine had you "walking" again 16 ms
+        -- after the click, for 100 ms (its first falling step started on the ground), and in three hops of four it
+        -- landed you by itself 2 to 4 frames before the mount (SessionTweaks.log: "movement 1/0" 66, 51 and 33 ms before
+        -- "onBoard 1"). A walking character is kept on its floor by the engine while the arc carries it: put back in
+        -- the air when that is seen, and counted for the log (the ticks of this loop it was seen on) -- the way down
+        -- (0 is the aim) apart from the take-off (the engine's first step after the click can land you before the
+        -- arc's first tick: 0 to 2 there is normal). THE FIRST TWO TIMES OF EACH END ONLY: where the arc ends inside
+        -- something -- a kerb beside the board, a bank, a board on a ledge, a height still read wrong -- the engine
+        -- lands you again on its next tick, every frame, with the game's own landing handling each time; build 211's
+        -- one landing there is the lesser evil. 3 or more on the way down in the "as you land" line = the arc ended
+        -- in the ground: the frame lines' z column says how deep.
+        -- Mounted from the air the game also brings the board under the capsule instead of leaving it where it lay
+        -- (the skater movement's OnMovementModeChanged, exe+0xffa426: previous mode Falling): the hop of 09:56:22,
+        -- the one with no engine landing logged before it, came out as planned
+        if q(function() return mv.MovementMode end, 3) == 1 then
+            local n
+            if k >= 0.5 then n = HOP.walked or 0  HOP.walked = n + 1 else n = HOP.walked0 or 0  HOP.walked0 = n + 1 end
+            -- (v212, the review of 10 Oct) BoardHopAirKeep 0 = seen and counted, and left alone as build 211 left it.
+            -- The stop, the wipe, the lift, the turn's hold and the frame lines each have their setting; this had
+            -- none, and "if the landing feels worse there is no A/B" for it without a new build
+            if n < 2 and (tonumber(S.BoardHopAirKeep) or 1) ~= 0 then q(function() mv:SetMovementMode(3, 0) end) end
+        end
+        local x = HOP.p0[1] + (HOP.p1[1] - HOP.p0[1]) * eh
+        local y = HOP.p0[2] + (HOP.p1[2] - HOP.p0[2]) * eh
+        local z = HOP.p0[3] + (HOP.p1[3] - HOP.p0[3]) * e + math.max(4 * S.BoardHopHeight * k * (1 - k), 3 * (1 - k))   -- (v212) ...and 3 cm clear of the ground from the first tick on (the arc's own height is more than that from the second)
+        -- (v212) WHERE YOUR BODY FACES AND WHERE THE CAPSULE DOES (BoardHopTurnHold, the note in hopTry). The body's facing is
+        -- build 211's: from where you faced to the chest's side of the deck. Without the hold the capsule IS that facing
+        -- until the last frame hands it to the mount; with it the capsule is eased to the mount's yaw on the way (1) or
+        -- flies as before (2), and the mesh carries what the capsule lacks -- written in the same slice as the capsule,
+        -- so that no frame is drawn with the one turned and the other not
+        local body = (k < 1) and (HOP.y0 + (HOP.y1 - HOP.y0) * e) or HOP.y1
+        local cap = body
+        if k >= 1 then cap = HOP.ym or HOP.yc                            -- the last frame: the capsule is handed to the mount (v211: ym -- yc, or half a turn round for a switch mount, which the game turns back)
+        elseif HOP.hold == 1 then cap = HOP.y0 + (HOP.c1 - HOP.y0) * e end
+        if HOP.keep then                                                 -- (v213) the native half follows the body's heading through the arc...
+            if k < 1 then pcall(HJN_Set, "hopkeep", 0.3) else pcall(HJN_Set, "hopkeep", -HOP.keep) end   -- ...and holds it from the last frame on, asked BEFORE the capsule is turned
+        end
+        -- (v215) THE FEET STAY ON THE DECK THROUGH THE MOUNT (BoardHopFeet). "I think the last issue is his foot dips below
+        -- the board and touches the ground before it rebounds to touch the board. Seems pretty consistent." (10 Oct.) The
+        -- game's mount sets the capsule to its riding height and blends from a snapshot of the STANDING pose, whose feet
+        -- are at the capsule's foot: 5 cm and more under the deck's top for the eighth of a second the blend takes. The
+        -- native half already has the cure, made for the ollie hop (v111, HJN_Set "hopdeck"): for that many poses neither
+        -- foot is drawn lower over the deck than it rides -- the body is held up by what a foot lacks, eased off as the
+        -- blend brings the feet up. Asked on the arc's last frame, for the mount's own frames.
+        -- (v216) ...BUT NOT BY LIFTING THE BODY. "The board mount is less smooth. Like it stutters as the character rotates
+        -- to align to the board ... and his legs still kind of bounce off the board." (11 Oct.) "hopdeck" raised the
+        -- whole body 14-15 cm in one pose and eased it off against a need that jumped: the stutter. And the bounce is
+        -- the game's own feet, after its board bone (the note at HopFeet in the native half). Native v117's "hopfeet":
+        -- for these poses each ankle is drawn at its riding height over the deck, sole flat, the legs bent to it.
+        if k >= 1 and (tonumber(S.BoardHopFeet) or 1) ~= 0 and (tonumber(NATIVE.v) or 0) >= 117 and type(HJN_Set) == "function" then pcall(HJN_Set, "hopfeet", 22) end
+        pcall(function() s0:K2_SetActorLocationAndRotation({ X = x, Y = y, Z = z }, { Pitch = 0, Yaw = cap, Roll = 0 }, false, {}, true) end)
+        if HOP.hold == 1 or (HOP.hold == 2 and k >= 1) then
+            HOP.moff = wrapA(body - cap)                                 -- the body's turn against the capsule, carried by the mesh
+            NATIVE.hopTurnUntil = now + 0.3                              -- (the yaw watch stands back the while: NATIVE.yawGuard)
+            pcall(setYaw, HOP.moff, true)
+        end
         pcall(function() mv.Velocity = { X = 0, Y = 0, Z = 0 } end)
         if k < 1 then return end
         HOP.on = false
         local rolled = math.sqrt((HOP.bp[1] - HOP.b0[1]) ^ 2 + (HOP.bp[2] - HOP.b0[2]) ^ 2)
         local speed = math.sqrt(HOP.bv[1] ^ 2 + HOP.bv[2] ^ 2)
-        if tonumber(HJN_BoardMount(HOP.sw and 1 or 0, HOP.flip and 1 or 0)) == 1 then
+        -- (v212) THE MOUNT MUST NOT RE-LABEL YOUR STANCE: THE BOARD IS STOPPED AS YOU COME DOWN ON IT AND ITS OLD DIRECTION
+        -- OF TRAVEL WIPED (BoardHopStanceLock). 10 Oct 09:55:37, "the board literally rotated 180 beneath the character":
+        -- planned nose-first regular with flip flag 0, mounted with foot position 2, "the game says switch true (asked
+        -- false)", the deck's nose turned 180. Inside its own mount, before the board is snapped to you, the game can
+        -- re-label your stance from the way the LOOSE BOARD travels (AdjustFootPositionAndMoveDirection, exe+0xfe95a0,
+        -- reached from UpdateMoveDirection and from SetOnBoardMode); re-labelled, "is switch" no longer matches the
+        -- flip flag, and the mount's own snap turns the board half a turn. WHICH of its tests did it that day is NOT
+        -- known: by the deck's travel the board slid broadside at 115 cm/s, which as the exe reads passes none of
+        -- them on a level board, and two other hops onto boards moving straight against the ride did not turn. (A
+        -- candidate, not a measurement: that board was the one still SKIDDING a second and three quarters after a hard
+        -- throw -- likely up on an edge and bouncing, and a tilted board with vertical speed is what the tests that
+        -- come after the game's own stop of the board go by. Neither its tilt nor its vertical speed was in any log;
+        -- both are in the "as you land" line now.) So every route in the mount is shut, and that takes BOTH halves:
+        --   THE WIPE (native v114 zeroes the board's stored move direction) shuts the two tests that run before the
+        --     mount's last ResetBoard. The game measures the board's speed ALONG that direction: zeroed, it reads 0 and
+        --     takes the way the board points for the way you move;
+        --   THE STOP shuts the third. UpdateMoveDirection inside that last ResetBoard (exe+0xfe0774) reads the
+        --     direction the game has just written again against what its own ForceStop leaves of the board's velocity,
+        --     (0, 0, vz): on a pitched board with vertical speed over 50 / sin(pitch) it re-labels all the same. The
+        --     board is stopped here, in the same slice (HJN_BoardKick with zeros: vz too).
+        -- Nothing is lost by the stop: the game stops the board in the mount anyway and the watch gives it its speed
+        -- afterwards. With a v113 native half only the stop is made. Where the stop cannot be made (the parts not
+        -- found, or not taken) the mount is made all the same, and the "as you land" line says what is then still open.
+        -- The order in the slice: the parts, the board's velocity, the stop, the mount call (the wipe), the game's toggle.
+        -- The board's parts are looked up ONCE for the whole mount and kept for the watch (A.parts) with the deck they
+        -- are of (A.deck: the watch uses the list only while that deck lives). A look that is PUT OFF (the engine
+        -- clearing objects out: NATIVE.walkOk, about once a minute in play) finds no parts either, and the "as you
+        -- land" line says which of the two it was -- told from the walk gate's own count of looks put off, taken on
+        -- both sides of the look (the engine's flag itself may have changed by the time the line is written: it is
+        -- another thread's). Its velocity is
+        -- read off its physics body before the stop and handed to the native half for its log line: the deck's travel
+        -- (HOP.bv) is a half-eased average of places 30 ms apart, blind to the last frames -- the very ones the capsule
+        -- may be pressing on the board in. The speed the board is given afterwards still comes from HOP.bv, as before
+        local lock = (tonumber(S.BoardHopStanceLock) or 0) ~= 0
+        local putOff = NATIVE.WK and tonumber(NATIVE.WK.no) or 0         -- (v212) the looks put off so far (NATIVE.walkOk's count)...
+        local parts = NATIVE.boardParts and NATIVE.boardParts() or nil
+        putOff = (NATIVE.WK and tonumber(NATIVE.WK.no) or 0) > putOff    -- ...one more = this look was: not a board that is not there
+        local deck = parts and BD.comp or nil                            -- (v212) the deck those parts are of (boardParts has just taken it), kept with them: A.deck
+        local pvx, pvy, pvz = nil, nil, nil
+        if alive(BD.comp) then
+            local pv = q(function() return BD.comp:GetPhysicsLinearVelocity(fname("None")) end, nil)
+            if pv then pvx, pvy, pvz = q(function() return tonumber(pv.X) end, nil), q(function() return tonumber(pv.Y) end, nil), q(function() return tonumber(pv.Z) end, nil) end
+        end
+        local fromBody = pvx ~= nil and pvy ~= nil
+        if not fromBody then pvx, pvy, pvz = HOP.bv[1], HOP.bv[2], nil end
+        pvz = pvz or HOP.bv[3] or 0                                      -- (the board's vertical speed: its body's, else the deck's own rise and fall over the hop)
+        local stopped = -1
+        if lock and parts and type(HJN_BoardParts) == "function" and type(HJN_BoardKick) == "function" then
+            stopped = ((tonumber(HJN_BoardParts(table.unpack(parts))) or 0) > 0) and (tonumber(HJN_BoardKick(0, 0, 0, 0, 1, 0)) or 0) or 0
+            pcall(HJN_BoardParts)                                        -- (the parts let go of again)
+        end
+        local mm = q(function() return mv.MovementMode end, -1)
+        if tonumber(HJN_BoardMount(HOP.sw and 1 or 0, HOP.flip and 1 or 0, lock and 1 or 0, pvx, pvy, pvz)) == 1 then   -- (v212) + wipe 0/1 and the board's motion for the native log; a v113 native half reads the first two
             local ok, err = pcall(function() s0:SetPendingApplyToggleOnBoard() end)
             log(ok and string.format("board hop: landed%s -- the game mounts you on the board where it is",
                     (rolled > 15) and string.format(" (the board rolled %.0f cm during the hop, met at %.0f cm/s)", rolled, speed) or "")
                 or ("board hop: mount call failed: " .. tostring(err)))
+            do
+                -- (v212) what the landing slice found and did, in one line. With the native log's "mounting where the board
+                -- lies" line (the old direction, the speed along it, grounded or not) it has what each of the game's
+                -- three tests goes by: the board's motion over the ground, and for the one after the game's own stop
+                -- the deck's tilt (its up z, as last read) and the board's vertical speed. A stop that was NOT made
+                -- is said with what it leaves open; the mount is not refused for it
+                local ch, sh = math.cos(math.rad(HOP.H or 0)), math.sin(math.rad(HOP.H or 0))
+                local stop, wipe
+                if not lock then stop, wipe = "left as it is", "left as it is (BoardHopStanceLock 0)"
+                else
+                    if stopped > 0 then stop = string.format("stopped before the mount (%d parts)", stopped)
+                    -- (v212, the review of 10 Oct) a look that was put off is not a look that found no board: "stopped
+                    -- before the mount (7 parts)" is what a test of the 180 looks for, and this hop is no failure of it
+                    elseif not parts then stop = (putOff and "NOT stopped: the look for the board's parts was put off (the engine was clearing objects out, or a level had just changed)" or "NOT stopped: the board's parts were not found")
+                        .. " -- a pitched board with vertical speed can then still turn under you"
+                    else stop = "NOT stopped: the native half took none of its parts -- a pitched board with vertical speed can then still turn under you" end
+                    wipe = ((tonumber(NATIVE.v) or 0) >= 114) and "the native half's to wipe (its 'mounting where the board lies' line says ZEROED)"
+                        or string.format("NOT wiped: that takes native v114, this is v%s -- the stop alone holds only while nothing sets the board moving again before the game's mount", tostring(NATIVE.v or "?"))
+                end
+                log(string.format("board hop:    as you land: the board's own motion %s, by the deck's travel %.0f cm/s (%+.0f along, %+.0f across), deck up z %s, vertical %+.0f cm/s -- the board %s; its old direction of travel %s; the game has you %s; its own landing cut in on %d frames on the way down (%d at the take-off; %s)",
+                    fromBody and string.format("by its physics body %.0f cm/s (%+.0f along the way you will ride, %+.0f across it to the right)", math.sqrt(pvx * pvx + pvy * pvy), pvx * ch + pvy * sh, pvy * ch - pvx * sh)
+                        or "by its physics body: not read",
+                    speed, HOP.bv[1] * ch + HOP.bv[2] * sh, HOP.bv[2] * ch - HOP.bv[1] * sh,
+                    (d and d.upz) and string.format("%.2f", d.upz) or "?", pvz, stop, wipe,
+                    (mm == 3) and "in the air" or ("in movement mode " .. tostring(mm)), HOP.walked or 0, HOP.walked0 or 0,
+                    ((tonumber(S.BoardHopAirKeep) or 1) ~= 0) and "put back in the air the first two times of each" or "NOT put back in the air: BoardHopAirKeep 0"))   -- (v212) which of the two it was
+            end
             if not ok and type(HJN_BoardRagdoll) == "function" then HJN_BoardRagdoll() end
-            HOP.after = { t0 = os.clock(), deadline = os.clock() + 0.6, speed = speed, vx = HOP.bv[1], vy = HOP.bv[2], kicks = 0, nextKick = 0 }   -- (v128)
+            HOP.after = { t0 = os.clock(), deadline = os.clock() + 0.6, speed = speed, vx = HOP.bv[1], vy = HOP.bv[2], kicks = 0, nextKick = 0,   -- (v128)
+                          run = HOP.run, H = HOP.H,                                                    -- (v211) the run-up and the way the board will roll
+                          yc = HOP.yc, ym = HOP.ym, sw = HOP.sw, d0 = (d and d.yaw) or HOP.d0 or 0,    -- (v211) for the facing check: the plan, and the deck's nose as you land
+                          flip = HOP.flip, parts = parts, deck = deck, fr = HOP.fr, hold = HOP.hold, m1 = HOP.hold and HOP.moff or nil, chest = HOP.y1 }   -- (v212) the flip flag (the deck offset the mount should leave: NATIVE.hopFacing), the board's parts as looked up above and the deck they are of, the frame lines, the body's turn still in the mesh, where your chest is to point
         else
             q(function() mv:SetMovementMode(1, 0) end)
+            if HOP.hold then pcall(setYaw, 0, true) NATIVE.hopTurnUntil = nil end   -- (v212) no mount: the body's turn comes out of the mesh at once
             log("board hop: the native half refused the mount (see ExpandedTricks.native.log) -- back on foot")
         end
     end
 
     LoopAsync(10, function()
-        if HOP.on or HOP.after then NATIVE.gt(function() pcall(NATIVE.hopTick) end) end
+        if HOP.on or HOP.after then
+            NATIVE.gt(function()
+                local ok, err = pcall(NATIVE.hopTick)
+                if not ok then                                         -- (v211) it was swallowed: a hop left half done blocked the next one for good
+                    -- (v212) ...and what it had put in the mesh's yaw is taken out, the frame lines it had are written
+                    if HOP.hold or (HOP.after and HOP.after.m1) then pcall(setYaw, 0, true) end
+                    HOP.on = false
+                    pcall(NATIVE.hopEnd)
+                    HOP.after, NATIVE.hopTurnUntil = nil, nil
+                    log("board hop: error, the hop is dropped: " .. tostring(err))
+                end
+            end)
+        end
         return false
     end)
 end
@@ -6154,6 +7702,12 @@ end
 -- comparing the two faces it hits. So the native half looks the same way, with rays (HJN_Ledge): the ground you stand
 -- on, where it drops away, which way that drop faces, and at what angle a board pivoting on the edge meets the ground
 -- below. On foot and close to such an edge, Y / triangle:
+--   throw  (v211, with DropInSetDown only: an experiment) the game's own throw is refused and its throwdown animation
+--          is played by the mod, square to the edge and close to it: the board comes down there, you are walked onto
+--          it and put on. Then "mount" below finds you on the board, and where you stand right there is no first move;
+--          (v212, with DropInSetEdge too and the press made within DropInSetReach of the edge) the board is set ON
+--          the coping: held out over the edge where the stance will have it while you step on, and you are put on
+--          there -- no "mount", "set" or "out" after it: straight to "wait";
 --   mount  the game's own throwdown puts you on the board where you stand (the mod cannot stop that press); it throws
 --          the board out ahead of you and bails when that spot is past the edge, so closer than DropInStart you are
 --          first stepped back to there (v103); should it still fail, the mod mounts you itself (v99);
@@ -6181,7 +7735,20 @@ do
                  nx = n[11], ny = n[12], nz = n[13], slope = n[14], toptilt = n[15], lip = n[16] or 0 }
     end
     local function boardParts()
-        BD.comp = nil                                    -- (look again: the board you stand on now)
+        -- (v218) ...LOOKED FOR AGAIN ONLY WHEN IT IS NOT THE ONE BY YOU: every board hop, drop-in and throwdown walked
+        -- every object of the game here (+7..9 ms on the developer's machine, about 20 on the tester's). The deck that
+        -- is kept is still yours while it is within 4 m of you (a co-op peer's is elsewhere; a new level forgets it)
+        if alive(BD.comp) then
+            local far = true
+            pcall(function()
+                -- (the review) ...and only YOUR board's: the ridden board is the actor named exactly "Skateboard" (a co-op
+                -- peer's carries a numbered name, and at a shared spawn point a peer's deck can be the nearest one)
+                if BD.comp:GetOwner():GetFName():ToString() ~= "Skateboard" then return end
+                local p, h = BD.comp:K2_GetComponentLocation(), s0:K2_GetActorLocation()
+                far = ((p.X - h.X) ^ 2 + (p.Y - h.Y) ^ 2 + (p.Z - h.Z) ^ 2) > 400 * 400
+            end)
+            if far then BD.comp = nil end
+        else BD.comp = nil end
         local flip = findFlipper()
         local owner = flip and alive(q(function() return flip:GetOwner() end))
         local pcls = alive(q(function() return StaticFindObject("/Script/Engine.PrimitiveComponent") end))
@@ -6205,7 +7772,82 @@ do
         local up = tonumber((tostring(type(HJN_DeckWorld) == "function" and HJN_DeckWorld() or ""):match("(%S+)$"))) 
         return up and string.format("%.0f deg off level", math.deg(math.acos(math.max(-1, math.min(1, up))))) or "?"
     end
+    -- (v218) ARMS OUT FOR BALANCE. "The arms while dropping in stay along the body; you should have them go in the air a
+    -- bit for balance, like when grinding / sliding." (The Steam tester, 13 Oct.) The game has no input for that: a
+    -- grind's arms are part of its whole-body grind poses, picked by the game's own grind state. So the native half
+    -- (v118) turns each upper arm about its shoulder in the finished pose, toward a balance pose, by DropInArms degrees
+    -- at the most (the note at DropArms there). What is sent here is this frame's weight, 0..1, on every frame of a
+    -- drop-in that wants them up; the native half eases it, and lets go by itself a quarter second after the last
+    -- asking -- so whatever ends a drop-in ends the arms. Beside an older native half, or with DropInArms 0, nothing is sent.
+    -- (Fields of DI, not locals: the main chunk stands at 196 of Lua's 200 locals.)
+    DI.sm01 = function(x) x = math.max(0, math.min(1, x)) return x * x * (3 - 2 * x) end
+    DI.armsRec = function(n, tag)                        -- the first 16 of a run go to the pose recorder (DropInPoses)
+        if (tonumber(S.DropInPoses) or 0) == 0 or S.TraceLog == 0 or (DI.recN or 0) >= 16 or type(HJN_TrickTrace) ~= "function" then return end
+        DI.recN = (DI.recN or 0) + 1
+        pcall(HJN_TrickTrace, n, tag)
+    end
+    DI.arms = function(w)
+        local deg = tonumber(S.DropInArms) or 0
+        if deg <= 0 or (tonumber(NATIVE.v) or 0) < 118 or type(HJN_Set) ~= "function" then return end
+        if DI.armsDeg ~= deg then DI.armsDeg = deg pcall(HJN_Set, "droparmsdeg", deg) end
+        DI.armsYawSend()
+        pcall(HJN_Set, "droparms", math.max(0, math.min(1, w)))
+        if not DI.armsN then
+            log(string.format("drop-in:    arms out for balance: up to %g deg (DropInArms; 0 = the game's own arms)", deg))
+            DI.armsRec(150, "drop-in arms up")
+        end
+        DI.armsN = (DI.armsN or 0) + 1
+    end
+    -- (v220) BY THE SIZE OF THE DROP. "It only takes like two or three frames and he's fully extended ... make the arm
+    -- swing proportional to the height of the drop: small drops are small, big drops are big; and the raising of the
+    -- arms also in proportion: on a tall one, figure the halfway point is when they're fully extended." (13 Oct.) The
+    -- drop is the ledge scan's (the deeper of the ground just past the edge and further out: what the vert's speeds
+    -- go by too). How far: its share of DropInArmsFull. When: by how much of it he has come down since the GO -- the
+    -- skater's own height against where he stood -- fully out at DropInArmsPeak % of it, eased, never back down
+    -- before the end. -> the weight for this frame, the share come down, the share of the slider
+    DI.armsYawSend = function()                          -- the way he will ride: out over the edge (in SWITCH too: the nose points at the drop)
+        local L = DI.L
+        local yaw = L and math.deg(math.atan(L.oy, L.ox)) or nil
+        if yaw and DI.armsYaw ~= yaw then DI.armsYaw = yaw pcall(HJN_Set, "droparmsyaw", yaw) end
+    end
+    -- (v221) ...AND THE CROUCH: DropInCrouch cm at the full height, its share below it, coming in with the tip (the tip
+    -- itself half of it) and the way down, lowest DropInCrouchPeak % of the way. -> arms' weight, share come down, the
+    -- drop's share of the full height, the crouch in cm
+    DI.armsRise = function()
+        local arms, crouch = tonumber(S.DropInArms) or 0, tonumber(S.DropInCrouch) or 0
+        if arms <= 0 and crouch <= 0 then return 0, 0, 0, 0 end
+        local H = math.max(10, DI.armsH or 0)
+        local amt = math.max(0, math.min(1, H / math.max(10, tonumber(S.DropInArmsFull) or 200)))
+        local z = q(function() return s0:K2_GetActorLocation().Z end, nil)
+        if z and DI.armsZ0 then DI.armsFrac = math.max(DI.armsFrac or 0, math.min(1, (DI.armsZ0 - z) / H)) end
+        local f = DI.armsFrac or 0
+        local w = (arms > 0) and amt * DI.sm01(f / math.max(0.1, (tonumber(S.DropInArmsPeak) or 50) / 100)) or 0
+        local cc = (crouch > 0) and crouch * amt * DI.sm01(math.max(0.5 * (DI.armsTip or 0), f / math.max(0.1, (tonumber(S.DropInCrouchPeak) or 25) / 100))) or 0
+        return w, f, amt, cc
+    end
+    DI.crouch = function(cm)                             -- (v221) this frame's crouch, cm (native v119 lets go a quarter second after the last asking)
+        if (tonumber(S.DropInCrouch) or 0) <= 0 or (tonumber(NATIVE.v) or 0) < 119 or type(HJN_Set) ~= "function" then return end
+        DI.armsYawSend()
+        pcall(HJN_Set, "dropcrouch", math.max(0, math.min(40, cm)))
+        if not DI.crouchN then log(string.format("drop-in:    crouch: up to %g cm (DropInCrouch, at the full height; 0 = none)", tonumber(S.DropInCrouch) or 0)) end
+        DI.crouchN = (DI.crouchN or 0) + 1
+    end
+    DI.twist = function()                                -- (v221) the game's own upper-body twist held off for this frame (DropInNoTwist)
+        if (tonumber(S.DropInNoTwist) or 0) == 0 then return end
+        q(function() inst.ShoulderAdditiveAlpha = 0.0 end)
+        if not DI.twistSaid then DI.twistSaid = true log("drop-in:    the game's shoulder twist is held off through the drop (DropInNoTwist)") end
+    end
+    DI.armsOff = function()                              -- shut now (the native half eases them down; on a bail it drops them at once)
+        if DI.armsN and type(HJN_Set) == "function" then pcall(HJN_Set, "droparms", 0) end
+        if DI.crouchN and type(HJN_Set) == "function" then pcall(HJN_Set, "dropcrouch", 0) end   -- (v221)
+        DI.armsN, DI.armsAt, DI.armsAir, DI.armsDeg, DI.armsYaw = nil, nil, nil, nil, nil
+        DI.crouchN, DI.crouchTop, DI.twistSaid = nil, nil, nil
+    end
     local function letGo(why)
+        DI.armsOff()                                      -- (v218)
+        if type(HJN_Set) == "function" then pcall(HJN_Set, "notoggle", 0) end   -- (v210)
+        if DI.th and type(HJN_Set) == "function" then pcall(HJN_Set, "throwanim", 0) end   -- (v211) a set-down's animation ends with it (the native half's own watch would end it 0.4 s on)
+        if DI.th and DI.th.pinned and type(HJN_SetDown) == "function" then pcall(HJN_SetDown, "end") end   -- (v212) ...and so does a set-down on the coping's hold of the board bone, and its mount's gate should that be up (the parts and the grounded hold are given back below)
         if type(HJN_BoardParts) == "function" then pcall(HJN_BoardParts) end
         if DI.ground and type(HJN_GroundHold) == "function" then
             local n = tonumber(HJN_GroundHold(0)) or 0
@@ -6214,6 +7856,7 @@ do
         DI.ground, DI.held = nil, nil
         if DI.state then log("drop-in: " .. why) end
         DI.state, DI.rideAt = nil, nil
+        DI.th, DI.sd, DI.tapOver = nil, nil, nil                   -- (v211)
     end
     NATIVE.forgetDrop = function() letGo("the level changed") end
     local function sticksCentred()
@@ -6232,9 +7875,54 @@ do
 
     -- Y / triangle
     NATIVE.dropKey = function()
+        DI.yPress = os.clock()                                 -- (v210) a Y press: the one thing that steps you off a held board on purpose
+        -- (v211) ...AND A Y PRESS MADE ON THE BOARD starts a step-off: what the game reads in the frames after it is kept
+        -- for DI.stepOffWatch (0.6 s of it; a second press inside that is a row of the same trace)
+        do
+            local bs0 = type(HJN_BoardState) == "function" and tonumber(HJN_BoardState()) or -1
+            local T = DI.offTr
+            if T and DI.yPress - T.t0 <= 0.6 then T.rows[#T.rows + 1] = string.format("%d:Y again", math.floor((DI.yPress - T.t0) * 1000 + 0.5))
+            elseif bs0 >= 0 and (bs0 & 4) ~= 0 then DI.offTr = { t0 = DI.yPress, rows = {} } end
+        end
+        -- (v204) A Y PRESS ON FOOT THAT NOTHING COMES OF. "The game got into a bad state where it wasn't accepting controls"
+        -- (9 Oct 18:59:44 on: put back on the board after a bail he was on foot 50 ms later, and from then nineteen Y
+        -- presses in four seconds started no throwdown, the board in his hand). Which of the game's own tests said no
+        -- was in no log. A press made on foot with the board in the hand is noted here; dropTick looks 0.7 s later
+        -- (the game's throw shows as board mode 6 within a quarter second) and, when nothing has come of it, logs what
+        -- those tests read (HJN_ToggleGates, native v108). Read only: nothing of the game's is changed.
+        do
+            local bs = type(HJN_BoardState) == "function" and tonumber(HJN_BoardState()) or -1
+            if bs >= 0 and (bs & 4) == 0 and (bs & 1) == 0 and ((bs >> 4) & 0xff) == 5 then
+                if not DI.yAt then DI.yFall = tostring(q(function() return mv:IsFalling() end, "?")) end   -- (v210) falling = the game takes its instant way, not the throw
+                DI.yAt = DI.yAt or os.clock()
+            end
+        end
         -- (v123) a second tap of Y while the board is still being set out = you want on in SWITCH (the game's own throwdown
         -- does that by itself; on the dropped quarter pipe it fails and the mod's own mount took no notice of the tap)
-        if DI.state == "mount" and not DI.sw and os.clock() - (DI.t0 or 0) < 0.6 then
+        -- (v211) ...and in a set-down for as long as its animation has not begun (the first quarter second): the clip is
+        -- picked by the stance. Later than that the press is said and nothing more (the game's own Y is refused the while)
+        -- ...AND NOT ONCE A SET-DOWN HAS LEFT ITS "throw" STATE (DI.tapOver): the window is counted from DI.t0, until
+        -- build 210 always the press -- but every way out of "throw" (on the board, or the old way) writes a new DI.t0
+        -- and the state "mount", which opened the window again. A Y pressed in the moment after a regular set-down's
+        -- mount (he mashes it during the 1.8 s of the animation) was "Y tapped again -- you will be put on in SWITCH",
+        -- and the first move then turned him and the board half round (the review's run in the stand-in world:
+        -- "turned -180 deg ... riding SWITCH"). The old way's own window, with no set-down tried, is as it was
+        -- (v223) ...AND WHILE A DROP-IN WAITS FOR THE BOARD (DI.again: Y pressed at the edge with the board only just
+        -- picked up, the note at "JUST PICKED UP, AT AN EDGE"): a second tap within 0.6 s of the first is the same double
+        -- tap. Build 222 took it for a new press (the wait began again, and the drop-in was regular); now it is kept with
+        -- the wait, and dropTick hands it on as DI.sw when the set-down starts
+        if DI.again and not DI.state and os.clock() - (DI.again.at or 0) < 0.6 then
+            if not DI.again.sw then
+                DI.again.sw = true
+                log("drop-in: Y tapped again while the drop-in waits for the board -- you will be put on in SWITCH")
+            end
+            return
+        end
+        if DI.state == "throw" and DI.th and DI.th.started and not DI.sw and not DI.th.late then
+            DI.th.late = true
+            log(string.format("drop-in: Y tapped again %.2f s after the first -- too late for SWITCH in a set-down (its animation has begun)", os.clock() - (DI.t0 or 0)))
+        end
+        if ((DI.state == "mount" and not DI.tapOver) or (DI.state == "throw" and DI.th and not DI.th.started)) and not DI.sw and os.clock() - (DI.t0 or 0) < 0.6 then
             DI.sw = true
             log("drop-in: Y tapped again -- you will be put on in SWITCH")
             return
@@ -6256,7 +7944,12 @@ do
             if real > math.max(S.DropInStillSpeed, 20) and real > sp then sp = real end
         end
         local jumping = q(function() return mv:IsFalling() end, false) == true
-        if jumping or sp > S.DropInStillSpeed then                                    -- (v166) a standstill (it was 40 cm/s)
+        -- (v213) ...OR A SLOW WALK RIGHT UP TO THE EDGE. "I feel like a couple of those should have worked, but they
+        -- didn't." (10 Oct: Y at 79 cm/s, the last steps to a coping, was "you are moving".) Under DropInWalkSpeed the
+        -- press goes on to the look for an edge and is a drop-in only for one within DropInSetReach, where the set-down
+        -- on the coping stands him still itself (dropTick's "throw" moves him and zeroes his speed every frame)
+        local slow = (not jumping and sp > S.DropInStillSpeed and sp <= (tonumber(S.DropInWalkSpeed) or 0)) and sp or nil
+        if jumping or (sp > S.DropInStillSpeed and not slow) then                     -- (v166) a standstill (it was 40 cm/s)
             log(string.format("Y on foot: %s -- no drop-in (stand still by the edge for one); the game's own throwdown%s",
                 jumping and "you are in the air" or string.format((sp < 10) and "you are moving at %.2f cm/s" or "you are moving at %.0f cm/s", sp), NATIVE.heldNote()))
             return
@@ -6274,10 +7967,27 @@ do
         -- the 31 drop-ins that worked in those logs came this way: the game's own throwdown mounted every one of them.
         -- So: no drop-in on a press made while the board lies loose (its mode is read before the game acts on the press), nor
         -- for 1.5 s after it last did -- that second press is your way back onto the board after a fall, the game's own.
+        -- (v213) THE SET-DOWN ON THE COPING IS THE DROP-IN. "The drop-ins look great ... the mode of starting behind the
+        -- edge, getting on the board and sliding forward, just turn that off. Where he sets it right on the coping is
+        -- money. So let's just embrace that ... Put a buffer zone ... I think you have 450 millimeters or something. So
+        -- that's probably fine ... if the toes are overhanging it also engages." (10 Oct: 35 set-downs on the coping,
+        -- 35 mounted there and reached SET.) coping = that way can be had here (the settings, native v114, this build of
+        -- the game); it decides three things below: a press from farther off than DropInSetReach, a slow walk-up, and a
+        -- press made on a board that was only just picked up.
+        local coping = S.DropInSetDown ~= 0 and (S.DropInSetEdge or 1) ~= 0 and (tonumber(NATIVE.v) or 0) >= 114 and type(HJN_SetDown) == "function" and type(HJN_Set) == "function"
+        local waitBoard = nil
         do
             local bs = type(HJN_BoardState) == "function" and tonumber(HJN_BoardState()) or -1
             local loose = bs >= 0 and ((bs >> 4) & 0xff) == 8
-            if loose or (DI.looseAt and os.clock() - DI.looseAt < 1.5) then
+            -- (v213) JUST PICKED UP, AT AN EDGE: THE DROP-IN WAITS FOR THE BOARD. Nine presses of 10 Oct came 0.4 to
+            -- 0.9 s after the press that picked the board up after a fall, by an edge: "the board lay loose 0.6 s ago
+            -- -- no drop-in", and the game's own throw went over the drop. The v180 rule below was written for the
+            -- old drop-in, which mounted him wherever the board lay; the set-down takes a board that is free in the
+            -- hand and nothing else. So with an edge in reach the press is kept (waitBoard: decided once the edge is
+            -- known), the game's own throw is held back, and dropTick asks again the moment the board is free.
+            if not loose and not DI.againNow and coping and DI.looseAt and os.clock() - DI.looseAt < 1.5 then
+                waitBoard = os.clock() - DI.looseAt
+            elseif loose or (not DI.againNow and DI.looseAt and os.clock() - DI.looseAt < 1.5) then
                 log(string.format("Y on foot: %s -- no drop-in; the game's own way back onto the board (for a drop-in: the board in your hand, stand still by the edge, Y)%s",
                     loose and "the board is not in your hand (it lies loose, board mode 8): this press picks it up"
                            or string.format("the board lay loose %.1f s ago (just picked up after a fall)", os.clock() - DI.looseAt), NATIVE.heldNote()))
@@ -6321,28 +8031,511 @@ do
             log(string.format("Y on foot: an edge %.0f cm away, but you face %.0f deg off square to it (DropInFace %g) -- the game's own throwdown", L.dist, off, S.DropInFace))
             return
         end
-        DI.state, DI.L, DI.t0, DI.rideAt, DI.tries, DI.tryAt, DI.hang, DI.pitch, DI.pulled, DI.held, DI.ground = "mount", L, os.clock(), nil, 0, nil, S.DropInHang, S.DropInPitch, false, nil, nil
+        -- (v211) THE SET-DOWN, AN EXPERIMENT (DropInSetDown; with 0 all of it is passed over and the drop-in is build 210's,
+        -- bar one thing of build 211's that no setting takes back: no first move where he already stands right, dropTick).
+        -- "Right now for the drop-in he sets the board down in front of the coping, gets on the board, and then it just
+        -- kind of rides him into position like a ghost movement ... What is the hope of actually getting an animation
+        -- where he sets the board directly on the coping and then steps on it? Since it's not a baked-in animation, I
+        -- don't know how we'd do that ... we'll see if it bears any fruit with one test. If not, we'll revert back."
+        -- (9 Oct.) What was found: the game has NO animation in which a hand takes the board to the ground (its standing
+        -- throwdown drops it from hip height 35.8 cm ahead and 16 cm to the left, drags it back under the feet and steps
+        -- on), and its mount wants the board level with ground under all four wheels -- so the last 57 cm out and the
+        -- tail going down are always made with him on it. What CAN be had: the game's own throw is refused (it is
+        -- physics, and by an edge it lost the board over the drop in 12 of that night's 26 set-ups; its Y acts 0.216 s
+        -- after the press, and until then the controller's own toggle timer can be made to say no: HJN_Set "ygate",
+        -- native v113), and the mod plays the game's throwdown ANIMATION itself, on foot, square to the edge and as
+        -- close to it as the mount allows (HJN_Set "throwanim": on foot the board follows the skeleton's board bone, no
+        -- physics). The board comes down with its middle DropInBack cm from the edge, he is walked onto it where it
+        -- lies and put on at the animation's own moment, and the slide out takes DropInSetOutTime (0.35 s) with no first
+        -- move before it: about 2.4 s from Y to SET against 3.45. He stands DropInBack + 35.8 cm back and 16 cm to the
+        -- right of the edge point's line for it. The state is "throw" (dropTick); a step that does not come there =
+        -- the old way from that step on, and the log says which.
+        -- (v213) ONLY AT THE EDGE (the note at 'coping' above). Farther off than DropInSetReach there is no drop-in
+        -- any more (build 212 set the board down 70 cm back there and slid it out: DropInFar=1 has that back); nor
+        -- for a walk-up that is not at an edge; and a press on a board just picked up waits for it.
+        if coping then
+            local reach = tonumber(S.DropInSetReach) or 45
+            if L.dist > reach and (tonumber(S.DropInFar) or 0) == 0 then
+                log(string.format("Y on foot: an edge %.0f cm away, farther than DropInSetReach (%g cm) -- no drop-in (stand at the edge for one: the board is set on the coping there); the game's own throwdown%s", L.dist, reach, NATIVE.heldNote()))
+                return
+            end
+            if slow and L.dist > reach then
+                log(string.format("Y on foot: you are moving at %.0f cm/s -- no drop-in (stand still by the edge for one, or walk right up to it); the game's own throwdown%s", slow, NATIVE.heldNote()))
+                return
+            end
+            if waitBoard then
+                if L.dist <= reach then
+                    DI.again = { at = os.clock(), till = os.clock() + 1.8 }
+                    pcall(HJN_Set, "ygate", 0.5)
+                    log(string.format("Y on foot: an edge %.0f cm away and the board picked up %.1f s ago -- the drop-in waits until the board is free in your hand (the game's own throw is held back meanwhile)", L.dist, waitBoard))
+                else
+                    log(string.format("Y on foot: the board lay loose %.1f s ago (just picked up after a fall) -- no drop-in; the game's own way back onto the board%s", waitBoard, NATIVE.heldNote()))
+                end
+                return
+            end
+        elseif slow then
+            log(string.format("Y on foot: you are moving at %.0f cm/s -- no drop-in (stand still by the edge for one); the game's own throwdown%s", slow, NATIVE.heldNote()))
+            return
+        end
+        DI.th, DI.sd, DI.tapOver = nil, nil, nil
+        local th, thNo, thSay = nil, nil, {}                       -- (v212) thSay: what the set-down on the coping has to say, logged under the DROP-IN line
+        if S.DropInSetDown ~= 0 then
+            local bs = type(HJN_BoardState) == "function" and tonumber(HJN_BoardState()) or -1
+            local loc = q(function() return s0:K2_GetActorLocation() end)
+            local x0, y0, z0 = loc and tonumber(q(function() return loc.X end)), loc and tonumber(q(function() return loc.Y end)), loc and tonumber(q(function() return loc.Z end))
+            if (tonumber(NATIVE.v) or 0) < 113 then thNo = "the native half is " .. (NATIVE.v and ("v" .. tostring(NATIVE.v)) or "not known yet") .. " and this takes v113"
+            elseif type(HJN_DeckWorld) ~= "function" or type(HJN_BoardMount) ~= "function" then thNo = "the native half's board calls are not there"
+            elseif not (yaw and x0 and y0 and z0) then thNo = "where you stand or which way you face could not be read"
+            elseif bs < 0 or (bs & 13) ~= 0 or ((bs >> 4) & 0xff) ~= 5 then
+                thNo = (bs < 0) and "no board was found" or string.format("the board is not free in your hand (board mode %d, flags %d: 1 = it lies loose, 4 = you are on it, 8 = the game is busy with it)", (bs >> 4) & 0xff, bs & 15)
+            elseif (tonumber(HJN_Set("ygate", 0.6)) or 0) ~= 1 then thNo = "the game's own Y could not be refused (the native half did not write the controller's timer)"
+            else
+                local sq, back = math.deg(math.atan(L.oy, L.ox)), S.DropInBack + 35.8      -- the clip sets the board down 35.8 cm ahead and 16.0 to the left
+                th = { x0 = x0, y0 = y0, z0 = z0, yaw0 = yaw, dyaw = ((sq - yaw + 540) % 360) - 180,
+                       sx = L.x - L.ox * back - L.oy * 16.0, sy = L.y - L.oy * back + L.ox * 16.0 }
+                -- (v212) THE SET-DOWN ON THE COPING (DropInSetEdge; native v114). "Can't we stand in front of the edge
+                -- anymore? We're almost going to have to be standing on it, almost like less than a foot's length away, or
+                -- almost even where the feet are hanging over the edge for it to make sense." (10 Oct.) Build 211 stood
+                -- him DropInBack + 35.8 = 70 cm back by design (10 Oct 11:21:38, pressed 6 cm from the edge: "moved 65 cm,
+                -- turned -3 deg to stand 70 cm from the edge"), because the game's mount was taken to need a level board
+                -- with all four wheels on the ledge. Read off the exe, its test is made at HIS FEET and can be answered
+                -- for (the native half's note at HJN_SetDown) -- so for a press made within DropInSetReach of the edge
+                -- the board is held ON the coping while he steps on, and he is put on there: th.edge, and the rest is in
+                -- dropTick's "throw". FARTHER OFF IT IS BUILD 211's SET-DOWN, not the game's own throw: that throw is
+                -- what loses the board over the drop by an edge (15 of its 30 throws on 10 Oct), and 21 of the 29 presses
+                -- on file were made from farther than 45 cm. SWITCH (a second tap) was build 211's set-down too, until
+                -- build 223 (DropInSetSwitch: the note at "SWITCH ON THE COPING" in dropTick's "throw").
+                local edgeWay = (S.DropInSetEdge or 1) ~= 0
+                if edgeWay and not ((tonumber(NATIVE.v) or 0) >= 114 and type(HJN_SetDown) == "function") then
+                    edgeWay = false
+                    thSay[#thSay + 1] = string.format("the board is set ON the coping only with the native half v114 (this one is v%s) -- this one is set down behind the edge and slides out (build 211's way)", tostring(NATIVE.v))
+                elseif edgeWay and L.dist > (S.DropInSetReach or 45) then
+                    edgeWay = false
+                    thSay[#thSay + 1] = string.format("an edge %.0f cm away, farther than DropInSetReach (%g cm): the board is set ON the coping only for a press made at the edge -- this one is set down behind it and slides out (build 211's way)", L.dist, S.DropInSetReach or 45)
+                end
+                if edgeWay then th.edge = true end
+                -- (review) A PRESS MADE HANGING ON THE EDGE (his middle out past it, the capsule's round bottom on the
+                -- edge): he stood lower than a man on the ledge does, and the set-down moves him at the height he was
+                -- pressed at -- that much INTO the ledge on every frame, against the game's walking lifting him back.
+                -- The ledge's own height then: its top by the edge (the look's: the ground 6 to 14 cm behind it, where
+                -- he will stand) + the capsule's half height + the 2.15 cm the game's walking keeps a capsule over its
+                -- floor. On the coping the same serves a top that rises to its edge. Not for one pressed HIGHER than
+                -- that: the game's walking sets him down by itself.
+                -- FROM 1 CM LOW (review 2; it was 3). 10 Oct 11:22:05 is such a press: his middle 10 cm past a coping,
+                -- at a standstill, in the game's walking (build 211 lost it -- "an edge 18 cm away, but you face 178
+                -- deg off square to it" -- and the game's own throw bailed him; native v114 finds it). A capsule
+                -- hanging there is 1.5 cm low with a radius of 34 and 2.7 with one of 20: under 3 both. A man standing
+                -- on the ledge reads within a quarter cm of that height (the walking keeps 1.9 to 2.4 cm under him),
+                -- so 1 cm does not catch him.
+                -- FOR THE COPING VARIANT -- AND FOR ANY SET-DOWN OF A PRESS MADE PAST THE EDGE (the look's distance
+                -- under 0): with the menu's row off (DropInSetEdge 0) it is build 211's set-down that takes such a
+                -- press, and it would move him 80 cm back over the ledge at the height he hung at.
+                -- th.zp = the height he was pressed at: where the coping is given up before the animation with him
+                -- pressed ON the ledge (dropTick: the arming refused, SWITCH) he goes to build 211's spot, 70 cm back,
+                -- and that is not at the edge's height on a top that rises to it. Where he hung is no floor's height
+                if edgeWay or L.dist < 0 then
+                    local hh = tonumber(q(function() return s0.CapsuleComponent:GetScaledCapsuleHalfHeight() end))
+                    local zs = hh and hh > 40 and hh < 140 and (L.top + hh + 2.15) or nil
+                    if zs and z0 < zs - 1 and z0 > zs - 30 then
+                        thSay[#thSay + 1] = string.format("you stood %.1f cm lower than a man stands at this edge (hanging on it, or the top rises to it) -- the set-down stands you at the height of the ledge's top by the edge", zs - z0)
+                        th.z0, th.zp = zs, z0
+                    end
+                end
+            end
+        end
+        DI.state, DI.L, DI.t0, DI.rideAt, DI.tries, DI.tryAt, DI.hang, DI.pitch, DI.pulled, DI.held, DI.ground = th and "throw" or "mount", L, os.clock(), nil, 0, nil, S.DropInHang, S.DropInPitch, false, nil, nil
+        if th then th.t0, DI.th = DI.t0, th end
         DI.sw, DI.boosted, DI.nb0 = nil, nil, nil
+        DI.remounts, DI.vk = 0, 1                                  -- (v210)
+        DI.edgeAt = nil                                            -- (v212) when a set-down on the coping last put you on (dropTick)
+        DI.armsN, DI.armsAt, DI.armsAir, DI.armsDeg, DI.armsYaw = nil, nil, nil, nil, nil   -- (v218) a new drop-in: the arms' numbers are sent again
+        DI.crouchN, DI.crouchTop, DI.twistSaid, DI.armsTip = nil, nil, nil, nil   -- (v221)
         myAddr = addr(s0)
         ensureHook()
         -- (v103) THE GAME'S THROWDOWN NEEDS ROOM: it throws the board out ahead of you and bails when that spot is past the
         -- edge (from 57 cm back it landed, from 50 it bailed; v102's hold of the board on the ledge only made it bail on its
         -- first tick and flung the board). So you are set DropInStart cm back from the edge first, facing as you were.
-        if S.DropInStart > 0 and L.dist < S.DropInStart then
+        if not th and S.DropInStart > 0 and L.dist < S.DropInStart then      -- (v211) not for a set-down: the game throws nothing there, and he is moved to his own spot in "throw"
             local loc = q(function() return s0:K2_GetActorLocation() end)
             local bx, by = L.x - L.ox * S.DropInStart, L.y - L.oy * S.DropInStart
             local moved = loc and pcall(function() s0:K2_SetActorLocation({ X = bx, Y = by, Z = loc.Z }, false, {}, true) end)
             log(string.format("drop-in:    stepped back from %.0f to %.0f cm from the edge for the game's throwdown (%s)", L.dist, S.DropInStart, moved and "ok" or "FAILED"))
         end
         log(string.format("DROP-IN: an edge %.0f cm from you (you face %.0f deg off square to it), the ground %.0f cm down just past it, %.0f cm down further out (slope there %.0f deg), "
-            .. "a lip of %.1f cm on the edge -- waiting for the game to put you on the board", L.dist, off, L.near, L.far, L.slope, L.lip))
+            .. "a lip of %.1f cm on the edge -- %s", L.dist, off, L.near, L.far, L.slope, L.lip,
+            th and (th.edge and "a SET-DOWN ON THE COPING (DropInSetDown, DropInSetEdge): the game's own throw is refused, its throwdown animation is played at the edge and the board held on the coping"
+                     or "a SET-DOWN (DropInSetDown): the game's own throw is refused, its throwdown animation will be played by the edge") or "waiting for the game to put you on the board"))
+        -- (v212) THE LOOK CAN NOW SAY THE EDGE IS BEHIND HIS MIDDLE (native v114: where the ground under his middle is not
+        -- the floor he stands on, it starts from the ledge behind him, and it counts the distance from where he really
+        -- stands). "An edge -10 cm from you" is then what the line above reads; said in words here. 10 Oct 11:22:05
+        -- was such a press, his middle 10 cm past a coping with his toes out over it -- where he asked to stand
+        if L.dist <= -0.5 then log(string.format("drop-in:    your middle is %.0f cm PAST that edge (you stand out over it): the native half looked from the ledge behind you", -L.dist)) end
+        if thNo then log("drop-in:    DropInSetDown is on, but this one goes the old way: " .. thNo) end
+        for _, say in ipairs(thSay) do log("drop-in:    " .. say) end   -- (v212)
+    end
+
+    -- (v195) THE THROWDOWN'S SPEED. A tester's idea: "a speed burst for the game's native throwdowns". The game's own
+    -- throwdown, by SessionTweaks' trace of 7 Oct (20:37:22, 20:42:15): 0.22 s after Y the board's movement mode goes 5 (in
+    -- your hand) -> 6 (thrown), and 0.52 s later, in one frame, 6 -> 1 with you on it. So: mode 6 seen while you are off
+    -- the board and you on the board within 0.3 s of it = the game's throwdown has mounted you. Then every part of the
+    -- board gets a new velocity, the way it rolls (HJN_BoardKick: the drop-in's own release). 120 ms after that the game's
+    -- own reading is logged, and the kick given once more should the mount have taken it back. (7 Oct, some thirty throws:
+    -- the game then reads 88 to 90 % of what was asked for, whatever the speed, and caps none of it.)
+    -- Not for the mod's own ways onto the board: a drop-in holds DI.state from the Y press on (its throwdown only sets
+    -- you on the ledge), and the board hop mounts a board that lies loose, which never passes through mode 6.
+    -- (v196) ...AND THE THROW ITSELF IS PLAYED FASTER. "Just because we speed up the player after he throws down doesn't
+    -- mean it looks natural: he's throwing down the board at the same rate every time. Can you pre-read the throwdown
+    -- speed and speed up the throwdown animation as well?" What times the game's throwdown is its animation (the exe:
+    -- ASkaterCharacterBase::DoBoardThrowdown sets the skater's throwdown flag and the board's mode 6; the animation's
+    -- ThrowdownCompleted notify asks for the mount; USkaterMovementComponent::ConsumeInputVector keeps him walking, the
+    -- while, the way and at the share of his top speed he had at the press). So for the length of the throw the SKATER'S
+    -- OWN CLOCK runs fast -- the actor's CustomTimeDilation: the engine hands every tick of the actor and of its
+    -- components (the walk, the animation and its notifies) that many times the frame's time. At k he covers k times the
+    -- ground on k times the steps and is on the board in 1/k of the time; nothing of the game's own sequence is touched.
+    -- Never over ThrowdownRateMax (2.5 -- past that it reads as fast-forward; what k cannot carry still comes at the
+    -- mount). The clock is put back the frame you are on the board, the frame the throw ends any other way, after 1.5 s
+    -- whatever happens, and by the 2 s tick should this watch stop being called. The kick comes 20 ms after the mount.
+    -- (v197) ...AND IT IS A MULTIPLE OF THE SPEED YOU THROW AT, NOT AN ADDED SPEED. "If the player is standing still, the
+    -- throwdown shouldn't add any velocity. In other words it's a multiplier, not an adder." v195/196 added ThrowdownBoost
+    -- cm/s to whatever the board had -- from a standstill it shot you off the way you faced (7 Oct 21:24:12, 21:25:15,
+    -- 21:27:07: 0 -> 490, 1333, 270 cm/s). ThrowdownScale (1 = the game's own) multiplies: the throw is played that many
+    -- times as fast (k = the scale, up to ThrowdownRateMax) and the board gets its velocity times the scale. Under 30
+    -- cm/s at the press it is a standing throw: its clock is left alone and nothing is given to the board.
+    DI.td = {}
+    DI.tdSlow = function(why)                                -- the skater's clock back to the game's (why = nil: you are on the board)
+        local D = DI.td.fast
+        if not D then return end
+        DI.td.fast = nil
+        local ok = alive(D.sk) and pcall(function() D.sk.CustomTimeDilation = 1.0 end)
+        if why or not ok then
+            log(string.format("throwdown:    the throw's speed-up taken off after %.2f s (%s)%s", os.clock() - D.t0, tostring(why or "you are on the board"),
+                ok and "" or " -- the skater is gone, or its clock could NOT be written"))
+        end
+    end
+    NATIVE.tdBackstop = function()                           -- (the 2 s tick)
+        local T = DI.td
+        if T.fast then
+            if os.clock() - T.fast.t0 > 2 then DI.tdSlow("by the 2 s tick: the watch had not") end
+            return
+        end
+        -- (v197) ...and with no throw on, a clock that still runs at the rate the last throw was given is put back
+        if T.lastK and alive(s0) then
+            local sk = s0
+            local cur = tonumber(q(function() return sk.CustomTimeDilation end, nil))
+            if cur and math.abs(cur - 1) > 0.001 and math.abs(cur - T.lastK) < 0.001 then
+                local ok = pcall(function() sk.CustomTimeDilation = 1.0 end)
+                log(string.format("throwdown: the skater's own clock still ran at x%.2f with no throw on -- put back by the 2 s tick (%s)", cur, ok and "ok" or "FAILED"))
+            end
+        end
+    end
+    DI.tdFast = function(now)                                -- the first frame of a throw
+        local T = DI.td
+        local scale, kmax = tonumber(S.ThrowdownScale) or 1, tonumber(S.ThrowdownRateMax) or 1
+        T.still = false
+        if scale < 1.005 or DI.state ~= nil or T.fast then return end
+        local v0 = math.sqrt((T.fx or 0) ^ 2 + (T.fy or 0) ^ 2)
+        if v0 < 30 then
+            T.still = true
+            log(string.format("throwdown: thrown standing still (%.0f cm/s) -- the game's own throw, nothing added (ThrowdownScale x%.2f is a multiple of the speed you throw at)", v0, scale))
+            return
+        end
+        local k = math.min(kmax, scale)
+        if k < 1.02 then return end
+        local sk = s0
+        local was = tonumber(q(function() return sk.CustomTimeDilation end, nil))
+        if not was or math.abs(was - 1) > 0.001 then
+            log("throwdown: the throw is not sped up -- the skater's own clock " .. (was and string.format("already runs at x%.2f (something else has set it)", was) or "could not be read"))
+            return
+        end
+        if not pcall(function() sk.CustomTimeDilation = k end) then
+            log("throwdown: the throw is not sped up -- the skater's own clock could not be written")
+            return
+        end
+        T.fast, T.lastK = { t0 = now, k = k, sk = sk }, k
+        log(string.format("throwdown: thrown at %.0f cm/s with ThrowdownScale x%.2f -> the throw is played x%.2f (ThrowdownRateMax %g): about %.0f cm/s over the ground, on the board in about %.2f s",
+            v0, scale, k, kmax, v0 * k, 0.52 / k))
+    end
+    DI.tdWatch = function(now, bs)
+        local T = DI.td
+        if bs < 0 then DI.tdSlow("no board, or no skater") return end
+        local onb, bmode = (bs & 4) ~= 0, (bs >> 4) & 0xff
+        if not onb then
+            T.on, T.go = false, nil
+            if bmode == 6 then                               -- thrown: how you move, read while you are still on foot
+                local first = not T.thrown0
+                if first then T.thrown0, T.real, T.gap = now, 0, nil end
+                T.thrown, T.drop = now, DI.state ~= nil
+                local vel = q(function() return mv.Velocity end, nil)
+                T.fx, T.fy = vel and (tonumber(vel.X) or 0) or 0, vel and (tonumber(vel.Y) or 0) or 0   -- (in the skater's own time: under the speed-up the ground sees k times this)
+                if first then DI.tdFast(now) end
+                if T.fast then
+                    if now - T.fast.t0 > 1.5 then DI.tdSlow("1.5 s and still not on the board") end
+                    -- for the log: how fast he really went, and how far off the board was (it is steered after him)
+                    local real = type(HJN_MeshSpeed) == "function" and tonumber(HJN_MeshSpeed()) or 0
+                    if real > T.real then T.real = real end
+                    local loc = q(function() return s0:K2_GetActorLocation() end)
+                    local dxs, dys = tostring(type(HJN_DeckWorld) == "function" and HJN_DeckWorld() or ""):match("^(%S+) (%S+)")
+                    local lx, ly = loc and tonumber(q(function() return loc.X end, nil)), loc and tonumber(q(function() return loc.Y end, nil))
+                    if lx and ly and tonumber(dxs) and tonumber(dys) then T.gap = math.sqrt((tonumber(dxs) - lx) ^ 2 + (tonumber(dys) - ly) ^ 2) end
+                end
+            else
+                if T.thrown0 then DI.tdSlow("the throw ended off the board, board mode " .. bmode) end
+                T.thrown0 = nil
+            end
+            return
+        end
+        local F = T.fast
+        if F then DI.tdSlow(nil) end                         -- on the board: the game's own time again, this frame
+        if not T.on then                                     -- the frame you are on the board
+            T.on = true
+            local thrown, t00 = T.thrown, T.thrown0
+            T.thrown, T.thrown0 = nil, nil
+            local scale = tonumber(S.ThrowdownScale) or 1
+            if scale < 1.005 or T.still or not thrown or now - thrown > 0.3 or T.drop or DI.state ~= nil then return end
+            T.go = { t0 = now, at = now + 0.02, scale = scale, kicks = 0,
+                     note = F and string.format("; the throw took %.2f s at x%.2f, up to %.0f cm/s over the ground, the board %s from you at its end", now - (t00 or now), F.k, T.real or 0,
+                                               T.gap and string.format("%.0f cm", T.gap) or "?")
+                              or string.format("; the throw took %.2f s, not sped up", now - (t00 or now)) }
+        end
+        local G = T.go
+        if not G or now < G.at then return end
+        if DI.state ~= nil or modeNow() == MODE_BAILING or not NATIVE.boardParts or type(HJN_BoardKick) ~= "function" or type(HJN_BoardParts) ~= "function" then
+            T.go = nil
+            return
+        end
+        local function kick()
+            local parts = NATIVE.boardParts()
+            local took = parts and tonumber(HJN_BoardParts(table.unpack(parts))) or 0
+            local n = 0
+            if took > 0 then n = tonumber(HJN_BoardKick(G.tx, G.ty, G.tz, 0, G.ox, G.oy)) or 0 end
+            pcall(HJN_BoardParts)                            -- (the parts let go of again)
+            return n
+        end
+        if G.kicks == 0 then
+            local vel = q(function() return mv.Velocity end, nil)
+            local vx, vy, vz = vel and (tonumber(vel.X) or 0) or 0, vel and (tonumber(vel.Y) or 0) or 0, vel and (tonumber(vel.Z) or 0) or 0
+            local sp = math.sqrt(vx * vx + vy * vy + vz * vz)
+            -- (v196) this soon after the mount the board may not have been handed the walk's velocity yet: then that is
+            -- what is multiplied (should the game write it afterwards, the check below gives the speed again)
+            local fsp, base = math.sqrt((T.fx or 0) ^ 2 + (T.fy or 0) ^ 2), ""
+            if fsp >= 30 and sp < 0.5 * fsp then base = string.format(" (the walk's: the board read %.0f so soon)", sp) vx, vy, vz, sp = T.fx, T.fy, 0, fsp end
+            if sp < 30 then                                  -- (v197) nothing to multiply
+                T.go = nil
+                log(string.format("throwdown: on the board at %.0f cm/s -- nothing added (ThrowdownScale x%.2f is a multiple of the speed you throw at)%s", sp, G.scale, G.note or ""))
+                return
+            end
+            local on = math.sqrt(vx * vx + vy * vy)
+            G.ox, G.oy = (on > 0.1 * sp) and vx / on or 1, (on > 0.1 * sp) and vy / on or 0
+            G.tx, G.ty, G.tz, G.sp0, G.add = vx * G.scale, vy * G.scale, vz * G.scale, sp, sp * (G.scale - 1)
+            G.n = kick()
+            G.kicks, G.at = 1, now + 0.12
+            log(string.format("throwdown: the game's own throwdown put you on the board at %.0f cm/s%s (you ran at %.0f) -> x%.2f = %.0f cm/s (%.0f km/h), the way the board rolls (%d parts%s)%s",
+                sp, base, fsp, G.scale, sp * G.scale, sp * G.scale * 0.036, G.n, (G.n > 0) and "" or " -- NOT kicked", G.note or ""))
+            return
+        end
+        local cur = tonumber(q(function() return mv:GetCurrentSpeed() end, -1)) or -1
+        if G.kicks == 1 and G.n > 0 and cur >= 0 and cur < G.sp0 + G.add * 0.5 then
+            G.kicks, G.at = 2, now + 0.12
+            log(string.format("throwdown:    the game reads %.0f cm/s %.0f ms after the mount (%.0f was asked for) -> the speed given once more (%d parts)",
+                cur, (now - G.t0) * 1000, G.sp0 + G.add, kick()))
+            return
+        end
+        log(string.format("throwdown:    the game reads %.0f cm/s %.0f ms after the mount (%.0f before, %.0f asked for)", cur, (now - G.t0) * 1000, G.sp0, G.sp0 + G.add))
+        T.go = nil
+    end
+
+    -- (v211) THE STEP-OFF THAT NEVER ENDS. "The game was stuck in a state and I couldn't input any controls, so I had to
+    -- teleport and then it came back." 9 Oct 23:26:07.6 to 23:26:16.4: a Y press on the board put him on foot with no
+    -- step-off animation, and for 8.8 s seven X presses, two Y, four A and a B did nothing; D-pad Up (the session marker)
+    -- ended it. The one reading of that stretch (23:26:12, v204's "NOTHING came of that press") has "pick-up flag 1": the
+    -- game's own IsPickingUp, left set. Read off the exe: while it is set the controller's CanToggleOnBoard says no (Y),
+    -- OnFoot_Jump returns (X), and the walk follows the stick by 2 % a tick (he keeps running the way he stepped off). A
+    -- step-off (DoBoardPickup) sets the flag and picks its animation by whether the board is on the ground: not on the
+    -- ground = BoardToFootTransitionType 0 = NO animation -- and the one thing that ever ends a pick-up is that
+    -- animation's own end (its ThrowdownCompleted notify asks for the toggle, the skater's next Tick runs
+    -- ApplyToggleOnBoard, and SetOnFootMode clears the flag). The game steps off this way whenever the board is not
+    -- "falling", and a board that leaves the ground without a pop is not falling for its first 75 to 200 ms: a Y press
+    -- (acted on 0.2 s late) that lands in that gap sets the flag with nothing to clear it. A bail, a new skater or the
+    -- marker teleport clear it; nothing else does. None of the mod's own holds was on (no drop-in state, no hop, the
+    -- bumper mask and the mute off, native v112's toggle drop never fired): it is a race of the game's own.
+    -- So: on foot, in play, the flag set and no throwdown on -- with the animation type at 0 for a quarter second of
+    -- frames (a healthy step-off shows 1 or 2 until its end, and 0 for one frame at most), or the flag standing for 2 s
+    -- whatever the type (the step-offs of 9 Oct ended 0.47 to 0.65 s in) -- the mod asks the game for what the missing
+    -- notify would have asked for: SetPendingApplyToggleOnBoard, the end every step-off gets. Asked again half a second
+    -- on, three times at most, then left alone. StepOffUnstick=0: the game is asked nothing, it is only logged.
+    -- THE TRIGGER IS INFERRED: no reading of the board's grounded and falling flags exists for the frame of that toggle.
+    -- So a Y press made on the board opens a trace (dropKey), a row whenever one of those readings changes, and the
+    -- first try's log line carries it -- if the cause is as read here, the row where "B" turns to "f" has neither G nor
+    -- F, with P and the animation type 0.
+    DI.so = {}
+    DI.stepOffWatch = function(now)
+        local P = DI.so
+        local dt = math.min(math.max(now - (P.last or now), 0), 0.05)   -- a pause or a hitch counts as one frame
+        P.last = now
+        if not alive(s0) then
+            if P.acc then DI.so = { last = now } end
+            DI.offTr = nil
+            return
+        end
+        local an = nil
+        local T = DI.offTr
+        if T then                                             -- the frames after a Y press on the board (dropKey)
+            if now - T.t0 > 0.6 or #T.rows >= 40 then DI.offTrLast, DI.offTr = T, nil
+            else
+                an = alive(inst)
+                if an then
+                    local bs = type(HJN_BoardState) == "function" and tonumber(HJN_BoardState()) or -1
+                    local row = string.format("%s%s%s%s b%d t%s",
+                        (q(function() return an.IsOnBoard end, false) == true) and "B" or "f",
+                        (q(function() return an.IsGrounded end, false) == true) and "G" or "-",
+                        (q(function() return an.IsFalling end, false) == true) and "F" or "-",
+                        (q(function() return an.IsPickingUp end, false) == true) and "P" or "-",
+                        (bs >= 0) and ((bs >> 4) & 0xff) or -1, tostring(q(function() return an.BoardToFootTransitionType end, "?")))
+                    if row ~= T.was then                      -- a row whenever a reading changes
+                        T.was = row
+                        T.rows[#T.rows + 1] = string.format("%d:%s", math.floor((now - T.t0) * 1000 + 0.5), row)
+                    end
+                end
+            end
+        end
+        local flag = q(function() return s0:IsPickingUp() end, false) == true
+        local pu = flag and q(function() return s0:IsOnBoard() end, true) ~= true
+            and q(function() return s0:IsDoingThrowdown() end, true) ~= true
+            and modeNow() == 0                                -- on foot and in play (a bail is mode 5, the replay editor 6)
+        if not pu then
+            if P.asked then
+                local how = P.did and "the mod asked the game to end it" or "it was logged (the game was asked nothing)"
+                if flag then
+                    log(string.format("step-off: %.2f s after %s its flag still stands, but you are no longer on foot in play (mode %s) -- the watch starts over",
+                        now - P.asked, how, tostring(modeNow())))
+                else
+                    log(string.format("step-off: ended %.2f s after %s%s", now - P.asked, how, P.did and " -- Y and the jump are yours again" or ""))
+                end
+            end
+            if P.acc then DI.so = { last = now } end
+            return
+        end
+        if not an then an = alive(inst) end
+        local bt = an and tonumber(q(function() return an.BoardToFootTransitionType end, nil)) or nil
+        P.acc = (P.acc or 0) + dt
+        P.zero = (bt == 0) and ((P.zero or 0) + dt) or nil       -- 0 on frames in a row: a healthy step-off shows it for one frame at most, at its end
+        local why = (P.zero and P.zero >= 0.25) and "no step-off animation is playing (the game's animation type has read 0 for a quarter second)"
+            or (P.acc >= 2.0) and string.format("its flag has stood for %.1f s, longer than any step-off lasts (animation type %s)", P.acc, tostring(bt)) or nil
+        if not why then return end
+        if P.asked and now - P.asked < 0.5 then return end
+        if (P.tries or 0) >= 3 then
+            if not P.told then P.told = true log("step-off: still not ended after 3 tries -- left alone (a teleport to the session marker ends it)") end
+            return
+        end
+        P.tries = (P.tries or 0) + 1
+        local act = (tonumber(S.StepOffUnstick) or 1) ~= 0
+        -- what the animation's ThrowdownCompleted notify does: the skater's next Tick -> ApplyToggleOnBoard(true) -> SetOnFootMode
+        local ok = act and pcall(function() s0:SetPendingApplyToggleOnBoard() end)
+        P.asked, P.did = now, P.did or (ok == true)
+        local tr = DI.offTr or DI.offTrLast
+        log(string.format("step-off: the game's pick-up has not ended -- %s; %s. On foot Y and the jump are dead while its flag stands. %s%s | the game's own tests read: %s | %s",
+            why, DI.yPress and string.format("%.2f s after the last Y press", now - DI.yPress) or "no Y press was seen",
+            act and (ok and "The mod asked the game to end it (what the end of the step-off animation asks)" or "The mod's call to end it FAILED")
+                or "StepOffUnstick=0: only logged, the game is asked nothing",
+            (P.tries > 1) and string.format(" (try %d of 3)", P.tries) or "",
+            tostring(type(HJN_ToggleGates) == "function" and HJN_ToggleGates() or "(the native half is older than v108)"),
+            (P.tries > 1) and "(what the game read after the Y press: in the first try's line)"
+                or tr and string.format("what the game read after the Y press made on the board %.2f s ago (ms after it: B on the board / f on foot, G grounded, F falling, P picking up, b the board's mode, t the step-off animation's type; a row whenever one changes): %s",
+                                        now - tr.t0, table.concat(tr.rows, ", "))
+                or "no Y press on the board was seen before it (no frames kept)"))
+        if not act then P.tries, P.told = 3, true end         -- logged once; nothing more until it ends
     end
 
     NATIVE.dropBusy = function() return DI.state ~= nil and DI.state ~= "ride" end   -- (v106) the ride monitor after a drop-in does not block clicks
     NATIVE.dropTick = function(now)
+        if DI.flyT and DI.th ~= DI.flyT then   -- (v216) a set-down that ended while he was flown over the edge (a bail, the old way): the engine's falling takes him
+            if q(function() return mv.MovementMode end, 0) == 5 and q(function() return s0:IsOnBoard() end, false) ~= true then
+                q(function() mv:SetMovementMode(3, 0) end)
+                log("drop-in:    the set-down ended while you were held over the edge -- handed to the engine's falling")
+            end
+            DI.flyT = nil
+        end
+        do   -- (v215) A LANDING THAT STOPS YOU DEAD. "I just did a stalefish grab at 8:24-ish ... I landed with zero velocity.
+            -- That is something I see like every 10 to 30 tricks, grabs ... you land and it just kills all the velocity."
+            -- (10 Oct: the Stalefish of 20:24:54 and the Melon of 20:26:28, both held to the touchdown; SessionTweaks has
+            -- "riding fakie" within a tenth of a second of both landings, which is what the game makes of a board that
+            -- stands.) The one thing in the exe that stops a board at a landing: StartSkateboardingPhysics calls ForceStop
+            -- when the board's hold-still flag is parked (board movement +0x7eb, 0x10 parked as 0x20 when it goes into the
+            -- air; the flag is raised by ForceStop itself at a mount and after the replay editor, and is meant to drop
+            -- by itself). Whether that is what happens here is NOT established -- so two things: while you are on the
+            -- board in the air the flag is let go of (HJN_Set "boardgo", native v113; it answers 1 when it was up, and
+            -- that is logged: a line here before a landing that keeps its speed is the proof), and every landing that
+            -- loses the speed is logged with what was read, whether or not the flag was up.
+            local bs0 = type(HJN_BoardState) == "function" and tonumber(HJN_BoardState()) or -1
+            local onb, bm0 = bs0 >= 0 and (bs0 & 4) ~= 0, (bs0 >= 0) and ((bs0 >> 4) & 0xff) or -1
+            local LS = DI.ls or {}
+            DI.ls = LS
+            local sp0 = type(HJN_MeshSpeed) == "function" and tonumber(HJN_MeshSpeed()) or -1
+            if onb and bm0 == 3 then
+                LS.air, LS.land = now, nil
+                if sp0 >= 0 then LS.sp = sp0 end
+                if (tonumber(S.LandHoldFix) or 1) ~= 0 and (tonumber(NATIVE.v) or 0) >= 113 and type(HJN_Set) == "function" then
+                    if (tonumber(HJN_Set("boardgo", 1)) or 0) == 1 then
+                        LS.n, LS.hit = (LS.n or 0) + 1, now
+                        if LS.n <= 60 then log(string.format("landing: the game's hold-still flag was up on the board in this air (left up it stops the board dead at touchdown) -- let go (%d so far)", LS.n)) end
+                    end
+                end
+            elseif onb and bm0 == 1 and LS.air then
+                LS.land = LS.land or now
+                if now - LS.land >= 0.2 then
+                    if (LS.sp or 0) > 250 and sp0 >= 0 and sp0 < 0.3 * LS.sp then
+                        LS.lost = (LS.lost or 0) + 1
+                        if LS.lost <= 60 then
+                            log(string.format("landing: the speed was LOST at touchdown -- %.0f cm/s over the ground in the air, %.0f cm/s 0.2 s after it (%d such landings so far; the hold-still flag %s; %s)",
+                                LS.sp, sp0, LS.lost, (LS.hit and LS.land - LS.hit < 3) and "WAS up in this air and was let go: it is not what stopped you" or "was not up in this air",
+                                tostring(type(HJN_ToggleGates) == "function" and HJN_ToggleGates() or "?"):sub(1, 160)))
+                        end
+                    end
+                    LS.air, LS.land, LS.sp = nil, nil, nil
+                end
+            elseif not onb or (bm0 ~= 1 and bm0 ~= 3) then LS.air, LS.land, LS.sp = nil, nil, nil end
+        end
+        if DI.again then                                 -- (v213) a drop-in asked for while the board was still on its way into the hand (dropKey's note)
+            local G = DI.again
+            local bs = type(HJN_BoardState) == "function" and tonumber(HJN_BoardState()) or -1
+            if DI.state or active or now > G.till or bs < 0 or (bs & 4) ~= 0 then DI.again = nil
+            elseif (bs & 13) == 0 and ((bs >> 4) & 0xff) == 5 and now - G.at >= 0.15 then
+                DI.again = nil
+                DI.againNow = true
+                local okg, errg = pcall(NATIVE.dropKey)
+                DI.againNow = nil
+                if not okg then log("drop-in: the waiting drop-in could not be started: " .. tostring(errg)) end
+                if okg and G.sw and (DI.state == "throw" or DI.state == "mount") and not DI.sw then   -- (v223) the second tap made while it waited (dropKey): the drop-in begun just now is a switch one
+                    DI.sw = true
+                    log("drop-in: Y was tapped twice while it waited for the board -- you will be put on in SWITCH")
+                end
+            elseif type(HJN_Set) == "function" then pcall(HJN_Set, "ygate", 0.3) end
+        end
+        do   -- (v211) THE STEP-OFF THAT NEVER ENDS (DI.stepOffWatch): looked for every frame, whatever the drop-in is doing
+            local okp, errp = pcall(DI.stepOffWatch, now)
+            if not okp then logOnce("soerr", "step-off watch error: " .. tostring(errp)) end
+        end
         if type(HJN_BoardState) == "function" then       -- (v180, review) the board's own movement mode 8 = it lies loose (a fall, a failed throwdown): see dropKey
             local bs = tonumber(HJN_BoardState()) or -1
             if bs >= 0 and ((bs >> 4) & 0xff) == 8 then DI.looseAt = now end
+            if DI.yAt then                                    -- (v204) see dropKey
+                local bmode = (bs >= 0) and ((bs >> 4) & 0xff) or -1
+                if bs < 0 or (bs & 4) ~= 0 or bmode ~= 5 or DI.state ~= nil then DI.yAt = nil      -- on the board, thrown, or the mod's own drop-in: something came of it
+                elseif now - DI.yAt >= 0.7 then
+                    DI.yAt = nil
+                    if now - (DI.yTold or -1e9) > 3 then
+                        DI.yTold = now
+                        log("Y on foot: NOTHING came of that press in 0.7 s (no throwdown; the board is still in your hand) -- the game's own tests read: "
+                            .. tostring(type(HJN_ToggleGates) == "function" and HJN_ToggleGates() or "(the native half is older than v108)")
+                            .. "; at the press the game had you falling: " .. tostring(DI.yFall)
+                            .. " (the controller's timer is set to 0.5 when its Y handler passes its own test: far under 0 here = it did not pass, or was never called)")
+                    end
+                end
+            end
+            if s0 and mv then                             -- (v195) the throwdown's speed burst (v196: also with no board -- a sped-up throw is ended)
+                local okt, errt = pcall(DI.tdWatch, now, bs)
+                if not okt then logOnce("tderr", "throwdown burst error: " .. tostring(errt)) end
+            end
         end
         if DI.trace and now >= DI.trace.nxt then          -- (v187)
             local T = DI.trace
@@ -6357,6 +8550,401 @@ do
         if not st then return end
         if not alive(s0) then letGo("the skater is gone") return end
         local cm, L = modeNow(), DI.L
+        -- (v210) NO BOARD TOGGLE OF THE GAME'S WHILE YOU ARE HELD ON THE BOARD. Five drop-in set-ups of ten on 9 Oct
+        -- (22:33-22:35) ended "you are off the board (mode 0)" about a second after the board's parts were taken: no bail,
+        -- no Y pressed, and each after the same number of the game's grounded checks (1348..1351) -- one fixed time. Read
+        -- off the exe and the anim blueprint: ApplyToggleOnBoard is a true toggle (on the board = stepped off), and the
+        -- blueprint asks for one (SetPendingApplyToggleOnBoard) when the throwdown ANIMATION ends. By an edge the game's
+        -- throw sends the board over the drop, the mod mounts you itself half a second on -- and the animation, still
+        -- playing, ends a second later and toggles you off. The native half (v112) drops a pending toggle found while you
+        -- are ON the board for as long as this is refreshed (on foot it is the mount itself and is left alone).
+        if st ~= "ride" and type(HJN_Set) == "function" then pcall(HJN_Set, "notoggle", 0.3) end
+        -- (v211) THE SET-DOWN (DropInSetDown, an experiment: the note in dropKey). On foot all the way to the mount:
+        --   0 - 0.30 s  turned square to the edge and moved to the spot the animation is played from, eased;
+        --   0.24 s      the game's own throw has not come (board mode 6 = the veto came too late: the old way) -> the
+        --               native half starts the game's throwdown animation (clip type 1 or 2 by stance, 2 for a goofy
+        --               rider). To the game the board is still in the hand: it follows the skeleton's board bone down;
+        --   landed      the deck within 9 cm of the ledge top, 0.5 to 0.6 s in. From here the animation drags the board
+        --               back under him (36 cm back and 17 across, at up to 150 cm/s) -- instead HE is moved on by what
+        --               the deck moved, three tenths of the gap a frame, so the deck stays where it came down. (Half
+        --               the gap, the first plan, holds it a cm or two closer but swings for good where a move of his
+        --               takes four frames to show in the deck; three tenths still settles there. Replayed on the
+        --               clip's own board track at 60 frames a second the deck strays 6 to 10 cm at the drag's fastest
+        --               and is back within a cm by the mount: the "on the board" line has what it really did);
+        --   mountAt     the animation's own moment (its ThrowdownCompleted notify: 1.57 s in, 1.275 s in the other clip;
+        --               the notify itself does nothing here, the game's throwdown flag is not set): the game is asked
+        --               for the mount, the way the mod's own mount asks;
+        --   on the board  the state "mount" takes over: it reads how he stands on it, and there is no first move
+        --               where he stands right.
+        -- The game's own Y stays refused the while (a press now would start its throw in the middle of this). Whatever
+        -- does not come = the animation's flag cleared and the old way from there. The "notoggle" refresh above does
+        -- nothing on foot (the native half only drops a toggle found while he is ON the board), so the mount asked
+        -- for here is not touched by it -- and once he is on, it guards this drop-in as it does any other.
+        if st == "throw" then
+            local T = DI.th
+            if not T then DI.state, DI.t0, DI.tapOver = "mount", now, true return end
+            if cm == MODE_BAILING then letGo("the game bailed you") return end
+            -- (v211) THE GAME'S REPLAY (mode 6) OPENED WHILE THE BOARD IS BEING SET DOWN: let go. Every held state lets go on
+            -- a mode that is not riding or air, and "mount" only mounts on foot; this state went on -- in the stand-in
+            -- world, mode 6 from half a second in: he was moved 80 more times, the animation's flag kept 81 more times
+            -- and the mount asked for. The frame hook runs in the replay, and the skater there is played back, never
+            -- driven (v149)
+            if cm == 6 then letGo("the game's replay was opened while the board was being set down -- nothing more is done") return end
+            local bs = type(HJN_BoardState) == "function" and tonumber(HJN_BoardState()) or -1
+            local bmode = (bs >= 0) and ((bs >> 4) & 0xff) or -1
+            local onb = q(function() return s0:IsOnBoard() end, false) == true
+            local function oldWay(why, own)                  -- the old way from here; own = straight to the mod's own mount
+                pcall(HJN_Set, "throwanim", 0)
+                -- (v212) ...and a set-down ON THE COPING first lets go of what it holds: the skeleton's board bone (the
+                -- native half's own watch would let it go 0.4 s on) and its mount's gate, the board's parts it was armed
+                -- with, and the grounded hold the mount's asking raised
+                if T.pinned then
+                    T.pinned = nil
+                    pcall(HJN_SetDown, "end") pcall(HJN_BoardParts)
+                    if DI.ground and type(HJN_GroundHold) == "function" then pcall(HJN_GroundHold, 0) end
+                    DI.ground = nil
+                end
+                log("drop-in: " .. why .. " -- today's way from here")
+                DI.th, DI.sd, DI.tapOver = nil, nil, true        -- (tapOver: DI.t0 is not the press any more -- "mount" opens no second-tap window from it, the note in dropKey)
+                DI.state, DI.t0, DI.rideAt, DI.tries, DI.tryAt = "mount", own and (now - 0.5) or now, nil, 0, nil
+            end
+            if bmode == 6 then oldWay("the game's own throwdown started all the same (the veto came too late)", false) return end
+            if onb and not T.asked then oldWay("you are on the board already, and not by the set-down's own mount", false) return end
+            if not onb and bmode ~= 5 then oldWay("the board left your hand (board mode " .. bmode .. ")", true) return end
+            if T.failed then oldWay(T.failed, true) return end
+            pcall(HJN_Set, "ygate", 0.3)
+            -- (v212) THE SET-DOWN ON THE COPING (T.edge: the note in dropKey). What it does differently from build 211's:
+            --   first tick   the native half is armed (HJN_SetDown "arm", v114): it lays the board's parts level in memory
+            --                and says where the board will be -- level out over the edge (its middle about 28 cm past
+            --                it), and in the stance (22 cm past it, 8 cm higher). He is stood so that the clip's own
+            --                board, 35.8 cm ahead of him, comes down on the first of the two: about 8 cm behind the edge;
+            --   the clip     as its board falls (from 45 cm over his floor to 9) the board leaves the clip's path for that
+            --                place: the native half holds the skeleton's board bone there ("pin"; on foot the real board
+            --                follows that bone). Down, its tail goes down over DropInSetPitchTime, and it STAYS;
+            --   the walk     he is moved on by what the clip drags its own board, so that its board stays on the held one
+            --                -- out past the edge with DropInSetOver, and held back where the game is seen to lower him;
+            --   the mount    asked of the native half ("mount": the game's test at his feet is answered for, and the parts
+            --                go back into the stance inside the game's own mount call). On the board with the parts put
+            --                back = SET: straight to "wait", with no slide.
+            -- NONE OF IT HAD RUN IN THE GAME WHEN IT WAS WRITTEN. The arming refused, or SWITCH = build 211's set-down;
+            -- anything later that does not come = the old way; on the board without the parts put back = one teleport
+            -- to the old spot and the slide out. The log says which, and a trace line five times a second says the rest.
+            -- (v223) SWITCH ON THE COPING. "The double click Y to drop in switch is not connected, it still runs the old drop
+            -- in." (14 Oct; 00:02:34 that night: armed on the coping, the tap, then build 211's 70 cm back and the slide.)
+            -- Nothing of the coping is regular-only: both throwdown clips carry the board on ONE track (35.8 cm ahead, 16 to
+            -- the left, its nose away from him: the switch run of 00:02:35 put clip 1's board 37 ahead and 15 left), so he
+            -- stands and faces the drop as for a regular one and the board is held where it is held for one. The clip is
+            -- the stance's own ("throwanim" 2: clip 1 for a goofy rider, AMXX_GRD_LH_Idle_To_RGS_SkateIdle at 1.3 -- its
+            -- first foot steps on the tail, walks to the front bolts, the other comes onto the tail last, by the mount at
+            -- 1.275 s). The mount is asked for the switch foot with flip flag 0 (HJN_SetDown "mount", 1): the game's own
+            -- switch mount turns the CAPSULE half a turn (exe 0xfeaca0) -- he ends facing away from the drop, as a switch
+            -- rider stands -- and its snap turns the board half a turn back because "is switch" is not the flip flag
+            -- (SnapToGround, exe 0xfd9700), so the deck keeps its nose to the drop and the native half puts the parts in
+            -- the stance from that heading. No yaw is handed over turned (the hop's way): he must face the drop on foot
+            -- for the clip to set the board on the coping, and the game's own turn is the one wanted. Decided once, at
+            -- the first tick that sees the tap; DropInSetSwitch 0 = build 222 (build 211's set-down, below)
+            if T.edge and DI.sw and T.swEdge == nil then
+                T.swEdge = (tonumber(S.DropInSetSwitch) or 1) ~= 0
+                if T.swEdge then log("drop-in:    SWITCH ON THE COPING (DropInSetSwitch): you stand and face the drop as for a regular one; the switch stance's own animation sets the board down and the game's switch mount turns you half a turn -- you face away from the drop, the nose points at it, your other foot on the tail") end
+            end
+            if T.edge and DI.sw and not T.swEdge then
+                if T.pinned then                              -- (review) the tap came after the arming: let go, and ease again from where he is to build 211's spot
+                    T.pinned = nil
+                    pcall(HJN_SetDown, "end") pcall(HJN_BoardParts)
+                    local e1 = math.min(1, (now - T.t0) / 0.30)
+                    local s1 = e1 * e1 * (3 - 2 * e1)
+                    T.xp, T.yp, T.dyawp = T.xp or T.x0, T.yp or T.y0, T.dyawp or T.dyaw   -- (where he was pressed, for the SET-DOWN line)
+                    T.x0, T.y0, T.yaw0, T.dyaw = T.x0 + (T.sx - T.x0) * s1, T.y0 + (T.sy - T.y0) * s1, T.yaw0 + T.dyaw * s1, T.dyaw * (1 - s1)
+                    T.sx, T.sy, T.t0 = T.sx211 or T.sx, T.sy211 or T.sy, now   -- (the clip starts 0.24 s after the tap; the game's Y stays refused by the line above)
+                end
+                T.edge = nil
+                if T.zp and L.dist >= 0 then T.z0, T.zp = T.zp, nil end   -- (pressed ON the ledge, lower than its edge: build 211's spot is not at the edge -- at the height he was pressed at, as build 211 moves him)
+                log("drop-in:    SWITCH: DropInSetSwitch is 0 -- build 211's set-down, from its own spot")
+            end
+            if T.edge and not T.armed then                -- the first tick
+                T.armed = true
+                local parts = boardParts()
+                local took = parts and tonumber(HJN_BoardParts(table.unpack(parts))) or 0
+                local a = (took > 0) and tostring(HJN_SetDown("arm", DI.hang, DI.pitch, S.DropInTail, S.DropInKick, L.lip, L.ox, L.oy, L.x, L.y, L.top, S.DropInBack, S.DropInSetFeet or 1) or "") or ""
+                local m0, m1, z0, z1, pu = a:match("^(%S+) (%S+) (%S+) (%S+) (%S+)")
+                m0, m1, z0, z1 = tonumber(m0), tonumber(m1), tonumber(z0), tonumber(z1)
+                if m0 and m1 and z0 and z1 then
+                    T.pinned = true
+                    local back = math.max(3, 35.8 - m0)        -- the clip sets the board 35.8 cm ahead and 16 to the left: he stands that far behind the level board's middle, his own middle never past the edge
+                    T.sx211, T.sy211 = T.sx, T.sy              -- (build 211's spot: where a second tap sends him)
+                    T.sx, T.sy, T.back = L.x - L.ox * back - L.oy * 16.0, L.y - L.oy * back + L.ox * 16.0, back
+                    -- (review) NO RISE ON THE ACTOR unless asked (DropInSetRise): on foot the engine's walking sets the capsule
+                    -- back onto its floor every tick, so a lift made by moving him holds only where it finds no floor
+                    T.rise = ((S.DropInSetRise or 0) ~= 0) and math.max(0, math.min(20, z1 - z0)) or 0
+                    T.pitch = tonumber(pu)
+                    -- (what he will come up by at the mount, for the line below: the game sets the capsule 3.1 cm lower over a
+                    -- deck than over the deck's own height, and on foot keeps it some 2.2 over its floor: 14.6 - 5.3 = 9)
+                    local cap = q(function() return s0.CapsuleComponent end)
+                    log(string.format("drop-in:    on the coping: the board will come down level with its middle %.0f cm PAST the edge and end tail-down %.0f cm past it, %.0f cm higher; you stand %.0f cm behind the edge (your capsule: radius %s, half height %s; the game's movement mode %s); at the mount you will come up about %.0f cm",
+                        m0, m1, z1 - z0, back, tostring(cap and q(function() return cap:GetScaledCapsuleRadius() end, "?") or "?"), tostring(cap and q(function() return cap:GetScaledCapsuleHalfHeight() end, "?") or "?"),
+                        tostring(q(function() return mv.MovementMode end, "?")), math.max(0, z1 - 5.3 - T.rise)))
+                else
+                    T.edge = nil
+                    if T.zp and L.dist >= 0 then T.z0, T.zp = T.zp, nil end   -- (as at SWITCH above: build 211's spot, at the height he was pressed at)
+                    pcall(HJN_BoardParts)
+                    log("drop-in:    the set-down on the coping was not armed (ExpandedTricks.native.log says why) -- build 211's set-down: you stand DropInBack + 36 cm back")
+                end
+            end
+            if T.edge and not T.started then pcall(HJN_SetDown, "pin", 0, 0) end   -- (the native half lets the bone go 0.4 s after the last asking: asked from the first tick on, with no weight yet)
+            local e = now - T.t0
+            local k = math.min(1, e / 0.30)
+            local s = k * k * (3 - 2 * k)
+            local px, py, pyaw = T.x0 + (T.sx - T.x0) * s, T.y0 + (T.sy - T.y0) * s, T.yaw0 + T.dyaw * s
+            if not T.started and e >= 0.24 then
+                local ty = tonumber(HJN_Set("throwanim", DI.sw and 2 or 1)) or 0
+                if ty < 1 then oldWay("the native half would not start the animation", true) return end
+                T.started, T.ts, T.type, T.mountAt = true, now, ty, now + ((ty == 2) and 1.57 or 1.275)
+                log(string.format("drop-in: SET-DOWN -- the game's throw refused, its animation started by the mod (clip type %d%s); moved %.0f cm, turned %+.0f deg to stand %.0f cm from the edge",
+                    ty, DI.sw and ", SWITCH" or "", math.sqrt((T.sx - (T.xp or T.x0)) ^ 2 + (T.sy - (T.yp or T.y0)) ^ 2), T.dyawp or T.dyaw, T.edge and (T.back or 0) or (S.DropInBack + 35.8)))   -- (v212) on the coping: where the arming stood him
+            end
+            if T.started then
+                if (tonumber(HJN_Set("throwanim", -1)) or 0) < 1 and not T.asked then oldWay("the animation's flag was taken back", true) return end
+                if onb then                                                         -- (asked for above, a frame or two ago)
+                    pcall(HJN_Set, "throwanim", 0)
+                    if T.edge then
+                        -- (v212) ON THE COPING: the native half says how many of the board's parts it put back into the stance
+                        -- inside the game's own mount (HJN_SetDown "state"; 0 = its hook on the board's SetOnBoardMode was
+                        -- not reached, under 0 = it failed). Put back = SET, here and now: the board is where it will
+                        -- wait, so there is no "mount" (how he stands), "set" (the parts taken) or "out" (the slide) --
+                        -- and the stance is placed on this very frame: from the mount on the board's physics is on, and
+                        -- a frame with nobody placing the parts would let it start to fall (review)
+                        local put = tonumber(HJN_SetDown("state")) or 0
+                        local loc2 = q(function() return s0:K2_GetActorLocation() end)
+                        local z2 = loc2 and tonumber(q(function() return loc2.Z end))
+                        T.pinned = nil                              -- (the native half let the bone go itself, inside the mount)
+                        if put >= 1 then
+                            log(string.format("drop-in:    on the board %.2f s after the animation began, ON THE COPING: no slide (%d parts put back in the stance inside the game's own mount); walked %.0f cm to it, your middle %+.0f cm from the edge by then (+ = past it)%s; the animation's own board was %+.1f cm out and %+.1f across from the held deck's middle (- = behind it); you are now %s cm higher than the mod had you on foot; the held deck was at most %.1f cm from its place; the game had you at most %.1f cm lower than the mod set you; the anim's Speed read %.0f at most (over 14 = the walk clip mixed in)",
+                                now - T.ts, put, math.sqrt((T.wx or 0) ^ 2 + (T.wy or 0) ^ 2), T.alLast or 0, T.alHold and string.format(" (held %.0f cm past the edge)", T.alHold) or "",
+                                T.ga or 0, T.gs or 0, (z2 and T.zSet) and string.format("%.1f", z2 - T.zSet) or "?", T.dev or 0, T.sink or 0, T.spd or 0))
+                            if DI.sw then
+                                -- (v223) SWITCH ON THE COPING: what the game's switch mount made of him and of the board. Planned: he
+                                -- was turned half a turn by the game, to face away from the drop, and the deck's nose points at it
+                                -- (the note at "SWITCH ON THE COPING" above). Said, not acted on: the first run shows it. Off by
+                                -- half a turn = the game did not turn him, or its snap turned the board (the native log's
+                                -- "inside the game's own mount" line: how far the snap turned the deck from the stance, ~30 = right)
+                                local r2 = q(function() return s0:K2_GetActorRotation() end)
+                                local y2 = r2 and tonumber(q(function() return r2.Yaw end))
+                                local dy2 = tonumber((tostring(HJN_DeckWorld() or "")):match("^%S+ %S+ %S+ (%S+)"))
+                                local sq2 = math.deg(math.atan(L.oy, L.ox))
+                                local cOff = y2 and (((y2 - sq2 - 180) + 540) % 360 - 180)
+                                local nOff = dy2 and (((dy2 - sq2) + 540) % 360 - 180)
+                                log(string.format("drop-in:    SWITCH on the coping: you face %s off the way away from the drop, the deck's nose %s off the way down (0 wanted for both); the game says switch %s%s",
+                                    cOff and string.format("%+.0f deg", cOff) or "?", nOff and string.format("%+.0f deg", nOff) or "?", tostring(q(function() return s0:IsSkatingSwitch() end, "?")),
+                                    ((cOff and math.abs(cOff) > 45) or (nOff and math.abs(nOff) > 45)) and " -- NOT AS PLANNED: the game's switch mount did not turn you, or it turned the board (ExpandedTricks.native.log, 'inside the game's own mount': how far its snap turned the deck)" or ""))
+                            end
+                            DI.th, DI.sd, DI.tapOver = nil, true, true
+                            DI.state, DI.t0, DI.k, DI.phi, DI.parts, DI.modeWas, DI.rideAt = "wait", now, 1, 0, put, cm, nil
+                            DI.ground = (type(HJN_GroundHold) == "function" and tonumber(HJN_GroundHold(1)) == 1) or nil   -- (raised by the mount's asking; asked again as "set" does, so that what is logged is what holds)
+                            DI.edgeAt = now
+                            log(string.format("drop-in: SET -- %d board parts: the back wheels hung %.1f cm past the edge, the tail down on the ledge, the deck up %.0f deg. Stick UP = drop in, LB/RB = back, Y = off (set down ON THE COPING: no slide; the game %s)",
+                                put, DI.hang, T.pitch or DI.pitch, DI.ground and "is told the board is grounded while it is held" or "keeps its own grounded check (the hold is off)"))
+                            if S.DropInSounds ~= 0 then playSound(S.DropInSetSound, S.DropInSoundVolume) end
+                            place(1, 0)
+                            return
+                        end
+                        -- on the board, but the parts were not put back: the board lies as the game's own snap left it (level in
+                        -- the air out over the edge, or nose-down on a bank), its physics on. One teleport to the old spot,
+                        -- then "set" takes the parts and the slide out is build 211's
+                        pcall(HJN_SetDown, "end") pcall(HJN_BoardParts)
+                        if DI.ground and type(HJN_GroundHold) == "function" then pcall(HJN_GroundHold, 0) end
+                        DI.ground = nil
+                        log(string.format("drop-in:    on the board %.2f s after the animation began, but the board was NOT put back in the stance (the native half says %d; ExpandedTricks.native.log says why) -- the old spot and the slide out from here", now - T.ts, put))
+                        local x, y, yaw, sk = L.x - L.ox * S.DropInBack, L.y - L.oy * S.DropInBack, math.deg(math.atan(L.oy, L.ox)) + ((DI.sw == true or q(function() return s0:IsSkatingSwitch() end, false) == true) and 180 or 0), s0
+                        DI.th, DI.sd, DI.tapOver = nil, true, true
+                        DI.state, DI.t0, DI.rideAt, DI.tries, DI.tryAt = "set", now, nil, 0, nil
+                        NATIVE.gt(function()                          -- (outside the animation update, as the first move's teleport)
+                            if DI.state ~= "set" or DI.L ~= L then return end   -- (the queue can run late: not once this drop-in is over)
+                            local ok, res = pcall(function() return sk:K2_TeleportTo({ X = x, Y = y, Z = L.top + 90 }, { Pitch = 0.0, Yaw = yaw, Roll = 0.0 }) end)
+                            log(string.format("drop-in: stood square to the edge, the board's middle %.0f cm back from it, heading %.0f -> %s", S.DropInBack, yaw, ok and tostring(res) or ("FAILED: " .. tostring(res))))
+                            if not ok then letGo("the teleport failed") end
+                        end)
+                        return
+                    end
+                    log(string.format("drop-in:    on the board %.2f s after the animation began; walked %.0f cm onto it, the deck at most %.1f cm from where it came down; the anim's Speed read %.0f at most (over 14 = the walk clip mixed in)",
+                        now - T.ts, math.sqrt((T.wx or 0) ^ 2 + (T.wy or 0) ^ 2), T.dev or 0, T.spd or 0))
+                    DI.th, DI.sd, DI.tapOver = nil, true, true
+                    DI.state, DI.t0, DI.rideAt, DI.tries, DI.tryAt = "mount", now, nil, 0, nil
+                    return
+                end
+                if T.edge then
+                    -- (v212) ON THE COPING: the board is HELD where the stance will have it, and he comes to it
+                    local function sm(x) x = math.max(0, math.min(1, x)) return x * x * (3 - 2 * x) end
+                    T.spd = math.max(T.spd or 0, tonumber(q(function() return inst.Speed end, 0)) or 0)
+                    local r = tostring(HJN_SetDown("pin", T.w or 0, T.kS or 0) or "")
+                    -- "" = the bone is not held any more (the native half's watch, a fault). Not so once the mount has been asked
+                    -- and made: the native half lets go itself inside the game's mount, and he is seen on the board next
+                    if r == "" and not (T.asked and (tonumber(HJN_SetDown("state")) or 0) ~= 0) then
+                        oldWay("the native half let the board bone go", true)
+                        return
+                    end
+                    local cx, cy, ch, qx, qy, qz, off = r:match("^(%S+) (%S+) (%S+) (%S+) (%S+) (%S+) (%S+)")
+                    cx, cy, ch, qx, qy, qz, off = tonumber(cx), tonumber(cy), tonumber(ch), tonumber(qx), tonumber(qy), tonumber(qz), tonumber(off)
+                    if cx and cy and ch and qx and qy then
+                        -- the board leaves the clip's path for the held place as it falls: from 45 cm over his floor to 9 (0.27 to 0.54 s in this clip); never back
+                        T.w = math.max(T.w or 0, sm((45 - ch) / 36))
+                        if not T.landed and now - T.ts > 0.35 and ch < 9 then
+                            T.landed, T.landAt, T.wx, T.wy = true, now, 0, 0
+                            T.alLast = (px - L.x) * L.ox + (py - L.y) * L.oy   -- (his middle from the edge as the walk begins, behind it: what the game makes of his height is counted from this frame on)
+                            log(string.format("drop-in:    the board came down %.2f s into the animation, HELD on the coping: its middle %.0f cm past the edge, %.0f cm off the line; the real deck %.1f cm from where it is held; the animation's own board %.0f cm from it",
+                                now - T.ts, (qx - L.x) * L.ox + (qy - L.y) * L.oy, (qx - L.x) * -L.oy + (qy - L.y) * L.ox, off or -1, math.sqrt((qx - cx) ^ 2 + (qy - cy) ^ 2)))
+                        end
+                        if T.landed then
+                            T.kS = sm((now - T.landAt - 0.04) / math.max(0.02, S.DropInSetPitchTime or 0.22))   -- the tail goes down as his back foot comes onto it (0.67 s in)
+                            if T.kS >= 1 and not T.tailSaid then
+                                T.tailSaid = true
+                                log(string.format("drop-in:    tail down %.2f s into the animation: the deck %s, its middle %.0f cm past the edge; the real deck %.1f cm from where it is held", now - T.ts, DI.pitchNow(), (qx - L.x) * L.ox + (qy - L.y) * L.oy, off or -1))
+                            end
+                            T.ex, T.ey = qx - cx, qy - cy                  -- he is walked on by what the clip drags its own board: its board kept on the held one
+                            T.ga, T.gs = -(T.ex * L.ox + T.ey * L.oy), -(T.ey * L.ox - T.ex * L.oy)   -- (for the log: the clip's board from the held one, out along the way over the edge and across it)
+                            local ex, ey = 0.3 * T.ex, 0.3 * T.ey          -- three tenths of the gap a frame, as build 211's walk
+                            local n = math.sqrt(ex * ex + ey * ey)
+                            if n > 3 then ex, ey = ex * 3 / n, ey * 3 / n end   -- 3 cm a frame at most
+                            T.wx, T.wy = T.wx + ex, T.wy + ey
+                            local wl = math.sqrt(T.wx ^ 2 + T.wy ^ 2)
+                            if wl > 60 then T.wx, T.wy = T.wx * 60 / wl, T.wy * 60 / wl end
+                            do  -- (review) HIS MIDDLE OUT PAST THE EDGE, ON FOOT. By the clip's own board track the walk takes his middle
+                                -- past the edge 0.87 s in and 22 cm past it by 1.2 s. On foot he is in the engine's walking, which
+                                -- sets the capsule onto the floor it finds every tick: one whose round bottom hangs on an edge is
+                                -- set LOWER (a radius of 34: 1.5 cm at 10 cm past it, 8 at 22), further out it falls. Nobody has
+                                -- read the capsule's radius, so it is measured: how far under the height the mod moves him at
+                                -- the game has him now, counted from what that read while he still stood well on the ledge (a
+                                -- top that is not level is not the edge). Over 1.5 cm = he is held 3 cm short of there until the
+                                -- mount is near (first seen in those last 0.15 s nothing is held: the most he was lowered is
+                                -- kept for the log); his feet reach the board from there (DropInSetFeet), the last 0.15 s close
+                                -- what they can and the game's mount takes the rest. DropInSetOver 0 = his middle is not taken
+                                -- past the edge at all. Against T.z0, not the last move's own height: a lift of DropInSetRise
+                                -- is not in it (on a floor the game takes that lift back every tick -- that is not the edge)
+                                local lz = q(function() return s0:K2_GetActorLocation() end)
+                                local zn = lz and tonumber(q(function() return lz.Z end))
+                                if zn then
+                                    local sink = T.z0 - zn
+                                    if (T.alLast or 0) <= -4 then T.sink0 = sink end
+                                    sink = sink - (T.sink0 or 0)
+                                    T.sinkNow = sink
+                                    if sink > (T.sink or 0) then T.sink = sink end
+                                    if sink > 1.5 and not T.alHold and (T.alLast or -99) > -2 and now < T.mountAt - 0.15 then
+                                        T.alHold = math.max(-2, T.alLast - 3)
+                                        log(string.format("drop-in:    %.2f s in, your middle %.0f cm past the edge: the game had you %.1f cm lower than the mod set you (the capsule hangs on the edge) -- held %.0f cm past the edge until the mount is near", now - T.ts, T.alLast, sink, T.alHold))
+                                    end
+                                end
+                                local al = (px + T.wx - L.x) * L.ox + (py + T.wy - L.y) * L.oy      -- his middle, cm past the edge
+                                local lim = T.alHold
+                                -- (v216) NOT PAST THE EDGE ON FOOT AT ALL (DropInSetFly). "The drop-ins are super stuttery as well.
+                                -- Like when you hit the button to drop in and he slides into position, it's very choppy." (11 Oct,
+                                -- six set-downs over real drops, 38 to 54 cm.) The log of each: his middle 5 to 15 cm past the edge
+                                -- before the engine was SEEN to set him lower (1.5 to 4.3 cm, every frame, against the mod's own
+                                -- move back up: the stutter), then held; and in the last 0.15 s let go to the mount's place, 24 cm
+                                -- out, where the engine dropped him 14 cm before the game's mount raised him 22. Now his middle
+                                -- stays 2 cm short of the edge from the start -- nothing to see first -- and the last 0.15 s are
+                                -- flown (the move below)
+                                if not lim and (tonumber(S.DropInSetFly) or 1) ~= 0 then lim = -2 end
+                                if (S.DropInSetOver or 1) == 0 then lim = math.min(lim or -1, -1) end
+                                if lim and now < T.mountAt - 0.15 and al > lim then
+                                    T.wx, T.wy, al = T.wx - L.ox * (al - lim), T.wy - L.oy * (al - lim), lim
+                                end
+                                T.alLast = al
+                            end
+                            px, py = px + T.wx, py + T.wy
+                            if T.kS >= 1 and off and off >= 0 then T.dev = math.max(T.dev or 0, off) end
+                            -- the first rendition: its numbers five times a second, for whoever reads the log after the test
+                            if now >= (T.trAt or 0) then
+                                T.trAt = now + 0.2
+                                log(string.format("drop-in:    +%.2f s: the board bone held %.0f%%, the tail %.0f%% down; your middle %+.0f cm from the edge (+ = past it), %.1f cm lower than the mod set you; the real deck %.1f cm from where it is held; the animation's own board %+.1f cm out and %+.1f across from it (- = behind it)",
+                                    now - T.ts, T.w * 100, T.kS * 100, T.alLast or 0, T.sinkNow or 0, off or -1, T.ga, T.gs))
+                            end
+                        end
+                        T.zr = (T.rise or 0) * sm((now - (T.mountAt - 0.45)) / 0.40)   -- (DropInSetRise only) raised toward the board's height before the mount
+                    elseif T.landed then
+                        px, py = px + T.wx, py + T.wy                      -- (no pose to read on this frame: he stays where the walk has him)
+                    end
+                    if not T.landed and now - T.ts > 0.9 then
+                        oldWay(string.format("the board did not come down in 0.9 s (the animation did not play: its board bone reads %s cm over your floor)", ch and string.format("%.0f", ch) or "?"), true)
+                        return
+                    end
+                else
+                    local dx, dy, dz = tostring(HJN_DeckWorld() or ""):match("^(%S+) (%S+) (%S+)")
+                    dx, dy, dz = tonumber(dx), tonumber(dy), tonumber(dz)
+                    T.spd = math.max(T.spd or 0, tonumber(q(function() return inst.Speed end, 0)) or 0)
+                    if not T.landed and dx and dy and dz and now - T.ts > 0.35 and dz - L.top < 9 then
+                        T.landed, T.lx, T.ly, T.wx, T.wy = true, dx, dy, 0, 0
+                        local al = (dx - L.x) * L.ox + (dy - L.y) * L.oy                 -- along 'out': negative = behind the edge
+                        if al > -26 then T.lx, T.ly = dx - L.ox * (al + 26), dy - L.oy * (al + 26) end   -- all four wheels on the ledge for the mount
+                        log(string.format("drop-in:    the board came down %.2f s into the animation, its middle %.0f cm back from the edge, %.0f cm off the line",
+                            now - T.ts, -al, (dx - L.x) * -L.oy + (dy - L.y) * L.ox))
+                    end
+                    if T.landed and dx and dy then                                      -- he is walked onto it: the deck stays where it came down
+                        local ex, ey = 0.3 * (T.lx - dx), 0.3 * (T.ly - dy)
+                        T.dev = math.max(T.dev or 0, math.sqrt((T.lx - dx) ^ 2 + (T.ly - dy) ^ 2))
+                        local n = math.sqrt(ex * ex + ey * ey)
+                        if n > 3 then ex, ey = ex * 3 / n, ey * 3 / n end                -- 3 cm a frame at most
+                        T.wx, T.wy = T.wx + ex, T.wy + ey
+                        local w = math.sqrt(T.wx ^ 2 + T.wy ^ 2)
+                        if w > 60 then T.wx, T.wy = T.wx * 60 / w, T.wy * 60 / w end     -- (the clip drags it 40 cm)
+                        px, py = px + T.wx, py + T.wy
+                    end
+                    if not T.landed and now - T.ts > 0.9 then
+                        oldWay(string.format("the board did not come down in 0.9 s (the animation did not play: the deck reads %s cm over the ledge)", dz and string.format("%.0f", dz - L.top) or "?"), true)
+                        return
+                    end
+                end
+                if not T.asked and now >= T.mountAt then
+                    T.asked = true
+                    local sk, sw = s0, DI.sw
+                    NATIVE.gt(function()
+                        if DI.th ~= T then return end                 -- (the queue can run late, the note at the move below: no mount is asked for once the set-down is over -- a bail in between, the old way)
+                        local okm
+                        if T.edge then
+                            -- (v212) ON THE COPING: asked of the native half's set-down -- what HJN_BoardMount writes, the grounded
+                            -- hold raised before the game looks, and for 0.6 s the game's test at his feet answered for and
+                            -- the parts put back inside its mount. The body's own touches cannot bail him in that moment
+                            if T.fly then q(function() mv:SetMovementMode(1, 0) end) T.fly = nil DI.flyT = nil end   -- (v216) walking again for the game's own mount, in the same slice: the engine has no tick to drop him in
+                            pcall(HJN_Set, "nobail", 0.4)
+                            okm = tonumber(HJN_SetDown("mount", sw and 1 or 0)) == 1
+                            if okm then DI.ground = true end
+                            log(string.format("drop-in:    at the mount's asking: the game's movement mode %s, falling %s; your middle %+.0f cm from the edge (+ = past it), %.1f cm lower than the mod set you; the animation's own board %+.1f cm out and %+.1f across from the held deck's middle (- = behind it); raised %.1f cm",
+                                tostring(q(function() return mv.MovementMode end, "?")), tostring(q(function() return mv:IsFalling() end, "?")), T.alLast or 0, T.sinkNow or 0, T.ga or 0, T.gs or 0, T.zr or 0)
+                                .. (sw and "; SWITCH: foot position 4, flip flag 0 -- the game turns you half a turn itself and its snap keeps the deck's nose to the drop" or ""))   -- (v223)
+                        else
+                            okm = tonumber(HJN_BoardMount(sw and 1 or 0, 0)) == 1
+                        end
+                        local okp = okm and pcall(function() sk:SetPendingApplyToggleOnBoard() end)
+                        log("drop-in:    the mount at the animation's own moment: " .. (okp and "asked of the game" or (okm and "call FAILED" or "refused by the native half")))
+                        if not okp then T.failed = "the mount could not be asked for at the animation's own moment" end
+                    end)
+                end
+                if T.asked and now - T.mountAt > 0.8 then oldWay("not on the board 0.8 s after the mount was asked", true) return end
+            end
+            local sk, z = s0, T.z0 + (T.zr or 0)             -- (v212) + the rise, with DropInSetRise only
+            T.zSet = z                                       -- (v212) the height of the mod's last move on foot: the "on the board ... ON THE COPING" line says how far the game's mount raised him from it
+            -- (v211) ...AND NEVER ONCE HE IS ON THE BOARD OR THE SET-DOWN IS OVER. The move is handed to the game thread's
+            -- queue on every tick, and the queue can be run later than it was filled: when UE4SS stops running it the
+            -- frame hook does (NATIVE.gtPump, v185, seen 5 Oct), a twentieth of a second on. The move of the last tick on
+            -- foot then came AFTER the game's mount: the capsule set to the on-foot height and yaw with him on the board,
+            -- a jolt of a few cm -- and in SWITCH the half turn of the game's mount undone, which "mount" then made
+            -- again over 0.4 s with the board under him (the review's run: "moved on the board by the on-foot call")
+            NATIVE.gt(function()                              -- outside the animation update, as "align" does
+                if DI.th ~= T or q(function() return sk:IsOnBoard() end, false) == true then return end
+                -- (v216) THE LAST 0.15 s OVER THE EDGE, FLOWN (DropInSetFly, the note at "NOT PAST THE EDGE ON FOOT"): the
+                -- engine's walking sets a capsule past an edge lower or drops it, every tick; its flying mode leaves him
+                -- where the mod moves him, at his own height. Walking again in the slice that asks the game's mount
+                if T.edge and T.started and not T.asked and not T.fly and T.mountAt and now >= T.mountAt - 0.15 and (tonumber(S.DropInSetFly) or 1) ~= 0
+                    and q(function() return mv.MovementMode end, 0) == 1 then
+                    if pcall(function() mv:SetMovementMode(5, 0) end) then
+                        T.fly, DI.flyT = true, T
+                        log(string.format("drop-in:    %.2f s in: over the edge in the engine's flying mode for the last steps to the mount (your middle was %+.0f cm from the edge; at your own height)", now - T.ts, T.alLast or 0))
+                    end
+                end
+                pcall(function() sk:K2_SetActorLocationAndRotation({ X = px, Y = py, Z = z }, { Pitch = 0, Yaw = pyaw, Roll = 0 }, false, {}, true) end)
+                pcall(function() mv.Velocity = { X = 0, Y = 0, Z = 0 } end)
+            end)
+            sticksCentred()
+            return
+        end
         if st == "mount" then
             if now - DI.t0 > 6 then letGo("no way onto the board within 6 s -- nothing done") return end
             if cm == MODE_RIDING and q(function() return s0:IsOnBoard() end, false) == true then
@@ -6382,10 +8970,35 @@ do
                         return
                     end
                     local T = S.DropInAlignTime or 0
-                    if T > 0.03 and x0 and y0 and z0 and yaw0 then
-                        DI.state, DI.t0 = "align", now
-                        DI.al = { x0 = x0, y0 = y0, z0 = z0, yaw0 = yaw0, x = x, y = y, dyaw = ((yaw - yaw0 + 540) % 360) - 180, yaw = yaw, T = T, sw = sw }
-                        return
+                    -- (v211) "AFTER A SET-DOWN" BELOW = WITH NO MOUNT OF THE MOD'S OWN SINCE (sdm). Should the game step him off
+                    -- after one (the re-mount, further down) or the mod have to mount him itself, that mount is the old
+                    -- way's -- he is set over the board from 95 cm up -- and it gets the old way's 0.3 s to settle and its
+                    -- 3 cm and 2 deg (DI.sd alone gave it neither: the board's parts were taken 0.18 s after such a mount
+                    -- instead of 0.45). DI.sd itself stays: the slide out keeps DropInSetOutTime. And with DropInAlignTime 0
+                    -- (no eased first move: one teleport) a set-down that stands right is not teleported either -- that
+                    -- pop is what it is to spare him; one that stands wrong gets the one teleport, as before
+                    local sdm = DI.sd and (DI.tries or 0) == 0
+                    if (T > 0.03 or sdm) and x0 and y0 and z0 and yaw0 then
+                        -- (v211) ...AND NO MOVE WHERE THERE IS NOTHING TO MOVE. 9 Oct: every one of the mod's own mounts (12 of that
+                        -- night's 26 set-ups) stood him on the spot itself, and each then spent the whole DropInAlignTime on
+                        -- "stood square to the edge over 0.40 s (turned +0 deg, moved 0 cm)". Under 3 cm and 2 deg there is no
+                        -- first move. After a SET-DOWN (sdm) he stands where the board came down: up to 12 cm and 6 deg are
+                        -- left as they are -- the slide out takes the board from wherever it stands, and a first move there
+                        -- would be the glide the set-down is to spare him. Further off than that he is squared as before
+                        -- (a set-down in SWITCH too, should the game not have turned him round at its mount).
+                        local far, turn = math.sqrt((x - x0) ^ 2 + (y - y0) ^ 2), ((yaw - yaw0 + 540) % 360) - 180
+                        if far < (sdm and 12 or 3) and math.abs(turn) < (sdm and 6 or 2) then
+                            DI.state, DI.t0 = "set", sdm and (now - 0.3) or now   -- ("set" waits 0.3 s for a teleport to settle; a set-down made none)
+                            log(string.format("drop-in: on the board %.0f cm from the spot and %+.0f deg off square to the edge%s -- no first move%s", far, turn,
+                                sw and " (riding SWITCH: you face away from the drop, the nose points at it)" or "",
+                                sdm and " after the set-down: the board is taken where it stands" or ""))
+                            return
+                        end
+                        if T > 0.03 then                           -- (v211) (with DropInAlignTime 0 a set-down that stands wrong goes on to the one teleport below)
+                            DI.state, DI.t0 = "align", now
+                            DI.al = { x0 = x0, y0 = y0, z0 = z0, yaw0 = yaw0, x = x, y = y, dyaw = ((yaw - yaw0 + 540) % 360) - 180, yaw = yaw, T = T, sw = sw }
+                            return
+                        end
                     end
                 end
                 DI.state, DI.t0 = "set", now
@@ -6470,6 +9083,23 @@ do
         end
         if st == "ride" then                              -- let go: what the game makes of it
             if now - DI.t0 < 0.3 then sticksCentred() end
+            do  -- (v220) the arms: out with the way down (DI.armsRise), held, and down over 0.7 s once he is down: landed
+                -- from the air, at the bottom (95 % of the drop, or no further down for 0.2 s past the peak), or 1.2 s on
+                DI.armsTip = 1
+                local w, f, _, cc = DI.armsRise()
+                if cm == MODE_AIR then DI.armsAir = true end
+                if not DI.armsAt then
+                    if f > (DI.armsFmax or 0) + 0.01 then DI.armsFmax, DI.armsFt = f, now end
+                    local peak = math.max(0.1, (tonumber(S.DropInArmsPeak) or 50) / 100)
+                    if (DI.armsAir and cm ~= MODE_AIR) or f >= 0.95 or (f >= math.min(0.9, peak) and now - (DI.armsFt or now) > 0.2) or now - DI.t0 >= 1.2 then
+                        DI.armsAt, DI.armsTop, DI.crouchTop = now, w, cc
+                    end
+                end
+                if DI.armsAt then local fade = 1 - DI.sm01((now - DI.armsAt) / 0.7) w, cc = (DI.armsTop or 0) * fade, (DI.crouchTop or 0) * fade end
+                if w > 0.01 then DI.arms(w) end
+                if cc > 0.2 then DI.crouch(cc) end                -- (v221) the crouch: up again with the arms
+                if not DI.armsAt or now - DI.armsAt < 0.7 then DI.twist() end
+            end
             if DI.ground and DI.holdUntil and now >= DI.holdUntil then   -- (v138/v139) the vert's grounded hold given back after the quarter second
                 DI.ground, DI.holdUntil = nil, nil pcall(HJN_GroundHold, 0)
                 log(string.format("drop-in:    the grounded hold given back %.2f s after the let-go (mode %s)", now - DI.t0, tostring(cm)))
@@ -6492,6 +9122,7 @@ do
                 -- user set is added down the wall (the met-wall drop-ins get their boost at the let-go: this one could not)
                 if DI.vert and not DI.boosted and now - DI.t0 > 0.3 and cm == MODE_RIDING and S.DropInVertBoost > 0 and NATIVE.boardParts and type(HJN_BoardKick) == "function" then
                     DI.boosted = true
+                    local boost = S.DropInVertBoost * (DI.vk or 1)                    -- (v210) less on a low wall
                     local vel = q(function() return mv.Velocity end, nil)
                     local vx, vy, vz = vel and (tonumber(vel.X) or 0) or 0, vel and (tonumber(vel.Y) or 0) or 0, vel and (tonumber(vel.Z) or 0) or 0
                     local sp = math.sqrt(vx * vx + vy * vy + vz * vz)
@@ -6534,9 +9165,9 @@ do
                     local parts = NATIVE.boardParts()
                     local took = parts and tonumber(HJN_BoardParts(table.unpack(parts))) or 0
                     local n = 0
-                    if took > 0 then n = tonumber(HJN_BoardKick(vx + dx * S.DropInVertBoost, vy + dy * S.DropInVertBoost, vz + dz * S.DropInVertBoost, 0, L.ox, L.oy)) or 0 end
+                    if took > 0 then n = tonumber(HJN_BoardKick(vx + dx * boost, vy + dy * boost, vz + dz * boost, 0, L.ox, L.oy)) or 0 end
                     pcall(HJN_BoardParts)
-                    log(string.format("drop-in:    on the wall %.2f s after the let-go at %.0f cm/s -> boosted %.0f cm/s %s (%d parts)", now - DI.t0, sp, S.DropInVertBoost, how, n))
+                    log(string.format("drop-in:    on the wall %.2f s after the let-go at %.0f cm/s -> boosted %.0f cm/s %s (%d parts)", now - DI.t0, sp, boost, how, n))
                 end
                 if not DI.pushed and now - DI.t0 > 0.45 and S.DropInPush ~= 0 and cm == MODE_RIDING then
                     local sp = tonumber(q(function() return mv:GetCurrentSpeed() end, -1)) or -1
@@ -6550,12 +9181,33 @@ do
             log(string.format("drop-in: 1.5 s on -- mode %s, speed %.0f cm/s, deck pitch %s%s", tostring(cm),
                 tonumber(q(function() return mv:GetCurrentSpeed() end, -1)) or -1, DI.pitchNow(),
                 (DI.vert and DI.nb0) and string.format("; %d body hits passed over in the first 0.7 s", (DI.nbNow or DI.nb0) - DI.nb0) or ""))
+            DI.armsOff()                                    -- (v218)
             DI.state = nil
             return
         end
         -- from here the board is held, every frame -- riding or, as the game sees it once the wheels hang free, in the air
         -- (v98 let go the moment the game said "air": the pivot never ran and you came off the ledge flat)
-        if cm ~= MODE_RIDING and cm ~= MODE_AIR and cm ~= MODE_TO_BOARD and cm ~= -1 then
+        -- (v212) ...NOR IS A MODE THAT READS "ON FOOT" A STEP-OFF IN THE HALF SECOND AFTER A MOUNT ON THE COPING, WHILE THE
+        -- GAME SAYS HE IS ON THE BOARD. Build 211 came here through "mount" and "set", which waited for riding; a
+        -- set-down on the coping is in "wait" from the frame of the mount, with the board hung out over the drop -- to
+        -- give it back there (the re-mount below, or the let-go) on a mode that has not caught up would drop it
+        if cm ~= MODE_RIDING and cm ~= MODE_AIR and cm ~= MODE_TO_BOARD and cm ~= -1
+            and not (cm == 0 and DI.edgeAt and now - DI.edgeAt < 0.5 and q(function() return s0:IsOnBoard() end, false) == true) then
+            -- (v210) ...AND SHOULD ONE GET THROUGH ALL THE SAME: off the board with no Y pressed in the last second, while
+            -- the board was being set out or stood ready = the game stepped you off, you did not. The board is given back
+            -- and the drop-in goes round again from its first step (the mod's own mount puts you on), twice at most.
+            local yAgo = now - (DI.yPress or -1e9)
+            if cm == 0 and yAgo > 1.0 and (DI.remounts or 0) < 2 and (st == "out" or st == "wait") then
+                DI.remounts = (DI.remounts or 0) + 1
+                if type(HJN_BoardParts) == "function" then pcall(HJN_BoardParts) end
+                if DI.ground and type(HJN_GroundHold) == "function" then pcall(HJN_GroundHold, 0) end
+                DI.ground, DI.held = nil, nil
+                log(string.format("drop-in: the game stepped you off the board (%s, no Y pressed%s; %s board toggles dropped by the native half so far) -- put back on, try %d of 2",
+                    (st == "out") and "while the board was set out" or "while it stood ready", (yAgo < 60) and string.format(" in the last %.1f s", yAgo) or "",
+                    tostring(type(HJN_NoToggle) == "function" and HJN_NoToggle() or "?"), DI.remounts))
+                DI.state, DI.t0, DI.rideAt, DI.tries, DI.tryAt, DI.hang, DI.pitch, DI.pulled = "mount", now, nil, 0, nil, S.DropInHang, S.DropInPitch, false
+                return
+            end
             letGo("you are off the board (mode " .. tostring(cm) .. ") -- the board is let go")
             return
         end
@@ -6570,12 +9222,15 @@ do
         -- the ledge bails you. The tail down on the ledge should keep it riding (the game checks the deck's tail for ground
         -- as it does a wheel). Should it say "air" all the same, the board is drawn back a quarter cm a frame until the
         -- back wheels sit on the edge, and stays there.
-        if (st == "out" or st == "wait") and cm == MODE_AIR and (DI.k or 0) >= 1 then
+        -- (v212, review) ...BUT NOT IN THE HALF SECOND AFTER A MOUNT ON THE COPING (DI.edgeAt): for a frame or more after a
+        -- mount the board is in its own mode 7 and the skater in ToSkateboarding, which reads here as "air" by the
+        -- anim's wheel flag (modeNow) -- and build 211 never was in "wait" that early
+        if (st == "out" or st == "wait") and cm == MODE_AIR and (DI.k or 0) >= 1 and not (DI.edgeAt and now - DI.edgeAt < 0.5) then
             DI.hang = math.max(-1, DI.hang - 0.25)
             if not DI.pulled then DI.pulled = true log("drop-in:    the game took the held board for airborne -- drawing it back until it rides again") end
         end
         if st == "out" then
-            local k, e = eased(S.DropInSetTime)
+            local k, e = eased(DI.sd and S.DropInSetOutTime or S.DropInSetTime)   -- (v211) after a set-down the slide out is the one move left: DropInSetOutTime
             DI.k, DI.phi = e, 0
             local n = place(e, 0)
             if n < 1 then letGo("the native half could not move the board") return end
@@ -6598,8 +9253,8 @@ do
                 -- (v101) the way down traced now, from the stance as it stands: the front wheels' bottoms and the nose swung
                 -- about the hung back axle, a degree at a time, until one meets the ground (v100 took the angle from chords
                 -- of a guessed circle: the wheels ended 10 cm inside the ramp and the board stuck fast)
-                local meet, pu, slope = HJN_BoardMeet(DI.hang, DI.pitch, S.DropInTail, S.DropInKick, L.lip, L.ox, L.oy, L.x, L.y, L.top, S.DropInMaxSlope + DI.pitch)
-                meet, DI.pitch, slope = tonumber(meet) or -1, tonumber(pu) or DI.pitch, tonumber(slope) or 0
+                local meet, pu, slope, what = HJN_BoardMeet(DI.hang, DI.pitch, S.DropInTail, S.DropInKick, L.lip, L.ox, L.oy, L.x, L.y, L.top, S.DropInMaxSlope + DI.pitch)
+                meet, DI.pitch, slope, what = tonumber(meet) or -1, tonumber(pu) or DI.pitch, tonumber(slope) or 0, tonumber(what) or 0
                 -- (v102) the floor below a plain ledge is "met" too, 40-odd degrees down: only ground steeper than
                 -- DropInRampSlope is a ramp to pivot onto (v101 planted the nose into the floor below a 40 cm ledge)
                 local ramp = meet >= 1 and slope >= S.DropInRampSlope
@@ -6608,8 +9263,50 @@ do
                 -- hiccup as the game went to air and back). Now the way down is traced again with the board hung further and
                 -- further out, 6 cm at a time, until the wheels DO meet ground steep enough; the board slides out to that
                 -- hang as it tips and is let go the moment the wheels touch -- on any ledge, not only a vert
-                DI.hangTo, DI.hang0 = nil, DI.hang
-                if not ramp then
+                DI.hangTo, DI.hang0, DI.noseOn = nil, DI.hang, nil
+                -- (v217) A PLAIN LEDGE IS A STRAIGHT DROP AGAIN. "When I drop in off a ledge, not necessarily a quarter pipe, it
+                -- just bails the character or it tries to drop him in down the face of it if it's tall enough, which is not
+                -- good. It used to shoot him out straight." (11 Oct.) The native log of that session, four kinds of edge:
+                --   a ledge of 51 cm over flat ground: as hung the nose meets the floor, flat -- no ramp; but the look further
+                --     out (below) went on, and hung 40 cm out the nose met the same floor where its normal read 22 deg:
+                --     "a ramp", tipped 90 deg, the nose planted, a bail (twice);
+                --   a ledge of 54 cm with another drop beyond it: the same, and further out the nose met the RISER of the
+                --     next step, 90 deg steep: "a ramp", tipped 108 deg;
+                --   plain walls of 140 and 240 cm (the same flat ground just past the edge and further out): nothing met,
+                --     and deep enough for "a VERT wall" -- tipped 75 deg and let go slowly down the face: a bail, a dead stop.
+                -- (The set-down on the coping stands the board 30 deg up, so the trace swings 15 deg further than it did.)
+                -- So: the look further out is only for a board whose front wheels met NOTHING as hung (what it was made
+                -- for: a wall right under the coping, behind their arc) -- a floor met flat under the ledge is the answer;
+                -- and where the ledge scan has the same level ground just past the edge and further out (within 8 cm, under
+                -- 8 deg) there is no ramp to find and no vert wall: a ramp's surface falls away from its coping, a vert
+                -- ramp's too (159 and 214 cm at Cakovice). DropInPlain 0 = as build 216.
+                local plain = (tonumber(S.DropInPlain) or 1) ~= 0 and (L.slope or 0) < 8 and math.abs((L.far or 0) - (L.near or 0)) < 8
+                local floorMet = (tonumber(S.DropInPlain) or 1) ~= 0 and meet >= 1 and not ramp
+                if plain and ramp then ramp = false end
+                -- (v224) THE NOSE MET THE FACE FIRST. Two drop-ins of 14 Oct went wrong the moment the board was let go, on a
+                -- 64 deg face under a 52 cm lip (FDR's coping and bunker wall): one was pushed 1.2 m out of the ramp in a
+                -- frame and stepped off, the other bounced out into the air at a fifth of the speed. They were the only two of
+                -- the day where the NOSE met the face before the front wheels (native v122 says which): let go there, the
+                -- wheels were off the ramp and the deck itself against it. So the board is hung further out, 6 cm at a
+                -- time as for a vert wall, until its front wheels meet first; failing that it is let go along the face
+                -- (the slope met) instead of along the board, so it is not driven into the ramp
+                if ramp and what == 2 then
+                    for _, dh in ipairs({ 6, 12, 18, 24, 30, 36 }) do
+                        local h = (DI.hang or 4) + dh
+                        local m2, _, sl2, w2 = HJN_BoardMeet(h, DI.pitch, S.DropInTail, S.DropInKick, L.lip, L.ox, L.oy, L.x, L.y, L.top, S.DropInMaxSlope + DI.pitch)
+                        m2, sl2, w2 = tonumber(m2) or -1, tonumber(sl2) or 0, tonumber(w2) or 0
+                        if m2 >= 1 and sl2 >= S.DropInRampSlope and w2 == 1 then
+                            log(string.format("drop-in: the nose would meet the face before the front wheels (%.0f deg down the way); hung %.0f cm past the edge the wheels meet it first, %.0f deg down (%.0f deg steep there): the board slides out to that as it tips", meet, h, m2, sl2))
+                            meet, slope, DI.hangTo = m2, sl2, h
+                            break
+                        end
+                    end
+                    if not DI.hangTo then
+                        DI.noseOn = slope
+                        log(string.format("drop-in: the nose meets the face before the front wheels from every hang tried: it will be let go along the face (%.0f deg) instead of along the board", slope))
+                    end
+                end
+                if not ramp and not plain and not floorMet then
                     for _, h in ipairs({ 10, 16, 22, 28, 34, 40 }) do
                         local m2, pu2, sl2 = HJN_BoardMeet(h, DI.pitch, S.DropInTail, S.DropInKick, L.lip, L.ox, L.oy, L.x, L.y, L.top, S.DropInMaxSlope + DI.pitch)
                         m2, sl2 = tonumber(m2) or -1, tonumber(sl2) or 0
@@ -6625,19 +9322,57 @@ do
                 -- wall is right under the coping, 4 cm behind their arc. v98-v136 took that for "a straight drop": 15 deg
                 -- nose-down with the full boost, and you launched out over the wall. Now it is a VERT drop-in: tipped steep,
                 -- let go slowly, kept tipping, so the wheels meet the wall and the wall gives the speed
-                local vert = (not ramp) and (L.near or 0) >= S.DropInVertDrop and (L.far or 0) >= 90
+                local vert = (not ramp) and (not plain) and (not floorMet) and (L.near or 0) >= S.DropInVertDrop and (L.far or 0) >= 90   -- (v217: not a plain wall, and not where the hung board's nose meets a flat floor)
                 DI.state, DI.t0, DI.ramp, DI.vert = "in", now, ramp, vert
+                DI.armsRec(240, "drop-in GO")                -- (v218)
+                do  -- (v220) the arms: the drop, and where he stands as it begins
+                    DI.armsH = math.max(L.near or 0, L.far or 0)
+                    -- (v221) the ledge scan's second look lands part way down a quarter's transition: the way down is
+                    -- traced as well (native v119), and the deeper of the two is the drop
+                    DI.armsDepth, DI.armsDepthAt, DI.armsTip = nil, nil, 0
+                    if (tonumber(NATIVE.v) or 0) >= 119 and type(HJN_DropDepth) == "function" then
+                        local okd, dd, at = pcall(HJN_DropDepth, L.x, L.y, L.top, L.ox, L.oy)
+                        dd, at = okd and tonumber(dd) or -1, okd and tonumber(at) or 0
+                        if dd and dd > 0 then DI.armsDepth, DI.armsDepthAt = dd, at if dd > DI.armsH then DI.armsH = dd end end
+                    end
+                    DI.armsZ0 = q(function() return s0:K2_GetActorLocation().Z end, nil)
+                    DI.armsFrac, DI.armsFmax, DI.armsFt, DI.armsAt, DI.armsTop, DI.armsAir = 0, 0, now, nil, nil, nil
+                    if (tonumber(S.DropInArms) or 0) > 0 or (tonumber(S.DropInCrouch) or 0) > 0 then
+                        local full = tonumber(S.DropInArmsFull) or 200
+                        log(string.format("drop-in:    arms: a drop of %.0f cm -> %.0f %% of DropInArms' %g deg (all of it at %g cm and more), fully out %g %% of the way down",
+                            DI.armsH, 100 * math.max(0, math.min(1, math.max(10, DI.armsH) / math.max(10, full))), tonumber(S.DropInArms) or 0, full, tonumber(S.DropInArmsPeak) or 50)
+                            .. string.format("; the crouch the same share of %g cm, lowest %g %% of the way down; the drop: the ledge scan %.0f cm, the way down traced %s",
+                                tonumber(S.DropInCrouch) or 0, tonumber(S.DropInCrouchPeak) or 25, math.max(L.near or 0, L.far or 0),
+                                DI.armsDepth and string.format("%.0f cm (its bottom %.0f cm out)", DI.armsDepth, DI.armsDepthAt or 0) or "-- (not traced: native v119 needed, or nothing found)"))
+                    end
+                end
+                -- (v210) A LOW WALL GETS LESS. "A ton of issues trying to drop in on what should have been an easy vert ramp"
+                -- (9 Oct 22:32-22:35, Cakovice's radius_gate_2: 159 cm down just past the edge, 214 further out). Let go at
+                -- 1056 cm/s and boosted to 1194 on the wall -- the speeds set for a full vert -- he came off a 2 m quarter at
+                -- 37 km/h and was off the board within four seconds, four drops of four. The two speeds are now what a wall
+                -- DropInVertRef cm tall gets; a lower one gets less, as the square root of its height (what a fall from it
+                -- gives), never under half.
+                DI.vk = 1
+                if vert and (S.DropInVertRef or 0) > 0 then
+                    local h = math.max(L.near or 0, L.far or 0)
+                    DI.vk = math.max(0.5, math.min(1, math.sqrt(h / S.DropInVertRef)))
+                    if DI.vk < 0.995 then
+                        log(string.format("drop-in:    a wall of %.0f cm: its two speeds x%.2f, %.0f and %.0f cm/s (DropInVertRef: they are set for a wall of %.0f cm)",
+                            h, DI.vk, S.DropInVertSpeed * DI.vk, S.DropInVertBoost * DI.vk, S.DropInVertRef))
+                    end
+                end
                 DI.down = ramp and meet or (DI.pitch + (vert and S.DropInVertTilt or S.DropInTilt))
                 log(string.format("drop-in: GO (stick %.2f) -- %s", math.max(ly or 0, ry or 0),
                     ramp and string.format("the board tips %.0f deg nose-down about its back wheels, to %.0f deg below level, where its front wheels meet the ramp (%.0f deg steep there)", DI.down, DI.down - DI.pitch, slope)
                           or (vert and string.format("a VERT wall (%.0f cm down just past the edge, %.0f further out, nothing for the wheels to pivot onto): it tips to %.0f deg nose-down, goes slowly and keeps tipping", L.near or 0, L.far or 0, DI.down - DI.pitch))
-                          or string.format("a straight drop%s: it tips to %.0f deg nose-down and goes",
+                          or string.format("a straight drop%s%s: it tips to %.0f deg nose-down and goes",
+                                plain and string.format(" off a plain ledge (the same level ground %.0f cm down just past the edge and further out)", L.near or 0) or "",
                                 (meet >= 1) and string.format(" (the ground the wheels would meet is only %.0f deg steep)", slope) or "", DI.down - DI.pitch)))
             end
             return
         end
         if st == "back" then
-            local k, e = eased(S.DropInSetTime)
+            local k, e = eased(DI.sd and S.DropInSetOutTime or S.DropInSetTime)   -- (v211)
             DI.k = 1 - e
             if place(1 - e, 0) < 1 then letGo("the native half let the board go") return end
             if k >= 1 then letGo("back on the ledge -- the board is yours") end
@@ -6646,6 +9381,17 @@ do
         if st == "in" then
             local k = math.min(1, (now - DI.t0) / math.max(0.05, DI.ramp and S.DropInTime or 0.6 * S.DropInTime))
             DI.phi = DI.down * k * k                          -- (it starts slowly and falls in)
+            -- (v219) THE ARMS COME UP WITH THE DROP-IN ITSELF. "His arms go up when he is posed on the board; it should only be
+            -- when the actual drop-in motion starts." (13 Oct.) Build 218 raised them from the moment he stood on the board at
+            -- the edge; now nothing is asked of them until GO, and from its first frame they come up (the native half eases
+            -- them in over about a third of a second) and are held through the tip-in and the ride's first moments
+            do  -- (v220) the tip-in: as far as the way down so far says (the native half adds what the board's tipping does); (v221) the crouch too, half of it with the tip itself, and the game's shoulder twist held off
+                DI.armsTip = k
+                local w, _, _, cc = DI.armsRise()
+                if w > 0.01 then DI.arms(w) end
+                if cc > 0.2 then DI.crouch(cc) end
+                DI.twist()
+            end
             -- about the hung back axle, the game's board controller turned with the board (v99 let go of a board 56 deg
             -- down whose controller was still level -- the game had it level again 0.13 s later and bailed you)
             if DI.hangTo then DI.hang = DI.hang0 + (DI.hangTo - DI.hang0) * math.min(1, k * 2) end   -- (v139) out to the hang the wheels meet from, over the first half of the tip
@@ -6655,7 +9401,7 @@ do
             if DI.ground and not DI.vert then DI.ground = nil pcall(HJN_GroundHold, 0) end   -- (v138) a vert keeps the hold a moment: the wheels fall free to the wall
             DI.holdUntil = DI.vert and (now + 0.25) or nil
             if S.DropInSounds ~= 0 then playSound(S.DropInEndSound, S.DropInSoundVolume) end        -- (v103) the board's tap as it goes
-            local a, v, spin = math.rad(DI.down - DI.pitch), DI.vert and S.DropInVertSpeed or S.DropInSpeed, DI.vert and math.min(S.DropInVertSpin, math.max(0, 92 - (DI.down - DI.pitch)) / 0.3) or (DI.ramp and 0 or S.DropInSpin)   -- (v137/v147) vert: the spin that brings the nose to 90 deg in 0.3 s and no more (150 deg/s took a 290 cm wall's board to 126 deg: off the far side)
+            local a, v, spin = math.rad(DI.noseOn or (DI.down - DI.pitch)), DI.vert and S.DropInVertSpeed * (DI.vk or 1) or S.DropInSpeed, DI.vert and math.min(S.DropInVertSpin, math.max(0, 92 - (DI.down - DI.pitch)) / 0.3) or (DI.ramp and 0 or S.DropInSpin)   -- (v137/v147) vert: the spin that brings the nose to 90 deg in 0.3 s and no more (150 deg/s took a 290 cm wall's board to 126 deg: off the far side)
             local back = DI.vert and S.DropInVertBack or 0                       -- (v140) a vert: pushed back toward the wall so the wheels meet it instead of falling free
             local kicked = tonumber(HJN_BoardKick(L.ox * (math.cos(a) * v - back), L.oy * (math.cos(a) * v - back), -math.sin(a) * v, spin, L.ox, L.oy)) or 0
             pcall(HJN_BoardParts)
@@ -6914,8 +9660,8 @@ end
 -- latest release's update.txt: its version, build number, the game build it is for and the two files' SHA-256). With
 -- AutoUpdate=2 a newer build is downloaded, checked and put in place for the next start; with 1 you are only told.
 -- NATIVE.BUILD is this file's own build number: the release's update.txt carries the same number, and that is what is compared.
-NATIVE.BUILD = 194
-NATIVE.WANT = 105      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
+NATIVE.BUILD = 224
+NATIVE.WANT = 122      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
 NATIVE.updateTick = function(live)
     local U = NATIVE.upd or {}
     NATIVE.upd = U
@@ -6948,6 +9694,71 @@ NATIVE.updateTick = function(live)
     log("update: " .. tostring(text))
     if st == 4 then U.show = "Expanded Tricks updated - restart the game" elseif st == 3 then U.show = "Expanded Tricks: a new version is out" end
 end
+-- (v198) THE PAUSE MENU THAT IS UP WITHOUT THE PAD. "The start menu got stuck on and I had to force close the game" --
+-- three times on 7 Oct (21:26:47, 21:27:41, 21:37:22). SessionTweaks' key log and the mod's own say what "stuck" was: the
+-- menu was drawn, and every D-pad, A and B press after it went to the GAME (the marker set and gone to, a push, a
+-- powerslide) -- none to the menu. The game's menu takes its keys as the widget that has the pad's focus
+-- (UMenuPageContainer::NativeOnKeyDown), and a second Start does nothing while the controller holds a menu
+-- (ASessionPlayerController::ShowPauseMenu, _activePauseMenuPageContainer), so there is no way out but ending the game.
+-- All three came within two seconds of leaving the replay editor or of a jump to the marker, each after a bail; what
+-- takes the focus then is NOT known, and nothing of this mod's sets a focus or an input mode. So the state itself is
+-- watched for and mended: four times a second, and at every D-pad / A / B press that reaches the game, the controller's
+-- pause menu is asked whether it or one of its parts has the pad's focus. It is handed the focus (SetUserFocus) when
+--   a press reached the game while the menu is up and unfocused -- a menu that has the pad lets none through -- and
+--     it has never had the focus, or came up less than 6 s ago (the two pages that hand the pad to the game themselves,
+--     the party game's and the filmer's gamepad assignment, are reached later than that and through a menu that had it);
+--   or, once the question has been seen answered "yes" in this run (so a "no" means something), when a menu has not had
+--     the focus in its first 0.4 s -- before any press is lost to the game.
+-- Three times a menu at most; every one is logged with what the menu answered before and after.
+NATIVE.mg = { proven = false }
+NATIVE.menuWatch = function(key)                         -- (on the game thread) key = a press that reached the game, nil = the look four times a second
+    local M, now = NATIVE.mg, os.clock()
+    if not alive(s0) then M.a = nil return end
+    local pc = alive(SB.pc) or alive(q(function() return s0:GetController() end))
+    local cont = pc and alive(q(function() return pc._activePauseMenuPageContainer end))
+    if not cont then
+        -- (v218, the review) ...and as the menu GOES: the game makes its options object when options are saved or
+        -- loaded, so a slider changed in this menu is read here, not at the look made as the menu came up
+        if M.a then M.a = nil pcall(readAdvanced, "BodyRotationRateMultiplier", true) end
+        return
+    end
+    local a = addr(cont)
+    if M.a ~= a then
+        M.a, M.t0, M.ever, M.cures, M.off, M.told = a, now, false, 0, nil, false
+        pcall(readAdvanced, "BodyRotationRateMultiplier", true)   -- (v218) a pause menu has come up: the game's Advanced numbers, looked for here and not at a hop's start
+    end
+    local function asked()
+        local own, part = q(function() return cont:HasUserFocus(pc) end, nil), q(function() return cont:HasUserFocusedDescendants(pc) end, nil)
+        return own, part
+    end
+    local own, part = asked()
+    if type(own) ~= "boolean" and type(part) ~= "boolean" then return end      -- (the question cannot be asked: nothing is done)
+    if own == true or part == true then M.ever, M.off = true, nil NATIVE.mg.proven = true return end
+    M.off = M.off or now
+    local why
+    if key then
+        if not M.ever or now - M.t0 < 6 then why = "a " .. key .. " press went to the game" end
+        if not M.told then
+            M.told = true
+            log(string.format("pause menu: up %.1f s and a %s press went to the GAME -- the menu does not have the pad (focus: its own %s, a part of it %s; it %s since it came up)%s",
+                now - M.t0, key, tostring(own), tostring(part), M.ever and "has had it" or "has NOT had it", why and "" or " -- left alone: it had the focus and it is over 6 s old (a page that hands the pad to the game itself?)"))
+        end
+    elseif NATIVE.mg.proven and not M.ever and now - M.off >= 0.4 then
+        why = string.format("it has not had the focus in the %.1f s since it came up", now - M.t0)
+    end
+    if not why or M.cures >= 3 then return end
+    M.cures = M.cures + 1
+    local ok, err = pcall(function() cont:SetUserFocus(pc) end)
+    local own2, part2 = asked()
+    log(string.format("pause menu: handed the pad's focus (%s) -- try %d: %s; it answers now: its own %s, a part of it %s%s", why, M.cures,
+        ok and "asked of the game" or ("FAILED: " .. tostring(err)), tostring(own2), tostring(part2),
+        (own2 == true or part2 == true) and "" or " (it may take a frame; looked at again in a quarter of a second)"))
+end
+LoopAsync(250, function()
+    if not NATIVE.off and NATIVE.live then NATIVE.gt(function() pcall(NATIVE.menuWatch) end) end
+    return false
+end)
+
 NATIVE.speed = { applied = nil, orig = nil, tries = 0 }
 NATIVE.speedApply = function()
     local want, push = tonumber(S.SpeedScale) or 1, tonumber(S.PushScale) or 1
@@ -6999,6 +9810,7 @@ end
 -- register it as soon as your skater exists, and follow a new skater after a respawn or level change
 LoopAsync(2000, function()
     NATIVE.gt(function()
+        if NATIVE.tdBackstop then pcall(NATIVE.tdBackstop) end   -- (v196) a sped-up throwdown's clock is never left running fast
         -- (v194) the classes' layout (the note at NATIVE.layoutCheck): said once. Classes that could not be read while the
         -- script loaded are read again now, before the skater is handed to the native half
         if NATIVE.layoutRes and not NATIVE.layoutTold then
@@ -7029,16 +9841,41 @@ LoopAsync(2000, function()
         pcall(function()
             if active and alive(cached) then live = (alive(mesh) ~= nil) return end
             if not refs() then
-                if myAddr or active then myAddr = nil NATIVE.forgetWorld("your skater is gone") end
+                if myAddr or active then myAddr = nil NATIVE.mapDue = true NATIVE.forgetWorld("your skater is gone") end   -- (v212) mapDue: below
                 return
             end
             local a = addr(s0)
             if a and a ~= myAddr then
-                if myAddr then
-                    NATIVE.forgetWorld("a new skater")
-                    if not refs() then return end
-                end
+                -- (v212) THE NEW SKATER'S ADDRESS IS TAKEN FIRST, AND THIS NEVER LEAVES HOLDING THE OLD ONE. Build 211 took
+                -- it after the forget's second look and left without it when that look was refused -- so the next turn
+                -- found "a new skater" again, and the one after. 10 Oct 09:49:17 to 09:55:06, after a map change so
+                -- quick that no turn of this loop saw a moment without a skater (SessionTweaks.log: the old level left
+                -- and the new skater dressed inside 09:49:16): "level change (a new skater)" 175 times, every 2 s, the
+                -- native half stood down each time. "I can't really get the drop-in to work that well right now ... I
+                -- did a ton of them": 73 Y presses fell in those six minutes, and none got a line of the mod's.
+                -- What refused the look was the half second between two looks for the skater: no longer counted from
+                -- a look that found one (skater()), and taken back by forgetWorld as it drops a skater that lives.
+                -- Refused all the same (the engine clearing objects out: NATIVE.walkOk), or a skater whose mesh is
+                -- not there yet: the mod then holds NO skater, as after "your skater is gone" -- the next turn that
+                -- finds one takes it with no second forget, whatever must be done for a new skater (the hook,
+                -- NATIVE.sync, the no comply's wiring) is done from that turn, and the "map:" line owed is written
+                -- then (NATIVE.mapDue; also when a click or a bumper took the skater's address before this loop
+                -- came round)
+                local was = myAddr
                 myAddr = a
+                NATIVE.mapDue = true
+                if was then
+                    NATIVE.forgetWorld("a new skater")
+                    if not refs() then myAddr = nil return end
+                    myAddr = addr(s0) or a
+                end
+            end
+            if NATIVE.mapDue then
+                NATIVE.mapDue = nil
+                -- (v211) WHICH MAP. The look into the crashes of 9 Oct did not have it: 4 of that day's 14 level changes left
+                -- a map no log names, and the map entered at each of the two crashes is in none either. The skater's full
+                -- name holds its level's path (one line a new skater, so every map change that is survived can be counted)
+                log("map: " .. tostring(q(function() return s0:GetFullName() end, "?")))
             end
             live = true
             ensureHook()
@@ -7072,7 +9909,7 @@ LoopAsync(2000, function()
     return false
 end)
 
-log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v194 / native v105)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
+log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v224 / native v122)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
 
 -- the game's grabs need IsGrabsEnabled in its experimental save (the profile loads it at start-up). (v121) If it is off or
 -- missing, the save is PATCHED here: a BoolProperty tag put into FExperimentalSettings -- the bytes the game's own serializer

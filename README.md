@@ -7,10 +7,21 @@ pause menu. Source and releases: https://github.com/Portman2/SessionExpandedTric
 
 - **Hippie jumps.** Crouch with one stick and click the other stick: you jump, the board rolls on under you, you land
   back on it. Click both sticks for a mini hippie jump. Hold a trigger in the air to spin: a half turn is a 180 and
-  lands you switch.
+  lands you switch. *Hippie jumps* in the menu picks the animation: the jump, the game's ollie, or one or the
+  other at random.
 - **Grabs.** The game's own twelve grabs, switched on and finished. In the air hold LB (front hand, the left stick
-  picks the grab) or RB (back hand, the right stick picks). Hold both bumpers for a two-hand grab (Cannonball, Gorilla
-  Grab, Quasimodo).
+  picks the grab) or RB (back hand, the right stick picks). Hold both bumpers for a two-hand grab: Cannonball (left stick
+  up, right stick down), Quasimodo (both sticks up), Gorilla (no stick, or both sticks toward your toes), Truck Driver (front
+  hand's stick toward your heels, back hand's toward your toes), Drunk Driver (the other way round) and Squirrel
+  (both toward your heels). Moving a stick off the direction it picked a grab with tweaks it: *Grab tweak* in
+  the menu picks between rotating (your legs and the board twist) and boning (your body goes back over the
+  back foot and the board is poked out toward the nose).
+  With the game's sticks set to *left foot / right foot*, LB is the left hand and RB the right, as the sticks are the
+  left and the right foot: the two bumpers change places whenever your left foot is the back one (a regular rider
+  riding switch, a goofy rider riding forward), for every grab, the boneless and the bean plant.
+  Left and right on the stick are the sides of the board: push toward your toes for Mute or Indy, toward your heels
+  for Melon or Stalefish. Your toes are on the right when you ride regular and roll forward, on the left when you
+  ride goofy, and the other way round riding switch.
 - **No comply.** The game's unused no-comply animation, on the pressure kickflip's input (riding regular: left stick
   down + right stick left). Regular and goofy, and riding switch.
 - **Boneless and bean plant.** Hold RB (back hand) or LB (front hand) so a hand is on the board, then do a no comply.
@@ -18,9 +29,13 @@ pause menu. Source and releases: https://github.com/Portman2/SessionExpandedTric
   before the next grab. A bumper pressed late in the trick puts no hand on.
 - **Rolling grabs and finger flips.** Riding on the ground, hold RB or LB to put a hand on the board. Flick a flip
   trick with the hand on and the hand flips the board.
-- **Drop-ins.** On foot, standing still at the edge of a ledge, bank or ramp with the board in your hand, press Y
-  (Triangle). The board is set tail-down on the edge; push a stick up to drop in, LB or RB to step back, Y to step off.
-- **Jumping onto the board.** On foot next to your board lying on the ground, click a stick.
+- **Drop-ins.** On foot at the edge of a ledge, bank or ramp (within about 45 cm of it) with the board in your
+  hand, press Y (Triangle). The board is set tail-down on the coping and you step on; push a stick up to drop
+  in, LB or RB to step back, Y to step off.
+  On a vert wall the speed you get goes with the wall's height (`DropInVertRef` in the ini is the height the
+  two vert speeds of the Drop-ins page are for).
+- **Jumping onto the board.** On foot next to your board lying on the ground, click a stick. Run at it and
+  your speed is carried onto the board.
 - **Trick names** in the game's own trick display.
 - **Settings in the pause menu** under *Expanded Tricks*, and everything else in `ExpandedTricks.ini`.
 
@@ -90,7 +105,7 @@ Shown for a regular rider; riding goofy or switch the sticks swap as they do for
 ## Settings
 
 Pause the game and open **Expanded Tricks**. Every row says what it does and in what unit, and ends with its default.
-The pages: General gameplay settings, Quick settings, Hippie Jumps, Drop-ins, Grabs, Rolling Grabs and Finger Flips,
+The pages: General gameplay settings, Hippie Jumps, Drop-ins, Grabs, Rolling Grabs and Finger Flips,
 No Comply and Boneless.
 
 Everything, including the fine tuning of each grab's hand, is in `ExpandedTricks.ini` beside the game's exe. The game
@@ -99,16 +114,22 @@ re-reads it every second, so you can edit and save while playing. Each line has 
 ## Something wrong?
 
 1. Run **`Mods\ExpandedTricks\pack-logs.bat`** in the game's `SessionGame\Binaries\Win64` folder.
-2. It puts `ExpandedTricks-logs-<date>.zip` on your desktop (under 8 MB, so it fits in a Discord message).
+2. It puts `ExpandedTricks-logs-<date>.zip` on your desktop (under 8 MB, so it fits in a Discord message). It holds
+   the newest part of the logs. When they are longer than that, the older part goes into one or two more files
+   beside it (`...-older-2.zip`, `...-older-3.zip`): keep those, and send them only if you are asked for more.
 3. Send that file and say what you did and roughly when. Every log line has the time of day.
 
-The zip holds the mod's logs and settings, UE4SS's log, SessionTweaks' log and settings if you have that mod, and a
+The zip holds the mod's logs and settings, UE4SS's log, SessionTweaks' log and settings if you have that mod, the
+game's own settings files (your options: controls, gameplay and advanced settings, window and quality, so that
+what you saw can be played again with your settings; no progress, inventory or account data), and a
 short list of what is installed: your Windows version, the names of the folders in `Mods`, `mods.txt` and the path of
 your game folder. That path, and the path of the game's save folder in the mod's first log, can show your Windows user
 name. Nothing is sent anywhere by itself.
 
-For a bad-looking pose, set `PoseRecorder=1` in `ExpandedTricks.ini`, do the trick again and send
-`ExpandedTricks.poses.bin` as well (it can get large).
+For a bad-looking pose, run `pack-logs.bat` soon after it happened: the mod records the skeleton of every trick you
+do, and the zip carries the newest of them (about the last fifteen), so the pose can be looked at exactly as it was
+on your screen. The recording is `ExpandedTricks.poses.bin` beside the logs (with the `.old` file it is set aside as
+when full, 64 MB at most); `RecordPoses=0` in `ExpandedTricks.ini` switches it off.
 
 ## Uninstall
 

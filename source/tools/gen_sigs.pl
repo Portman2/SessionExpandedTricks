@@ -15,7 +15,7 @@ my %DATA = ( RVA_REPLAY_MGR => [0xf57880, 0x34, 0x4fc3430] );      # ASkaterCame
 my %TWIN = ( RVA_FTEXT_FROMNAME => [0x1f, 0x126d430] );
 # look-alikes with nothing near to tell them apart (they differ three calls down, in a lambda): name => [which of the matches by address, how many matches there must be]
 my %ORDER = ( RVA_SET_ANGVEL => [0, 2], RVA_SET_LINVEL => [1, 2] );
-my %SKIP = map { $_ => 1 } qw(RVA_SKM_VT_FBT RVA_DEFAULT_QUERY);  # the vtable slot comes from the live mesh; DefaultQueryParam is not used
+my %SKIP = map { $_ => 1 } qw(RVA_SKM_VT_FBT RVA_DEFAULT_QUERY RVA_BD_ONBOARD RVA_BM_ISFALLING RVA_BM_GRINDSHAPE);  # the vtable slot comes from the live mesh; DefaultQueryParam is not used; (v114) the set-down's three are constants used on the known build only (SdArm refuses on any other: g_sigMode)
 open my $h, '<', $src or die; my (@rv, %seen);
 while (<$h>) { while (/\b(RVA_[A-Z0-9_]+)\s*=\s*0x([0-9a-fA-F]+)/g) { push @rv, [$1, hex($2)] unless $seen{$1}++ } }
 close $h;

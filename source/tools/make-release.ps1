@@ -112,9 +112,10 @@ if ($loaded[0] -ne $build) { $problems.Add("main.lua: NATIVE.BUILD is $build but
 if ($native -le 0) { $problems.Add("hn_main.cpp: HJN_VERSION not found") }
 if ($loaded[1] -ne $native) { $problems.Add("main.lua says native v$($loaded[1]) but hn_main.cpp is v$native") }
 if (-not $stamp) { $problems.Add("hn_main.cpp: kExeStamp not found") }
-if ($lua -notmatch '(?m)^\s+PoseRecorder = 0,') { $problems.Add("main.lua: the pose recorder is not off by default (PoseRecorder = 0)") }
+if ($lua -notmatch '(?m)^\s+RecordPoses = 1,') { $problems.Add("main.lua: the pose recorder is not on by default (RecordPoses = 1)") }
 if ($lua -notmatch '(?m)^\s+DevKeys = 0,') { $problems.Add("main.lua: the developer keys are not off by default (DevKeys = 0)") }
-if ($lua -notmatch '(?m)^\s+SpeedScale\s*= 1\.0,' -or $lua -notmatch '(?m)^\s+PushScale\s*= 1\.0,' -or $lua -notmatch '(?m)^\s+StickTurn\s*= 1,') { $problems.Add("main.lua: the general gameplay defaults are not neutral (SpeedScale 1.0, PushScale 1.0, StickTurn 1)") }
+if ($lua -notmatch '(?m)^\s+HippieJump\s*= 1,') { $problems.Add("main.lua: hippie jumps do not ship with the jump animation (HippieJump = 1)") }
+if ($lua -notmatch '(?m)^\s+SpeedScale\s*= 1\.0,' -or $lua -notmatch '(?m)^\s+PushScale\s*= 1\.0,' -or $lua -notmatch '(?m)^\s+StickTurn\s*= 1,' -or $lua -notmatch '(?m)^\s+ThrowdownScale\s*= 1\.0,' -or $lua -notmatch '(?m)^\s+ThrowdownRateMax\s*= 2\.5,') { $problems.Add("main.lua: the general gameplay defaults are not neutral (SpeedScale 1.0, PushScale 1.0, StickTurn 1)") }
 # the release made before this one (its update.txt is still in <Out>): a build number that is not higher reaches no player
 $before = Join-Path $Out 'update.txt'
 if (Test-Path -LiteralPath $before) {

@@ -35,7 +35,13 @@ if every one is found; the log lists what each signature found.
   (`luareal -run dryrun.lua result.txt main.lua`, in an empty folder holding `scenario.txt`). Build it with
   `build_luareal.bat`, then copy `luareal.exe`, `dryrun.lua` and a copy of `UE4SS.dll` and `UE4SS-settings.ini` into
   `%USERPROFILE%\.expandedtricks\luareal\`: `make-release.ps1` then refuses a `main.lua` that does not start.
-  Never run it inside a game's folder.
+  Never run it inside a game's folder. `test_throwdown.lua` runs one piece of `main.lua` the same way, the throwdown
+  speed setting's watch, against made-up throwdowns (`luareal -run test_throwdown.lua result.txt main.lua`, in an empty
+  folder; it writes `tdtest_out.txt` there). `test_grabswap.lua` does the same for which hand a bumper is in the game's two stick modes and which way the toe
+  side is (`gstest_out.txt`), `test_grabown.lua` for a grab the game picked itself (`optest_out.txt`),
+  `test_doubles.lua` for the two-hand grabs' pick, the bone and the ollie animation test on a hop (`dbtest_out.txt`), and
+  `test_menuguard.lua` for the pause menu's focus guard
+  (`mgtest_out.txt`).
 
 The Lua half needs no build: it is `Mods/ExpandedTricks/Scripts/main.lua`. `tools/snapshot_defaults.pl` rewrites its
 shipped defaults from an `ExpandedTricks.ini` (`perl snapshot_defaults.pl main.lua ExpandedTricks.ini --globals`).
@@ -47,5 +53,6 @@ The updater in the native half uses WinHTTP and BCrypt (both part of Windows; li
 - `make-release.ps1` checks the package and writes the release files: the zip, and `update.txt`, `main.lua`, `main.dll`
   for the in-game updater. Attach all four to one GitHub release.
 - `snapshot_defaults.pl` bakes an `ExpandedTricks.ini` into main.lua's shipped defaults.
-- `menutext.pl` prints the pause-menu pages as plain text and checks them against the native half's limits.
-- `posedump/` reads `ExpandedTricks.poses.bin` (the pose recorder, `PoseRecorder=1`).
+- `menutext.pl` prints the pause-menu pages as plain text and checks them against the native half's limits (a
+  description holds 239 characters: run it with `check` after every change to a row's text).
+- `posedump/` reads `ExpandedTricks.poses.bin` (the pose recorder, `RecordPoses=1`, which is how it ships).
