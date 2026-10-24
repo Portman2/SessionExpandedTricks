@@ -153,7 +153,7 @@ regular rider uses the same sticks.
 | Heelflip Cancel Flip | alternate crouch, your heelflip's flick, then either stick sideways while the board is upside down |
 | Shuv-it Underflip | alternate crouch, a shove-it's quarter scoop, then a late sideways flick of either stick: backside <img src="docs/buttons/LS-right.svg" alt="LS right" height="28"> (toward your heelflip's side), frontside <img src="docs/buttons/LS-left.svg" alt="LS left" height="28"> |
 | Shuv-it Under Varial Flip | the same with a half scoop (the right stick rolled at least 135 degrees round) |
-| Hospital Flip | in the air in a kickflip's casper: <img src="docs/buttons/LS-down.svg" alt="LS down" height="28"> (the front stick pulled back) |
+| Hospital Flip | Alt Crouch + kickflip then catch a casper, then : <img src="docs/buttons/LS-down.svg" alt="LS down" height="28"> (the front stick pulled back) |
 | Wallride | automatic: in the air on the board, fly into a wall at a shallow angle; <img src="docs/buttons/stick-up.svg" alt="stick up" height="28"> on the wall pops you off |
 | Wallride from the ground | roll into a wall at a shallow angle holding the crouch |
 | Caveman | <img src="docs/buttons/X.svg" alt="X" height="28"> (jump, on foot, board in hand), then <img src="docs/buttons/Y.svg" alt="Y" height="28"> in the air |
