@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.1 -- the trick guide in the game, and the new tricks on Steam
+Lua build 269, native v167. A 1.1.0 or 1.0.0 install with *Automatic updates* at 2 installs it by itself at its next start
+(the updater replaces the two program files; the trick guide pictures come with the zip and the installer).
+
+- **Trick Guide**: Pause menu, Expanded Tricks, Trick Guide: four pages in the style of the game's own trick lists (flip
+  tricks, nollie flip tricks, other tricks, grabs), both stick modes on each. A shows one over the menu, B takes it away.
+- **Steam**: wallrides, the alternate flip set and the hospital flip can now run on the Steam version of the game. They
+  used parts of the game the mod only looked for on the Epic version; it now finds those by signature too, and they stand
+  down only if one is missing (ExpandedTricks.native.log names it).
+
+### Build by build
+- Build 269, native v167: the trick guide pictures show over the pause menu (it sits at layer 100000; `GuideImgZ` now counts from there), and the Trick Guide page holds only the four of them: Flip tricks, Nollie flip tricks, Other tricks, Grabs.
+- Build 268, native v166: the trick guide picture fills the screen (the game's key widget sized its image to a key icon). Wallrides, the alt flip set and the hospital flip can run on the Steam game: their 21 extra addresses are found by signature, and they stand down only if one is missing (the native log names it).
+- Build 267, native v165: the Trick Guide has four pictures in the game's style (flip tricks, nollie flip tricks, other tricks, grabs): A on a "Picture" row shows it over the pause menu, B takes it away (`GuideImg`, `GuideImgZ`).
+- Build 266, native v164: a Trick Guide in the game: Pause menu, Expanded Tricks, Trick Guide -- one row per trick, highlight it and the description shows its input in both stick modes (front foot / back foot, and left foot / right foot).
+
 ## 1.1.0 -- new flip tricks, wallrides and the caveman
 Lua build 265, native v163. For Session: Skate Sim 1.0.6.42 on PC (exe stamp 69ca6d05, built 30 March 2026). Everything
 since 1.0.0 (builds 225 to 264). A 1.0.0 install with *Automatic updates* at 2 installs it by itself at its next start.

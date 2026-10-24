@@ -43,7 +43,7 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 163
+#define HJN_VERSION 167
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
@@ -7654,7 +7654,7 @@ bool VtHookFromMesh(void* mesh) {
 void FaInstall();   // (v138)
 void WrBtInstall();   // (v140)
 void FbInstall();   // (242) the FlipBoard veto and the NativeUpdateAnimation hook (the notes at hkSkFlipBoard, hkNua)
-void WsInstall();   // (wallsound) the wallride's rolling sound from the wall's material (the note at hkIdleRoll)
+void FeatSigScan(const wchar_t* path); void WsInstall();   // (steam: FeatSigScan = the second signature group, with the feature tables) (wallsound) the wallride's rolling sound from the wall's material (the note at hkIdleRoll)
 bool InstallHook() {
     if (g_hooked) return true;
     uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr);
@@ -7673,7 +7673,7 @@ bool InstallHook() {
         }
         HnSigApply(found);
         g_sigMode = 1; g_vtPending = true; g_hooked = true;
-        Log("signatures: all %d found -- the mod runs on this build of the game. The pose hook goes in when your skater is there (its place is read off the skater's own mesh)", kSigN);
+        Log("signatures: all %d found -- the mod runs on this build of the game. The pose hook goes in when your skater is there (its place is read off the skater's own mesh)", kSigN); FeatSigScan(path);
         return true;
     }
     void** slot = (void**)(exe + RVA_SKM_VT_FBT);
@@ -12596,9 +12596,9 @@ const int16_t kWrClip[WR_CLIPS][WR_FRAMES][WR_MARKS][3] = {
     {{-119,64,707},{-85,107,871},{-14,217,1074},{35,307,1154},{129,408,1191},{-37,35,713},{-201,92,700},{157,294,436},{-252,426,439},{173,186,1146},{-146,342,1163},{432,24,1170},{-417,228,1075},{643,0,1108},{-483,299,877},{-61,-191,598}}
   }
 };
-constexpr uintptr_t RVA_WR_LABQ   = 0xfbdbc0;    // USkateboardExMovementComponent::GetLocalAnimatorBoardQuat() const -> FQuat (the return pointer in rdx)
-constexpr uintptr_t RVA_WR_GETVEL = 0x2ecbcd0;   // UPrimitiveComponent::GetPhysicsLinearVelocity(FName) -> FVector (the return pointer in rdx, the name in r8)
-constexpr uintptr_t RVA_WR_TRAJ   = 0xfec710;    // ASkaterTrajectoryCurve::CalculatePrelandTrajectory(FVector loc, FVector vel) -> bool (each FVector a pointer to a copy)
+uintptr_t RVA_WR_LABQ   = 0xfbdbc0;    // USkateboardExMovementComponent::GetLocalAnimatorBoardQuat() const -> FQuat (the return pointer in rdx)
+uintptr_t RVA_WR_GETVEL = 0x2ecbcd0;   // UPrimitiveComponent::GetPhysicsLinearVelocity(FName) -> FVector (the return pointer in rdx, the name in r8)
+uintptr_t RVA_WR_TRAJ   = 0xfec710;    // ASkaterTrajectoryCurve::CalculatePrelandTrajectory(FVector loc, FVector vel) -> bool (each FVector a pointer to a copy)
 typedef Q4* (*WrLabqFn)(const void* bm, Q4* out);
 typedef V3* (*WrGetVelFn)(void* comp, V3* out, uint64_t boneName);
 typedef bool (*WrTrajFn)(void* curve, V3* loc, V3* vel);
@@ -12653,7 +12653,7 @@ volatile long g_wrPopAsk = 0;             // the Lua's "pop" (a stick pushed up 
    "held on the approach" read the same. If, after the body turned, the controller is put back off the body's line and it never came with
    the body, the body's turn is given back (WR_CAP_STEP a pose) and the way off is build 252's; the END says on how many poses after a turn
    the controller came with the body (the proof either way) */
-constexpr uintptr_t RVA_WR_ROTUPD = 0x10020c0;   /* USkaterMovementComponent::RotateUpdatedComponent(const FQuat& delta, bool, bool) */
+uintptr_t RVA_WR_ROTUPD = 0x10020c0;   /* USkaterMovementComponent::RotateUpdatedComponent(const FQuat& delta, bool, bool) */
 constexpr float WR_CAP_BACK = 2.0f;      /* deg: the live controller this far off the last pose's write: the game put it back */
 constexpr float WR_CAP_LINE = 6.0f;      /* deg: ...onto the capsule's line (within this, either way along it): the hold of an air without a pop (252: 0-1 off) */
 constexpr float WR_CAP_FAR = 12.0f;      /* deg: (review) ...from a write this far off that line at the least: a free controller passing through the body's line and nudged a few deg (an ollie-in's turn crosses it) is never taken for the hold */
@@ -14582,7 +14582,7 @@ LONG g_wgKicks = 0, g_wgAirs = 0, g_wgRides = 0, g_wgTold = 0, g_wgMinor = 0; bo
 // the alt set's crouch is the game's crank too), counted after WG_CROUCH_POSES poses in a row; standing = no take-off (the game's own
 // crash), said at the wall's last chance; 0 = only standing (build 242); 2 = either. The kick then uses the crouch up (WgCrankUse)
 constexpr int WG_CROUCH_POSES = 2;
-constexpr uintptr_t WG_RVA_RESET_CRANK = 0x1030410;   // FlipTricksHandler::ResetCrank() (as HJN_CrankFix calls it)
+// (steam) WG_RVA_RESET_CRANK (0x1030410) is the core RVA_RESET_CRANK now: found by signature on another build;   // FlipTricksHandler::ResetCrank() (as HJN_CrankFix calls it)
 constexpr double WG_GRACE_NORIDE_S = 0.18;            // s after a take-off the falling bail is held for a ride that has not started (rides came 0.10-0.13 s after)
 typedef void (*WgResetCrankFn)(void* fth);
 int g_wgCrankDead = 0;                                // a fault in the game's ResetCrank: not called again this run
@@ -14605,16 +14605,252 @@ bool WgCrouchNow(const uint8_t* sk, const uint8_t* anim) {
 // the kick uses the crouch up: the game's own ResetCrank (the crank bit lent as HJN_CrankFix lends it). A stick still held cranks again on
 // the game's next tick, so it is called on every pose until the game's air (CheckForCrank resets it itself once the skater falls): a
 // release in the ~0.08 s before the air is no pop of a board already off the floor. POD only. 1 reset, 0 nothing to reset, -1 not read
+// ---- (steam, w35) the feature signatures: GENERATED by gen_fsigs.pl from the game exe with PE stamp 69ca6d05. The second, optional group:
+// the wallride, the alt flip set and the hospital call or hook these. On another build they run only when every one is found (g_featSigsOk).
+extern uintptr_t RVA_WR_LABQ;
+extern uintptr_t RVA_WR_GETVEL;
+extern uintptr_t RVA_WR_TRAJ;
+extern uintptr_t RVA_WR_ROTUPD;
+extern uintptr_t RVA_WR_GETANG;
+extern uintptr_t RVA_ALT_SWRAW;
+extern uintptr_t RVA_ALT_LABQ;
+extern uintptr_t RVA_ALT_GBFSM;
+extern uintptr_t RVA_HOSP_SETCASPERS;
+extern uintptr_t RVA_FOOTIKDATA;
+extern uintptr_t RVA_SK_FLIPBOARD;
+extern uintptr_t RVA_SAI_NUA;
+extern uintptr_t RVA_WR_BTARGET;
+extern uintptr_t RVA_SB_IDLEROLL;
+extern uintptr_t RVA_RAM_SPAWNATT;
+extern uintptr_t RVA_RAM_SETVOL;
+extern uintptr_t RVA_RAM_SETPITCH;
+extern uintptr_t RVA_SU_SURFAUDIO;
+extern uintptr_t RVA_SB_WEARDIRT;
+extern uintptr_t RVA_GS_SURFTYPE;
+extern uintptr_t RVA_WEAKOBJ_GET;
+static uintptr_t FHELP_2e4f560 = 0;                     // (a helper: only there to tell two look-alikes apart)
+static uintptr_t FHELP_2af28e0 = 0;                     // (a helper: only there to tell two look-alikes apart)
+static uintptr_t FHELP_2af20a0 = 0;                     // (a helper: only there to tell two look-alikes apart)
+// RVA_WR_LABQ  ?GetLocalAnimatorBoardQuat@USkateboardExMovementComponent@@QEBA?AUFQuat@@XZ
+static const uint8_t kFSigB0[] = { 0x48,0x8b,0xc4,0x48,0x89,0x58,0x08,0x48,0x89,0x70,0x10,0x57,0x48,0x81,0xec,0xa0,0x00,0x00,0x00,0x80,0xb9,0xe9,0x07,0x00,0x00,0x00,0x48,0x8b,0xf2,0xf3,0x0f,0x10,0x81,0x20,0x06,0x00,0x00 };
+static const uint8_t kFSigM0[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// FHELP_2e4f560  ?GetUnrealWorldVelocity@FBodyInstance@@QEBA?AUFVector@@XZ
+static const uint8_t kFSigB1[] = { 0x40,0x53,0x48,0x83,0xec,0x40,0xf2,0x0f,0x10,0x05,0xca,0xa1,0xf8,0x01,0x48,0x8b,0xda,0xf2,0x0f,0x11,0x02,0x8b,0x05,0xc5,0xa1,0xf8,0x01,0x89,0x42,0x08,0x48,0x8d,0x44,0x24,0x20 };
+static const uint8_t kFSigM1[] = { 1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1 };
+// RVA_WR_GETVEL  ?GetPhysicsLinearVelocity@UPrimitiveComponent@@QEAA?AUFVector@@VFName@@@Z
+static const uint8_t kFSigB2[] = { 0x40,0x53,0x48,0x83,0xec,0x20,0x4c,0x8b,0x09,0x49,0x8b,0xc0,0x48,0x8b,0xda,0x41,0xb0,0x01,0x48,0x8b,0xd0,0x41,0xff,0x91,0xc8,0x06,0x00,0x00,0x48,0x85,0xc0,0x74,0x14,0x48,0x8b,0xd3,0x48,0x8b,0xc8,0xe8,0x64,0x38,0xf8,0xff,0x48,0x8b,0xc3,0x48,0x83,0xc4,0x20,0x5b,0xc3,0x48,0x89,0x03,0x89,0x43,0x08,0x48,0x8b,0xc3,0x48,0x83,0xc4,0x20,0x5b,0xc3,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc };
+static const uint8_t kFSigM2[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_WR_TRAJ  ?CalculatePrelandTrajectory@ASkaterTrajectoryCurve@@QEAA_NUFVector@@0@Z
+static const uint8_t kFSigB3[] = { 0x48,0x8b,0xc4,0x48,0x89,0x58,0x10,0x48,0x89,0x70,0x18,0x48,0x89,0x78,0x20,0x55,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8d,0xa8,0xe8,0xfc,0xff,0xff,0x48,0x81,0xec,0xf0,0x03,0x00,0x00 };
+static const uint8_t kFSigM3[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_WR_ROTUPD  ?RotateUpdatedComponent@USkaterMovementComponent@@QEAAXAEBUFQuat@@_N1@Z
+static const uint8_t kFSigB4[] = { 0x48,0x81,0xec,0xe8,0x00,0x00,0x00,0x48,0x8b,0x81,0xb0,0x00,0x00,0x00,0x4c,0x8b,0xd1,0x0f,0x10,0x1a,0x44,0x0f,0x29,0x64,0x24,0x70,0x0f,0x28,0xc3,0x44,0x0f,0x29,0x6c,0x24,0x60 };
+static const uint8_t kFSigM4[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_WR_GETANG  ?GetPhysicsAngularVelocityInRadians@UPrimitiveComponent@@QEBA?AUFVector@@VFName@@@Z
+static const uint8_t kFSigB5[] = { 0x40,0x53,0x48,0x83,0xec,0x20,0x4c,0x8b,0x09,0x49,0x8b,0xc0,0x48,0x8b,0xda,0x41,0xb0,0x01,0x48,0x8b,0xd0,0x41,0xff,0x91,0xc8,0x06,0x00,0x00,0x48,0x85,0xc0,0x74,0x14,0x48,0x8b,0xd3,0x48,0x8b,0xc8,0xe8,0xa4,0x36,0xf8,0xff,0x48,0x8b,0xc3,0x48,0x83,0xc4,0x20,0x5b,0xc3,0x48,0x89,0x03,0x89,0x43,0x08,0x48,0x8b,0xc3,0x48,0x83,0xc4,0x20,0x5b,0xc3,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc };
+static const uint8_t kFSigM5[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_ALT_SWRAW  ?IsSkatingSwitchRaw@ASkaterCharacterBase@@QEBA_NXZ
+static const uint8_t kFSigB6[] = { 0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x70,0x48,0x8b,0x81,0x68,0x05,0x00,0x00,0x48,0x8b,0xf1,0x0f,0x29,0x74,0x24,0x60,0x44,0x0f,0x29,0x44,0x24,0x50 };
+static const uint8_t kFSigM6[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_ALT_LABQ  ?GetLocalAnimatorBoardQuat@USkateboardExMovementComponent@@QEBA?AUFQuat@@XZ
+static const uint8_t kFSigB7[] = { 0x48,0x8b,0xc4,0x48,0x89,0x58,0x08,0x48,0x89,0x70,0x10,0x57,0x48,0x81,0xec,0xa0,0x00,0x00,0x00,0x80,0xb9,0xe9,0x07,0x00,0x00,0x00,0x48,0x8b,0xf2,0xf3,0x0f,0x10,0x81,0x20,0x06,0x00,0x00 };
+static const uint8_t kFSigM7[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_ALT_GBFSM  ?GetBoardFlipSpeedMultiplier@FlipTricksHandler@@AEBAMPEBVUFlipTrickDefinition@@W4EInputType@@PEBV?$TArray@UFInputData@@V?$TSizedDefaultAllocator@$0CA@@@@@@Z
+static const uint8_t kFSigB8[] = { 0x48,0x8b,0xc4,0x48,0x89,0x58,0x08,0x48,0x89,0x68,0x10,0x48,0x89,0x70,0x18,0x57,0x41,0x56,0x41,0x57,0x48,0x81,0xec,0xf0,0x00,0x00,0x00,0x0f,0x29,0x70,0xd8,0x4d,0x8b,0xf9 };
+static const uint8_t kFSigM8[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_HOSP_SETCASPERS  ?SetCaspers@ASkaterCharacterBase@@QEAAX_N0@Z
+static const uint8_t kFSigB9[] = { 0x40,0x56,0x48,0x83,0xec,0x20,0x0f,0xb6,0x81,0x0e,0x0a,0x00,0x00,0x48,0x8b,0xf1,0x84,0xd2,0x74,0x08,0xa8,0x02,0x75,0x04,0xb1,0x01,0xeb,0x02,0x33,0xc9,0x24,0xfe };
+static const uint8_t kFSigM9[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_FOOTIKDATA  ?GetFootIKData@USkaterAnimInstance@@AEBAXMAEBUFCatchFootInfo@@AEBUFTransform@@11_NAEBUFQuat@@AEAUFVector@@AEAU4@AEAM6@Z
+static const uint8_t kFSigB10[] = { 0x48,0x8b,0xc4,0x48,0x89,0x58,0x08,0x48,0x89,0x68,0x10,0x48,0x89,0x70,0x18,0x48,0x89,0x78,0x20,0x41,0x56,0x48,0x81,0xec,0xe0,0x00,0x00,0x00,0x0f,0x29,0x70,0xe8,0x48,0x8b,0xe9,0x48,0x8b,0x89,0x08,0x06,0x00,0x00 };
+static const uint8_t kFSigM10[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_SK_FLIPBOARD  ?FlipBoard@ASkaterCharacterBase@@QEAAXMMW4ECatchMode@@@Z
+static const uint8_t kFSigB11[] = { 0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x40,0x48,0x83,0xb9,0x68,0x05,0x00,0x00,0x00,0x41,0x0f,0xb6,0xf1,0x0f,0x29,0x74,0x24,0x30,0x48,0x8b,0xf9,0x0f,0x29,0x7c,0x24,0x20 };
+static const uint8_t kFSigM11[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_SAI_NUA  ?NativeUpdateAnimation@USkaterAnimInstance@@UEAAXM@Z
+static const uint8_t kFSigB12[] = { 0x40,0x55,0x57,0x48,0x8d,0xac,0x24,0x28,0xff,0xff,0xff,0x48,0x81,0xec,0xd8,0x01,0x00,0x00,0x44,0x0f,0x29,0x9c,0x24,0x70,0x01,0x00,0x00,0x48,0x8b,0x05,0x9e,0x71,0xdf,0x03 };
+static const uint8_t kFSigM12[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0 };
+// RVA_WR_BTARGET  ?GetControlledBoardTargetLocation@USkaterMovementComponent@@QEAA?AUFVector@@XZ
+static const uint8_t kFSigB13[] = { 0x4c,0x8b,0xdc,0x55,0x56,0x57,0x49,0x8d,0xab,0x98,0xfe,0xff,0xff,0x48,0x81,0xec,0x50,0x02,0x00,0x00,0x48,0x8b,0xf9,0x48,0x8b,0xf2,0x48,0x8b,0x89,0x30,0x0b,0x00,0x00 };
+static const uint8_t kFSigM13[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_SB_IDLEROLL  ?AdjustOnBoardIdleRollingAudio@ASkateboardEx@@AEAAXM@Z
+static const uint8_t kFSigB14[] = { 0x40,0x55,0x53,0x57,0x48,0x8d,0x6c,0x24,0xf0,0x48,0x81,0xec,0x10,0x01,0x00,0x00,0x48,0x8d,0xb9,0x80,0x02,0x00,0x00,0x44,0x0f,0x29,0x9c,0x24,0xb0,0x00,0x00,0x00 };
+static const uint8_t kFSigM14[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_RAM_SPAWNATT  ?SpawnSoundAttached@UReplayAudioManager@@SAPEAVUAudioComponent@@PEAVUSoundBase@@PEAVUSceneComponent@@VFName@@UFVector@@UFRotator@@W4Type@EAttachLocation@@_NMMMPEAVUSoundAttenuation@@PEAVUSoundConcurrency@@6@Z
+static const uint8_t kFSigB15[] = { 0x48,0x8b,0xc4,0x48,0x89,0x58,0x10,0x48,0x89,0x70,0x18,0x55,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8d,0x68,0xb8,0x48,0x81,0xec,0x20,0x01,0x00,0x00,0x48,0x8b,0x75,0x70 };
+static const uint8_t kFSigM15[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// FHELP_2af28e0  ?SetVolumeMultiplier@UAudioComponent@@QEAAXM@Z
+static const uint8_t kFSigB16[] = { 0x40,0x53,0x48,0x81,0xec,0x90,0x00,0x00,0x00,0xf6,0x81,0x8a,0x00,0x00,0x00,0x01,0x48,0x8b,0xd9,0x0f,0x29,0xb4,0x24,0x80,0x00,0x00,0x00,0x0f,0x28,0xf1,0xf3,0x0f,0x11,0xb1,0x38,0x02,0x00,0x00 };
+static const uint8_t kFSigM16[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_RAM_SETVOL  ?SetVolumeMultiplier@UReplayAudioManager@@SAXPEAVUAudioComponent@@M@Z
+static const uint8_t kFSigB17[] = { 0x48,0x85,0xc9,0x0f,0x84,0x45,0x01,0x00,0x00,0x53,0x48,0x83,0xec,0x40,0x0f,0x29,0x74,0x24,0x30,0x48,0x8b,0xd9,0x48,0x89,0x74,0x24,0x50,0x0f,0x28,0xf1,0x48,0x89,0x7c,0x24,0x58,0xe8,0xe8,0x4c,0x6e,0xff,0x8b,0x0d,0x5e,0x2d,0x7f,0x01,0x40,0x32,0xf6,0x8b,0x15,0x49,0x2d,0x7f,0x01,0xff,0xc1,0xf3,0x0f,0x11,0x74,0x24,0x28,0x48,0x89,0x5c,0x24,0x20,0x89,0x0d,0x42,0x2d,0x7f,0x01,0x8d,0x42,0xff,0x48,0x63,0xf8,0x85,0xc0,0x78,0x4b,0x48,0x8b,0xdf,0x48,0xc1,0xe3,0x04,0x0f,0x1f,0x44,0x00,0x00,0x48,0x8b,0x0d,0x11,0x2d,0x7f,0x01,0x83,0x7c,0x0b,0x08,0x00,0x74,0x18,0x48,0x8b,0x0c,0x0b,0x48,0x85,0xc9,0x74,0x0f,0x48,0x8b,0x01,0x48,0x8d,0x54,0x24,0x20,0xff,0x50,0x50,0x84,0xc0,0x75,0x03,0x40,0xb6,0x01,0x48,0x83,0xeb,0x10,0x48,0x83,0xef,0x01,0x79,0xcd,0x8b,0x0d,0xf3,0x2c,0x7f,0x01,0x8b,0x15,0xe1,0x2c,0x7f,0x01,0xff,0xc9,0x89,0x0d,0xe5,0x2c,0x7f,0x01,0x40,0x84,0xf6,0x0f,0x84,0x8a,0x00,0x00,0x00,0x85,0xc9,0x0f,0x8f,0x82,0x00,0x00,0x00,0x33,0xdb,0x8b,0xf2,0x85,0xd2,0x7e,0x4c,0x8b,0xfb,0x48,0x8b,0x0d,0xaf,0x2c,0x7f,0x01,0x83,0x7c,0x0f,0x08,0x00,0x74,0x1b,0x48,0x8b,0x0c,0x0f,0x48,0x85,0xc9,0x74,0x12,0x48,0x8b,0x01,0xff,0x50,0x28,0x84,0xc0,0x75,0x08,0xff,0xc3,0x48,0x83,0xc7,0x10,0xeb,0x17,0x41,0xb1,0x01,0x48,0x8d,0x0d,0x83,0x2c,0x7f,0x01,0x41,0xb8,0x01,0x00,0x00,0x00,0x8b,0xd3,0xe8,0x3e,0x1d,0x3c,0xfd,0x8b,0x15,0x78,0x2c,0x7f,0x01,0x3b,0xda,0x7c,0xb6,0x8d,0x04,0x12,0x41,0xb8,0x02,0x00,0x00,0x00,0x41,0x3b,0xc0,0x41,0x0f,0x4e,0xc0,0x89,0x05,0x66,0x2c,0x7f,0x01,0x3b,0xf0,0x7e,0x14,0x39,0x15,0x58,0x2c,0x7f,0x01,0x74,0x0c,0x48,0x8d,0x0d,0x43,0x2c,0x7f,0x01,0xe8,0x76,0x29,0x3c,0xfd,0x48,0x8b,0x74,0x24,0x50,0x48,0x8b,0x7c,0x24,0x58,0x0f,0x28,0x74,0x24,0x30,0x48,0x83,0xc4,0x40,0x5b,0xc3,0xcc };
+static const uint8_t kFSigM17[] = { 1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// FHELP_2af20a0  ?SetPitchMultiplier@UAudioComponent@@QEAAXM@Z
+static const uint8_t kFSigB18[] = { 0x40,0x53,0x48,0x81,0xec,0x90,0x00,0x00,0x00,0xf6,0x81,0x8a,0x00,0x00,0x00,0x01,0x48,0x8b,0xd9,0x0f,0x29,0xb4,0x24,0x80,0x00,0x00,0x00,0x0f,0x28,0xf1,0xf3,0x0f,0x11,0xb1,0x58,0x02,0x00,0x00 };
+static const uint8_t kFSigM18[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_RAM_SETPITCH  ?SetPitchMultiplier@UReplayAudioManager@@SAXPEAVUAudioComponent@@M@Z
+static const uint8_t kFSigB19[] = { 0x48,0x85,0xc9,0x0f,0x84,0x45,0x01,0x00,0x00,0x53,0x48,0x83,0xec,0x40,0x0f,0x29,0x74,0x24,0x30,0x48,0x8b,0xd9,0x48,0x89,0x74,0x24,0x50,0x0f,0x28,0xf1,0x48,0x89,0x7c,0x24,0x58,0xe8,0xd8,0x49,0x6e,0xff,0x8b,0x0d,0x76,0x32,0x7f,0x01,0x40,0x32,0xf6,0x8b,0x15,0x61,0x32,0x7f,0x01,0xff,0xc1,0xf3,0x0f,0x11,0x74,0x24,0x28,0x48,0x89,0x5c,0x24,0x20,0x89,0x0d,0x5a,0x32,0x7f,0x01,0x8d,0x42,0xff,0x48,0x63,0xf8,0x85,0xc0,0x78,0x4b,0x48,0x8b,0xdf,0x48,0xc1,0xe3,0x04,0x0f,0x1f,0x44,0x00,0x00,0x48,0x8b,0x0d,0x29,0x32,0x7f,0x01,0x83,0x7c,0x0b,0x08,0x00,0x74,0x18,0x48,0x8b,0x0c,0x0b,0x48,0x85,0xc9,0x74,0x0f,0x48,0x8b,0x01,0x48,0x8d,0x54,0x24,0x20,0xff,0x50,0x50,0x84,0xc0,0x75,0x03,0x40,0xb6,0x01,0x48,0x83,0xeb,0x10,0x48,0x83,0xef,0x01,0x79,0xcd,0x8b,0x0d,0x0b,0x32,0x7f,0x01,0x8b,0x15,0xf9,0x31,0x7f,0x01,0xff,0xc9,0x89,0x0d,0xfd,0x31,0x7f,0x01,0x40,0x84,0xf6,0x0f,0x84,0x8a,0x00,0x00,0x00,0x85,0xc9,0x0f,0x8f,0x82,0x00,0x00,0x00,0x33,0xdb,0x8b,0xf2,0x85,0xd2,0x7e,0x4c,0x8b,0xfb,0x48,0x8b,0x0d,0xc7,0x31,0x7f,0x01,0x83,0x7c,0x0f,0x08,0x00,0x74,0x1b,0x48,0x8b,0x0c,0x0f,0x48,0x85,0xc9,0x74,0x12,0x48,0x8b,0x01,0xff,0x50,0x28,0x84,0xc0,0x75,0x08,0xff,0xc3,0x48,0x83,0xc7,0x10,0xeb,0x17,0x41,0xb1,0x01,0x48,0x8d,0x0d,0x9b,0x31,0x7f,0x01,0x41,0xb8,0x01,0x00,0x00,0x00,0x8b,0xd3,0xe8,0x6e,0x22,0x3c,0xfd,0x8b,0x15,0x90,0x31,0x7f,0x01,0x3b,0xda,0x7c,0xb6,0x8d,0x04,0x12,0x41,0xb8,0x02,0x00,0x00,0x00,0x41,0x3b,0xc0,0x41,0x0f,0x4e,0xc0,0x89,0x05,0x7e,0x31,0x7f,0x01,0x3b,0xf0,0x7e,0x14,0x39,0x15,0x70,0x31,0x7f,0x01,0x74,0x0c,0x48,0x8d,0x0d,0x5b,0x31,0x7f,0x01,0xe8,0xa6,0x2e,0x3c,0xfd,0x48,0x8b,0x74,0x24,0x50,0x48,0x8b,0x7c,0x24,0x58,0x0f,0x28,0x74,0x24,0x30,0x48,0x83,0xc4,0x40,0x5b,0xc3,0xcc };
+static const uint8_t kFSigM19[] = { 1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_SU_SURFAUDIO  ?UpdateAudioWithSurfaceType@FSessionUtils@@SAXPEAVUAudioComponent@@H@Z
+static const uint8_t kFSigB20[] = { 0x48,0x8b,0xc4,0x48,0x89,0x48,0x08,0x55,0x56,0x48,0x8b,0xec,0x48,0x83,0xec,0x68,0x48,0x89,0x58,0x10,0x33,0xdb,0x48,0x89,0x78,0xe8,0x4c,0x89,0x70,0xd0,0x4c,0x8b,0xf1 };
+static const uint8_t kFSigM20[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_SB_WEARDIRT  ?UpdateAudioWithWearAndDirt@ASkateboardEx@@AEAAXPEAVUAudioComponent@@W4EGrindContactBoardParts@@@Z
+static const uint8_t kFSigB21[] = { 0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x50,0x48,0x83,0xb9,0x30,0x03,0x00,0x00,0x00,0x48,0x8b,0xf2,0x41,0x0f,0xb6,0xf8,0x48,0x8b,0xd9 };
+static const uint8_t kFSigM21[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// RVA_GS_SURFTYPE  ?GetSurfaceType@UGameplayStatics@@SA?AW4EPhysicalSurface@@AEBUFHitResult@@@Z
+static const uint8_t kFSigB22[] = { 0x48,0x83,0xec,0x28,0x48,0x83,0xc1,0x60,0xe8,0x03,0x7b,0x8f,0xfe,0x48,0x8b,0xc8,0x48,0x83,0xc4,0x28,0xe9,0x37,0xb8,0x64,0xff,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc };
+static const uint8_t kFSigM22[] = { 1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1 };
+// RVA_WEAKOBJ_GET  ?Get@FWeakObjectPtr@@QEBAPEAVUObject@@XZ
+static const uint8_t kFSigB23[] = { 0x44,0x8b,0x41,0x04,0x45,0x85,0xc0,0x74,0x4e,0x8b,0x01,0x85,0xc0,0x78,0x48,0x3b,0x05,0x0f,0x8c,0x92,0x03,0x7d,0x40,0x99,0x0f,0xb7,0xd2,0x03,0xc2,0x8b,0xc8,0x0f,0xb7,0xc0 };
+static const uint8_t kFSigM23[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+static const HnSig kFSigs[] = {
+    { "WR_LABQ", &RVA_WR_LABQ, kFSigB0, kFSigM0, 37, -1, 0, 0, -1, -1, -1, 0 },
+    { "FHELP_2e4f560", &FHELP_2e4f560, kFSigB1, kFSigM1, 35, -1, 0, 0, -1, -1, -1, 0 },
+    { "WR_GETVEL", &RVA_WR_GETVEL, kFSigB2, kFSigM2, 80, -1, 0, 0, 40, 1, -1, 0 },
+    { "WR_TRAJ", &RVA_WR_TRAJ, kFSigB3, kFSigM3, 38, -1, 0, 0, -1, -1, -1, 0 },
+    { "WR_ROTUPD", &RVA_WR_ROTUPD, kFSigB4, kFSigM4, 35, -1, 0, 0, -1, -1, -1, 0 },
+    { "WR_GETANG", &RVA_WR_GETANG, kFSigB5, kFSigM5, 80, -1, 0, 0, -1, -1, 0, 2 },
+    { "ALT_SWRAW", &RVA_ALT_SWRAW, kFSigB6, kFSigM6, 36, -1, 0, 0, -1, -1, -1, 0 },
+    { "ALT_LABQ", &RVA_ALT_LABQ, kFSigB7, kFSigM7, 37, -1, 0, 0, -1, -1, -1, 0 },
+    { "ALT_GBFSM", &RVA_ALT_GBFSM, kFSigB8, kFSigM8, 34, -1, 0, 0, -1, -1, -1, 0 },
+    { "HOSP_SETCASPERS", &RVA_HOSP_SETCASPERS, kFSigB9, kFSigM9, 32, -1, 0, 0, -1, -1, -1, 0 },
+    { "FOOTIKDATA", &RVA_FOOTIKDATA, kFSigB10, kFSigM10, 42, -1, 0, 0, -1, -1, -1, 0 },
+    { "SK_FLIPBOARD", &RVA_SK_FLIPBOARD, kFSigB11, kFSigM11, 35, -1, 0, 0, -1, -1, -1, 0 },
+    { "SAI_NUA", &RVA_SAI_NUA, kFSigB12, kFSigM12, 34, -1, 0, 0, -1, -1, -1, 0 },
+    { "WR_BTARGET", &RVA_WR_BTARGET, kFSigB13, kFSigM13, 33, -1, 0, 0, -1, -1, -1, 0 },
+    { "SB_IDLEROLL", &RVA_SB_IDLEROLL, kFSigB14, kFSigM14, 32, -1, 0, 0, -1, -1, -1, 0 },
+    { "RAM_SPAWNATT", &RVA_RAM_SPAWNATT, kFSigB15, kFSigM15, 35, -1, 0, 0, -1, -1, -1, 0 },
+    { "FHELP_2af28e0", &FHELP_2af28e0, kFSigB16, kFSigM16, 38, -1, 0, 0, -1, -1, -1, 0 },
+    { "RAM_SETVOL", &RVA_RAM_SETVOL, kFSigB17, kFSigM17, 336, -1, 0, 0, 36, 16, -1, 0 },
+    { "FHELP_2af20a0", &FHELP_2af20a0, kFSigB18, kFSigM18, 38, -1, 0, 0, -1, -1, -1, 0 },
+    { "RAM_SETPITCH", &RVA_RAM_SETPITCH, kFSigB19, kFSigM19, 336, -1, 0, 0, 36, 18, -1, 0 },
+    { "SU_SURFAUDIO", &RVA_SU_SURFAUDIO, kFSigB20, kFSigM20, 33, -1, 0, 0, -1, -1, -1, 0 },
+    { "SB_WEARDIRT", &RVA_SB_WEARDIRT, kFSigB21, kFSigM21, 33, -1, 0, 0, -1, -1, -1, 0 },
+    { "GS_SURFTYPE", &RVA_GS_SURFTYPE, kFSigB22, kFSigM22, 32, -1, 0, 0, -1, -1, -1, 0 },
+    { "WEAKOBJ_GET", &RVA_WEAKOBJ_GET, kFSigB23, kFSigM23, 34, -1, 0, 0, -1, -1, -1, 0 },
+};
+constexpr int kFSigN = (int)(sizeof(kFSigs) / sizeof(kFSigs[0]));
+static const uintptr_t kFSigRva[kFSigN] = { 0xfbdbc0, 0x2e4f560, 0x2ecbcd0, 0xfec710, 0x10020c0, 0x2ecbc80, 0xff86d0, 0xfbdbc0, 0x1024670, 0x1003fe0, 0xf57de0, 0xff2d50, 0xf5e700, 0xff3220, 0xf7cde0, 0x340e400, 0x2af28e0, 0x340dbd0, 0x2af20a0, 0x340d6a0, 0x11981e0, 0xfa3c00, 0x2c47ca0, 0x153f7b0 };   // (sigcheck: the Epic exe's own addresses)
+// ---- (steam, w35) end of the generated feature signatures
+// (steam, w35) the feature group's search: HnSigScan's rules over the table given (kFSigs above), the exe read from DISK the same way.
+// A miss here never touches the core 35: the wallride, the alt flip set and the hospital stand down and the log names what is missing.
+constexpr int kFSigMax = 64;
+static_assert(kFSigN <= kFSigMax, "the feature signature table outgrew HnSigScanTab");
+volatile int g_featSigsOk = 0;               // (steam) 1 = on another build every feature signature was found (and applied); on Epic's exe unused
+char g_featMissing[256] = "";                // (steam) the ones not found, for the log
+inline bool FeatSigOff() { return g_sigMode && !g_featSigsOk; }   // (steam) the wallride / alt flip / hospital gate: another build and not every feature address found
+inline int HnSigScanTab(const uint8_t* file, size_t fileSize, const HnSig* tab, int nTab, HnSigFound* found, HnSayFn say) {
+    if (nTab > kFSigMax) return 0;
+    for (int i = 0; i < nTab; i++) { found[i].hits = 0; found[i].rva = 0; found[i].ok = false; }
+    if (fileSize < 0x1000) return 0;
+    const IMAGE_DOS_HEADER* dos = (const IMAGE_DOS_HEADER*)file;
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE || (size_t)dos->e_lfanew + sizeof(IMAGE_NT_HEADERS64) > fileSize) return 0;
+    const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(file + dos->e_lfanew);
+    if (nt->Signature != IMAGE_NT_SIGNATURE || nt->FileHeader.Machine != IMAGE_FILE_MACHINE_AMD64) return 0;
+    const IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
+    uint32_t tRva = 0, tRaw = 0, tSize = 0;
+    for (int s = 0; s < nt->FileHeader.NumberOfSections; s++)
+        if (memcmp(sec[s].Name, ".text\0\0\0", 8) == 0) { tRva = sec[s].VirtualAddress; tRaw = sec[s].PointerToRawData; tSize = sec[s].SizeOfRawData < sec[s].Misc.VirtualSize ? sec[s].SizeOfRawData : sec[s].Misc.VirtualSize; }
+    if (!tRva || (size_t)tRaw + tSize > fileSize || tSize < 0x10000) return 0;
+    const uint32_t image = nt->OptionalHeader.SizeOfImage;
+    int head[256], next[kFSigMax];
+    for (int b = 0; b < 256; b++) head[b] = -1;
+    for (int i = nTab - 1; i >= 0; i--) { next[i] = head[tab[i].b[0]]; head[tab[i].b[0]] = i; }
+    const uint8_t* t = file + tRaw;
+    for (uint32_t p = 0; p < tSize; p++) {
+        for (int i = head[t[p]]; i >= 0; i = next[i]) {
+            const HnSig& g = tab[i];
+            if (p + g.n > tSize) continue;
+            const uint8_t* q = t + p; bool same = true;
+            for (int j = 1; j < g.n; j++) if (g.m[j] && q[j] != g.b[j]) { same = false; break; }
+            if (!same) continue;
+            if (found[i].hits < 8) found[i].at[found[i].hits] = tRva + p;
+            found[i].hits++;
+        }
+    }
+    auto rel32 = [&](uint32_t rva) -> uintptr_t {
+        if (rva < tRva || rva + 4 > tRva + tSize) return 0;
+        int32_t d; memcpy(&d, t + (rva - tRva), 4);
+        return (uintptr_t)((int64_t)rva + 4 + d);
+    };
+    for (int i = 0; i < nTab; i++) {
+        const HnSig& g = tab[i]; HnSigFound& f = found[i];
+        if (g.callee >= 0) continue;
+        if (g.rank >= 0) { if (f.hits == g.count && g.count <= 8) { f.rva = f.at[g.rank]; f.ok = true; } }
+        else if (f.hits == 1) { f.rva = f.at[0]; f.ok = true; }
+        if (f.ok && g.site >= 0) {
+            const uintptr_t target = rel32((uint32_t)f.rva + g.site + g.dispAt) + (g.insLen - g.dispAt - 4);
+            if (target >= 0x1000 && target < image) f.rva = target; else f.ok = false;
+        }
+    }
+    for (int i = 0; i < nTab; i++) {
+        const HnSig& g = tab[i]; HnSigFound& f = found[i];
+        if (g.callee < 0 || g.callee >= nTab || !found[g.callee].ok) continue;
+        int nRight = 0;
+        for (int h = 0; h < f.hits && h < 8; h++)
+            if (rel32(f.at[h] + g.callAt) == found[g.callee].rva) { f.rva = f.at[h]; nRight++; }
+        f.ok = (nRight == 1 && f.hits <= 8);
+    }
+    int ok = 0;
+    for (int i = 0; i < nTab; i++) {
+        const HnSigFound& f = found[i];
+        if (f.ok) ok++;
+        say("signatures (features): %-18s %s exe+%07llx  (%d match%s)", tab[i].name, f.ok ? "->" : "NOT FOUND, last candidate", (unsigned long long)(f.ok ? f.rva : (f.hits ? f.at[0] : 0)), f.hits, f.hits == 1 ? "" : "es");
+    }
+    return ok;
+}
+inline int HnSigScanTabPath(const wchar_t* path, const HnSig* tab, int nTab, HnSigFound* found, HnSayFn say) {
+    HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return 0;
+    LARGE_INTEGER sz; sz.QuadPart = 0;
+    int n = 0;
+    if (GetFileSizeEx(f, &sz) && sz.QuadPart > 0 && sz.QuadPart < 0x40000000ll) {
+        HANDLE m = CreateFileMappingW(f, nullptr, PAGE_READONLY, 0, 0, nullptr);
+        if (m) {
+            const uint8_t* v = (const uint8_t*)MapViewOfFile(m, FILE_MAP_READ, 0, 0, 0);
+            if (v) { n = HnSigScanTab(v, (size_t)sz.QuadPart, tab, nTab, found, say); UnmapViewOfFile(v); }
+            CloseHandle(m);
+        }
+    }
+    CloseHandle(f);
+    return n;
+}
+// (steam, w35) InstallHook on another build, after the core 35 were applied: the second group; all found -> applied and the features' hooks go in
+void FeatSigScan(const wchar_t* path) {
+    static HnSigFound ff[kFSigMax];
+    int fg = 0;
+    __try { fg = HnSigScanTabPath(path, kFSigs, kFSigN, ff, &Log); } __except (EXCEPTION_EXECUTE_HANDLER) { fg = 0; Log("signatures (features): fault while reading the exe (code %08x)", GetExceptionCode()); }
+    g_featMissing[0] = 0;
+    if (fg == kFSigN) {
+        for (int i = 0; i < kFSigN; i++) *kFSigs[i].rva = ff[i].rva;
+        g_featSigsOk = 1;
+    } else {
+        size_t w = 0;
+        for (int i = 0; i < kFSigN && w + 24 < sizeof(g_featMissing); i++) if (!ff[i].ok) w += (size_t)_snprintf_s(g_featMissing + w, sizeof(g_featMissing) - w, _TRUNCATE, "%s%s", w ? ", " : "not found: ", kFSigs[i].name);
+        if (!g_featMissing[0]) strcpy_s(g_featMissing, "the feature signatures could not be read");
+    }
+    Log("feature group: core (pose, plants, grabs, menu, no-bail): ON -- all %d core signatures found", kSigN);
+    if (g_featSigsOk) {
+        Log("feature group: wallride + wallride from the ground + wallride sound: ON -- all %d feature signatures found (their own byte checks still run as the hooks go in)", kFSigN);
+        Log("feature group: alt flip set (monster / dolphin / nightmare / underflips) + hospital: ON -- the same %d feature signatures", kFSigN);
+        FaInstall(); WrBtInstall(); FbInstall(); WsInstall();
+    } else {
+        Log("feature group: wallride + wallride from the ground + wallride sound: OFF -- %d of %d feature signatures found (%s)", fg, kFSigN, g_featMissing);
+        Log("feature group: alt flip set (monster / dolphin / nightmare / underflips) + hospital: OFF -- %d of %d feature signatures found (%s)", fg, kFSigN, g_featMissing);
+    }
+    Log("feature group: drop-in set-down, BoardGo, ledge face, ground hold and the other Epic-only reads: OFF on another build (as before)");
+}
+// ---- (steam, w35) end of the feature group's search
 int WgCrankUse(uint8_t* sk) {
     uint8_t* pc = (uint8_t*)g_pc;
-    if (g_sigMode || !g_hooked || g_wgCrankDead || !pc || !sk || !PtrOk(pc, PC_FLIPTRICKS + 8) || *(uint8_t**)(pc + PC_SKATER) != sk) return -1;
+    if (FeatSigOff() || !g_hooked || g_wgCrankDead || !pc || !sk || !PtrOk(pc, PC_FLIPTRICKS + 8) || *(uint8_t**)(pc + PC_SKATER) != sk) return -1;
     uint8_t* fth = *(uint8_t**)(pc + PC_FLIPTRICKS);
     if (!fth || !PtrOk(fth, 0x98)) return -1;
     const uint8_t c0 = sk[WG_SK_CRANK];
     if (!(c0 & 1) && !(ReadF(fth, 0x38) > 0.0f)) return 0;
     __try {
         sk[WG_SK_CRANK] |= 0x01;
-        ((WgResetCrankFn)((uint8_t*)GetModuleHandleW(nullptr) + WG_RVA_RESET_CRANK))(fth);
+        ((WgResetCrankFn)((uint8_t*)GetModuleHandleW(nullptr) + RVA_RESET_CRANK))(fth);
         if (!(c0 & 1)) sk[WG_SK_CRANK] &= (uint8_t)~0x01;
     }
     __except (EXCEPTION_EXECUTE_HANDLER) { g_wgCrankDead = 1; return -1; }
@@ -15031,7 +15267,7 @@ bool WgWallOk(void* mesh, const void* world, const uint8_t* bm, V3 Od, Q4 deckQ,
     return true;
 }
 // (v140) B. a part's angular velocity read and written (UPrimitiveComponent's own, rad/s) -- the take-off's roll up the wall
-constexpr uintptr_t RVA_WR_GETANG = 0x2ecbc80;   // UPrimitiveComponent::GetPhysicsAngularVelocityInRadians(FName) const -> FVector (the return pointer in rdx, the name in r8)
+uintptr_t RVA_WR_GETANG = 0x2ecbc80;   // UPrimitiveComponent::GetPhysicsAngularVelocityInRadians(FName) const -> FVector (the return pointer in rdx, the name in r8)
 bool WallAngVel(void* comp, V3& v) {
     alignas(16) V3 out = { 0.0f, 0.0f, 0.0f };
     ((WrGetVelFn)(Exe() + RVA_WR_GETANG))(comp, &out, 0);
@@ -15412,7 +15648,7 @@ void WallTick(void* mesh) {
     if (g_wrRideNew && R.phase == 0 && g_wg.state == 0 && InterlockedExchange(&g_wrRideNew, 0)) { AcquireSRWLockShared(&g_wrLock); g_wrRideCfg = g_wrRideIn; ReleaseSRWLockShared(&g_wrLock); }   // (v140) the ride's own settings, between rides
     if (R.phase == 0) InterlockedExchange(&g_wrEndAsk, 0);                    // an "end" with no ride is not kept for the next one
     if (R.phase == 0) InterlockedExchange(&g_wrPopAsk, 0);                    // (walldown) a stick's pop with no ride is not kept either
-    if (g_wrDead || g_sigMode || !g_hooked) {
+    if (g_wrDead || FeatSigOff() || !g_hooked) {
         WrSlamGive("wallrides stood down");                                  // (v131, T2)
         WrGraceGive(); WrBtOff();                                            // (v140)
         if (R.phase) { WallGiveBack(); Log("wallride: #%d dropped: wallrides were turned off while it ran", R.n); R.phase = 0; R.e = 0.0f; }   // (v127, fixer: native review 5) WallW() would have kept its pose on, and LateBlock its block, for the rest of the run
@@ -16472,7 +16708,7 @@ bool SafeWallSmooth(bool drawn, bool ok) {
 }
 // (wallsmooth) HJN_Wall("smooth", upper s, arm s, release s) -> 3 taken, 0 refused, -1 stood down
 int WallSmoothCfg(const double* a, int got) {
-    if (g_sigMode || !g_hooked) return -1;
+    if (FeatSigOff() || !g_hooked) return -1;
     if (got < 3 || !std::isfinite(a[0]) || !std::isfinite(a[1]) || !std::isfinite(a[2])) { Log("wallride: the body's smoothing takes 3 numbers, %d came -- not taken", got); return 0; }
     g_wrUpperEaseIn = clampf((float)a[0], 0.0f, 0.3f); g_wrArmEaseIn = clampf((float)a[1], 0.0f, 0.3f); g_wrRelBlendIn = clampf((float)a[2], 0.0f, 0.4f);
     Log("wallride: the body's smoothing: the upper body follows with a lag of %.2f s, the arms %.2f s, the release blended over %.2f s (WallRideUpperEase / WallRideArmEase / WallRideReleaseBlend; 0 = build 253's)",
@@ -16480,7 +16716,7 @@ int WallSmoothCfg(const double* a, int got) {
     return 3;
 }
 int WallCurveCfg(const double* a, int got) {          /* (curvewall 255) HJN_Wall("curve", WallRideCurveRadius cm, WallRideMaxTurn deg) */
-    if (g_sigMode || !g_hooked) return -1;
+    if (FeatSigOff() || !g_hooked) return -1;
     if (got < 2 || !std::isfinite(a[0]) || !std::isfinite(a[1])) { Log("wallride: the curved wall's settings take 2 numbers, %d came -- not taken", got); return 0; }
     const float rc = clampf((float)a[0], 0.0f, 5000.0f);
     g_wrCurveR = (rc < 50.0f) ? 0.0f : rc; g_wrMaxTurn = clampf((float)a[1], 25.0f, 360.0f);
@@ -16678,10 +16914,10 @@ int SafeWallSelfTest(char* out, size_t n) { __try { return WallSelfTest(out, n);
 //   (wallboard 246) "reach", on -> 1 taken, 0 refused, -1 stood down: WallRideBoardReach (the board's target toward the wall by what the body could not move)
 //          settings (WallRideLine, WallRideLineReach, WallRideKneeTurn, WallRideFlat, WallRideExitAngle, WallRideFallGuard)
 int WallCfg(const double* a, int got) {
-    if (g_sigMode || !g_hooked) {
+    if (FeatSigOff() || !g_hooked) {
         if (!g_wrSigTold) {
             g_wrSigTold = true;
-            Log("wallride: not on this build of the game (another build than Epic's 30 March exe, or the pose hook is not in): it turns the board through parts of the game that were only checked on that exe -- wallrides stand down");
+            Log("wallride: not on this build of the game (another build than Epic's 30 March exe and %s, or the pose hook is not in) -- wallrides stand down", g_featMissing[0] ? g_featMissing : "the feature signatures were not looked for");
             WallNews("info", "not on this build of the game: wallrides stand down (the native log says why)");
         }
         return -1;
@@ -16751,7 +16987,7 @@ int WallLeanSelfTest(char* out, size_t n) {
 int g_wrLeanSelf = 0;                                                            // (v134) 1 passed, -1 failed (the lean stays off), 0 not run yet
 // (v134) HJN_Wall("lean", deg, %): the body's lean (WallRideLean 0..80 deg, WallRideLeanLegs 50..95 % of a leg's length; clamped again here)
 int WallLeanCfg(const double* a, int got) {
-    if (g_sigMode || !g_hooked) return -1;                                       // (WallCfg says why, once)
+    if (FeatSigOff() || !g_hooked) return -1;                                       // (WallCfg says why, once)
     if (got < 2 || !std::isfinite(a[0]) || !std::isfinite(a[1])) { Log("wallride: the body's lean takes 2 numbers, %d came (or one is not a number) -- not taken", got); return 0; }
     if (g_wrLeanSelf == 0) {
         char st[120]; const int r = WallLeanSelfTest(st, sizeof(st));
@@ -16771,7 +17007,7 @@ int SafeWallLeanCfg(const double* a, int got) { __try { return WallLeanCfg(a, go
 // (v134) HJN_Wall("ground", on, cm/s up, s ahead, deg): the wallride from the ground's settings (the ini's WallRideFromGround,
 // WallRideGroundPop, WallRideGroundLead, WallRideGroundMinAngle), clamped again here; the pose's thread takes them between take-offs
 int WallGroundCfg(const double* a, int got) {
-    if (g_sigMode || !g_hooked) return -1;
+    if (FeatSigOff() || !g_hooked) return -1;
     if (got < 4) { Log("wallride from the ground: the settings take 4 to 14 numbers, %d came -- not taken", got); return 0; }
     const int use = got > 14 ? 14 : got;   /* (wallentry 253) 13, 14: WallRideGroundWallie, WallRideGroundWallieRate */   /* (rideon 252) 12: WallRideGroundFrontLead */   /* (wallentry 248) 11: WallRideGroundRise, WallRideGroundFlat the 10th, 11th */
     for (int i = 0; i < use; i++) if (!std::isfinite(a[i])) { Log("wallride from the ground: a setting is not a number -- not taken"); return 0; }
@@ -16845,7 +17081,7 @@ int WallRideSelfTest(char* out, size_t n) {
 // WallRideLineReach, WallRideKneeTurn, WallRideFlat, WallRideExitAngle, WallRideFallGuard), clamped again here; the pose takes them between
 // rides. Its self-test failing turns the line, the flat deck and the turned way off off (builds 236-241's ride); the falling bail is kept
 int WallRideCfgTake(const double* a, int got) {
-    if (g_sigMode || !g_hooked) return -1;                                       // (WallCfg says why, once)
+    if (FeatSigOff() || !g_hooked) return -1;                                       // (WallCfg says why, once)
     if (got < 6) { Log("wallride: the ride's own settings take 6 numbers, %d came -- not taken", got); return 0; }
     for (int i = 0; i < 6; i++) if (!std::isfinite(a[i])) { Log("wallride: one of the ride's own settings is not a number -- not taken"); return 0; }
     if (g_wrRideSelf == 0) {
@@ -16880,7 +17116,7 @@ int SafeWallRideCfg(const double* a, int got) { __try { return WallRideCfgTake(a
 // (wallboard 246) HJN_Wall("reach", on): WallRideBoardReach (1 = what the body was asked toward the wall but did not move moves the board's
 // target toward the wall instead, handed back to the body as it can move; 0 = build 245's); a ride takes it at its start
 int WallReachCfgTake(const double* a, int got) {
-    if (g_sigMode || !g_hooked) return -1;                                       // (WallCfg says why, once)
+    if (FeatSigOff() || !g_hooked) return -1;                                       // (WallCfg says why, once)
     if (got < 1 || !std::isfinite(a[0])) { Log("wallride: the board's reach setting takes 1 number, %d came -- not taken", got); return 0; }
     const long on = (a[0] >= 0.5) ? 1 : 0;
     g_wrBoardReachIn = on;
@@ -16895,7 +17131,7 @@ int SafeWallReachCfg(const double* a, int got) { __try { return WallReachCfgTake
 // (wallboard 245) HJN_Wall("hold", on): WallRideBoardHold (1 = the gap loop closes a big gap faster and the deck's tilt is trimmed until the
 // real deck lies flat, 0 = build 244's); a ride takes it at its start
 int WallHoldCfgTake(const double* a, int got) {
-    if (g_sigMode || !g_hooked) return -1;                                       // (WallCfg says why, once)
+    if (FeatSigOff() || !g_hooked) return -1;                                       // (WallCfg says why, once)
     if (got < 1 || !std::isfinite(a[0])) { Log("wallride: the board hold's setting takes 1 number, %d came -- not taken", got); return 0; }
     const long on = (a[0] >= 0.5) ? 1 : 0;
     g_wrBoardHoldIn = on;
@@ -16910,7 +17146,7 @@ int SafeWallHoldCfg(const double* a, int got) { __try { return WallHoldCfgTake(a
 // (wallboard) HJN_Wall("gap", on): WallRideGapPredict (1 = the gap loop reads the board's gap with its own lag predicted, 0 = build 243's
 // loop); a ride takes it at its start
 int WallGapCfgTake(const double* a, int got) {
-    if (g_sigMode || !g_hooked) return -1;                                       // (WallCfg says why, once)
+    if (FeatSigOff() || !g_hooked) return -1;                                       // (WallCfg says why, once)
     if (got < 1 || !std::isfinite(a[0])) { Log("wallride: the gap loop's setting takes 1 number, %d came -- not taken", got); return 0; }
     const long on = (a[0] >= 0.5) ? 1 : 0;
     g_wrGapPredIn = on;
@@ -16923,7 +17159,7 @@ int WallGapCfgTake(const double* a, int got) {
 }
 int SafeWallGapCfg(const double* a, int got) { __try { return WallGapCfgTake(a, got); } __except (GrabFilter(GetExceptionCode())) { Log("wallride: fault taking the gap loop's setting"); return 0; } }
 int WallBodyCfgTake(const double* a, int got) {
-    if (g_sigMode || !g_hooked) return -1;                                       // (WallCfg says why, once)
+    if (FeatSigOff() || !g_hooked) return -1;                                       // (WallCfg says why, once)
     if (got < 3) { Log("wallride: the body's own settings take 3 numbers, %d came -- not taken", got); return 0; }
     const int n = got >= 7 ? 7 : (got >= 6 ? 6 : (got >= 5 ? 5 : (got >= 4 ? 4 : 3)));   /* (wallie2) the 7th: WallRideGroundWallieBody */   // (w11 wallhead) the 6th: WallRideHeadForward
     for (int i = 0; i < n; i++) if (!std::isfinite(a[i])) { Log("wallride: one of the body's own settings is not a number -- not taken"); return 0; }
@@ -16960,7 +17196,7 @@ int SafeWallBodyCfg(const double* a, int got) { __try { return WallBodyCfgTake(a
 // (walldown) HJN_Wall("down", rideDown, popUp): WallRideRideDown (0/1) and WallRidePopUp (0..500 cm/s), clamped again here; a ride takes them
 // as it starts
 int WallDownCfg(const double* a, int got) {
-    if (g_sigMode || !g_hooked) return -1;
+    if (FeatSigOff() || !g_hooked) return -1;
     if (got < 2 || !std::isfinite(a[0]) || !std::isfinite(a[1])) { Log("wallride: the ride down's settings take 2 numbers, %d came -- not taken", got); return 0; }
     const int rd = (a[0] != 0.0) ? 1 : 0; const float pu = clampf((float)a[1], 0.0f, 500.0f);
     const float st = (got > 2 && std::isfinite(a[2])) ? clampf((float)a[2], 0.0f, 0.8f) : 0.0f;   /* (wallentry 249) WallRideDownSettle (an older Lua sends 2: 0, build 248's) */
@@ -16977,13 +17213,13 @@ int WallDownCfg(const double* a, int got) {
 }
 // (walldown) HJN_Wall("pop"): a stick pushed up -> 1 asked (the riding pose takes it or says why not), 0 no ride to pop off, -1 stood down
 int WallPopAsk() {
-    if (g_sigMode || !g_hooked || g_wrDead) return -1;
+    if (FeatSigOff() || !g_hooked || g_wrDead) return -1;
     if (g_wr.phase == 0 || (g_wr.phase == 2 && !g_wr.rd)) return 0;
     InterlockedExchange(&g_wrPopAsk, 1);
     return 1;
 }
 int WallOk(double s) {
-    if (g_sigMode || !g_hooked) return -1;
+    if (FeatSigOff() || !g_hooked) return -1;
     if (g_wrSlam.on && NowS() > g_wrSlam.until + 0.25) { __try { WrSlamGive("lapsed (seen by the Lua's tick: no pose of the skater renewed it)"); } __except (EXCEPTION_EXECUTE_HANDLER) { g_wrSlam.on = 0; } }   // (v131, T2) (review A) its own __try: nWall, the caller, holds a std::string
     if (g_wrDead || !g_rigOk) return 0;
     const ULONGLONG now = GetTickCount64();
@@ -17004,14 +17240,14 @@ int nWall(const Lua& lua) {                                      // (a std::stri
     if (op == "news") { char b[WR_NEWS_LEN]; WallNewsTake(b, sizeof(b)); lua.set_string(b); return 1; }
     if (op == "state") {
         char b[96];
-        snprintf(b, sizeof(b), "%d %ld %ld %ld %s %d %d", (g_sigMode || !g_hooked) ? -1 : g_wr.phase, (long)g_wrStarts, (long)g_wrEnds, (long)g_wrRefusals,
+        snprintf(b, sizeof(b), "%d %ld %ld %ld %s %d %d", (FeatSigOff() || !g_hooked) ? -1 : g_wr.phase, (long)g_wrStarts, (long)g_wrEnds, (long)g_wrRefusals,
                  g_wr.phase ? (g_wr.side == 2 ? "FS" : "BS") : "-", g_wrLastCode, g_wa.armed ? 1 : 0);
         lua.set_string(b);
         return 1;
     }
     if (op == "end") { InterlockedExchange(&g_wrEndAsk, 1); lua.set_integer(1); return 1; }
     if (op == "touch") {                                       // (v132) "<1 the wheels on the wall / 0> <cm off it> <cm/s along it>": the rolling sound's (the Lua's)
-        char b[64]; const bool on = !g_sigMode && g_hooked && g_wr.phase == 1 && std::isfinite(g_wr.clearNow) && g_wr.clearNow <= g_wrCfg.gap + 3.0f;
+        char b[64]; const bool on = !FeatSigOff() && g_hooked && g_wr.phase == 1 && std::isfinite(g_wr.clearNow) && g_wr.clearNow <= g_wrCfg.gap + 3.0f;
         snprintf(b, sizeof(b), "%d %.1f %.0f", on ? 1 : 0, std::isfinite(g_wr.clearNow) ? (double)g_wr.clearNow : 999.0, std::isfinite(g_wr.measV) ? (double)g_wr.measV : 0.0);
         lua.set_string(b);
         return 1;
@@ -17142,8 +17378,8 @@ constexpr int ALT_BM_CATCHMODE = 0x536, ALT_BM_CTRL = 0x5c0, ALT_BM_PITCH = 0x62
 constexpr int ALT_BM_CURVE = 0x870, ALT_BM_CURVE_T = 0x874, ALT_BM_CURVE_FROM = 0x87c, ALT_BM_ROLL_T = 0x890, ALT_BM_ROLL_DUR = 0x894, ALT_BM_ROLL_FROM = 0x898, ALT_BM_ROLL_TO = 0x89c;   // the pitch curve (a byte: its EPitchMode, 2 = the trick's END curve) | the animation's roll lerp (UBTFS +0x496..+0x508)
 constexpr int ALT_TDW_INDEX = 0x314, ALT_TDW_EVENTS = 0x318, ALT_TDW_COUNT = 0x320, ALT_TDW_EV = 0x1c, ALT_TDW_EV_NAME = 0x4, ALT_TDW_EV_ROLL = 0x10;   // the trick display's pending events
 constexpr int ALT_FTD_NAME = 0x30, ALT_FTD_FOOT = 0x38, ALT_FTD_FLIP = 0x1b0, ALT_FTD_SCOOP = 0x1c8;      // UFlipTrickDefinition: Name, FootPosition (a byte), TrickFlipData / TrickScoopData TargetAngleMin
-constexpr uintptr_t RVA_ALT_SWRAW = 0xff86d0;    // ASkaterCharacterBase::IsSkatingSwitchRaw() const -> bool (left/right-foot mode only)
-constexpr uintptr_t RVA_ALT_LABQ = 0xfbdbc0;     // USkateboardExMovementComponent::GetLocalAnimatorBoardQuat() const -> FQuat (the return pointer in rdx)
+uintptr_t RVA_ALT_SWRAW = 0xff86d0;    // ASkaterCharacterBase::IsSkatingSwitchRaw() const -> bool (left/right-foot mode only)
+uintptr_t RVA_ALT_LABQ = 0xfbdbc0;     // USkateboardExMovementComponent::GetLocalAnimatorBoardQuat() const -> FQuat (the return pointer in rdx)
 typedef bool (*AltSwRawFn)(const void* sk);
 typedef Q4* (*AltLabqFn)(const void* bm, Q4* out);
 extern uintptr_t RVA_FNAME_TOSTR_BUF;            // (with the controller's key hook, below)
@@ -17169,7 +17405,7 @@ typedef uint32_t (*AltNameStrFn)(const void* fname, wchar_t* out, uint32_t n);
 //  - the FEET go out to the board's sides along its tumble axis (AltMonsterSplay, AltMonsterSplayStyle) and come back on the REAL
 //    deck's angle to upright; a bank (AltMonsterWobble) through the roll hold and a heading drift (AltMonsterDrift, 0 at every whole
 //    turn) on the yaw channel, so the board is not a perfect pinwheel.
-constexpr uintptr_t RVA_ALT_GBFSM = 0x1024670;   // FlipTricksHandler::GetBoardFlipSpeedMultiplier(const UFlipTrickDefinition*, EInputType, const TArray<FInputData>*) const -> float
+uintptr_t RVA_ALT_GBFSM = 0x1024670;   // FlipTricksHandler::GetBoardFlipSpeedMultiplier(const UFlipTrickDefinition*, EInputType, const TArray<FInputData>*) const -> float
 typedef float (*AltGbfsmFn)(const void* fth, const void* def, uint8_t flick, const void* inputs);
 constexpr int ALT_FTH_IH = 0x18, ALT_FTH_DB = 0x28, ALT_FTH_PENDING = 0xb8, ALT_IH_ACTIVE = 0x80;                     // the flip tricks handler: its input handler, its tricks database, the trick decided and not yet executed | the input handler's TArray<FInputData>* (0x24 a record: +0 type, +8 LS, +0x10 RS)
 constexpr int ALT_FTD_INPUTS = 0xd8, ALT_FTD_FLIPINMIN = 0xf8, ALT_FTD_FLIPINMAX = 0xfc, ALT_FTD_MANUALTOL = 0x290;    // UFlipTrickDefinition: Inputs (TArray<uint8>, count +8), FlipInputSpeedMin/MaxMultiplier, CatchManualFlipAngleThreshold
@@ -20178,7 +20414,7 @@ void HospBoard(const uint8_t* bm, char* b, size_t n) {   // the board as the cas
    The game's late trick is kept off through its air (AltLateBlock, as the monster's turn does): the flick must not start one.
    NOT done (no proven channel): the pivot at the front-foot end (the board turns about its middle, as the monster's), the ground part
    (the game's own flip trick from the casper stays the way out there), the trick display's name (the log line names it). */
-constexpr uintptr_t RVA_HOSP_SETCASPERS = 0x1003fe0;   /* ASkaterCharacterBase::SetCaspers(bool casper, bool anti) */
+uintptr_t RVA_HOSP_SETCASPERS = 0x1003fe0;   /* ASkaterCharacterBase::SetCaspers(bool casper, bool anti) */
 typedef void (*HospSetCasFn)(void* sk, bool casper, bool anti);
 constexpr int HOSP_IAH_CODB = 0x10, HOSP_CODB_THR = 0x30, HOSP_IAH_CLOCK = 0x6c, HOSP_IAH_MAY = 0x74, HOSP_IAH_IN = 0x75, HOSP_IAH_ANTI = 0x76, HOSP_IAH_CRANK = 0x78;
 constexpr float HOSP_THR_LENT = 4.0f, HOSP_LEND_MAX = 3.0f, HOSP_FEET_BACK = 40.0f, HOSP_AIR_MAX = 2.5f;
@@ -20724,7 +20960,7 @@ void AltTick(void* mesh) {
     const bool idle = A.s.in == 0 && A.sn.in == 0 && T.phase == 0;   /* (246) + the nollie set's crouch */
     if (g_altCfgPendOk && idle) { g_altCfg = g_altCfgPend; g_altCfgPendOk = false; }
     if (idle && g_altDefsNew && InterlockedExchange(&g_altDefsNew, 0)) { AcquireSRWLockShared(&g_altLock); memcpy(g_altDef, g_altDefIn, sizeof(g_altDef)); ReleaseSRWLockShared(&g_altLock); }
-    if (g_altDead || g_sigMode || !g_hooked) { AltDrop(A, "the alt flip set is off for this run"); return; }
+    if (g_altDead || FeatSigOff() || !g_hooked) { AltDrop(A, "the alt flip set is off for this run"); return; }
     if (g_altPauseUntil != 0) { if (GetTickCount64() < g_altPauseUntil) { AltDrop(A, "paused after a fault"); return; } g_altPauseUntil = 0; Log("alt flips: on again after the fault (%d this run)", g_altFaults); }
     const bool winOpen = GetTickCount64() < g_altOkUntil;
     const bool endAsk = InterlockedExchange(&g_altEndAsk, 0) != 0;
@@ -21700,10 +21936,10 @@ void AltForget(const char* why) {                  // a new skater, mesh or map:
 }
 // ---- the settings and the definitions (the Lua's thread)
 int AltCfgTake(const double* a, int got) {
-    if (g_sigMode || !g_hooked) {
+    if (FeatSigOff() || !g_hooked) {
         if (!g_altSigTold) {
             g_altSigTold = true;
-            Log("alt flips: not on this build of the game (another build than Epic's 30 March exe, or the pose hook is not in): the alt set writes parts of the game that were only checked on that exe -- it stands down");
+            Log("alt flips: not on this build of the game (another build than Epic's 30 March exe and %s, or the pose hook is not in) -- the alt set and the hospital stand down", g_featMissing[0] ? g_featMissing : "the feature signatures were not looked for");
             AltNews("info", "not on this build of the game: the alt flip set stands down (the native log says why)");
         }
         return -1;
@@ -21745,7 +21981,7 @@ int AltDefCheck(int i, uintptr_t d, char* why, size_t n) {   // the definition t
 }
 int SafeAltDefCheck(int i, uintptr_t d, char* why, size_t n) { __try { return AltDefCheck(i, d, why, n); } __except (GrabFilter(GetExceptionCode())) { snprintf(why, n, "a fault reading it"); return 0; } }
 int AltDefsTake(const double* a, int got) {        // (alt2) 12 slots: the ollies, the varial flips, the varial heels (fewer numbers = the rest none)
-    if (g_sigMode || !g_hooked) return -1;
+    if (FeatSigOff() || !g_hooked) return -1;
     uintptr_t d[12] = {}; int okN = 0, asked = 0; char why[900] = "";
     for (int i = 0; i < 12; i++) {
         const uintptr_t p = (i < got && std::isfinite(a[i]) && a[i] > 65536.0 && a[i] < 1.8e19) ? (uintptr_t)a[i] : 0;
@@ -21762,7 +21998,7 @@ int AltDefsTake(const double* a, int got) {        // (alt2) 12 slots: the ollie
     return okN;
 }
 int AltOk(double s) {
-    if (g_sigMode || !g_hooked) return -1;
+    if (FeatSigOff() || !g_hooked) return -1;
     if (g_altDead) return 0;
     const ULONGLONG now = GetTickCount64();
     if (std::isfinite(s) && s > 0.0) g_altOkUntil = now + (ULONGLONG)(clampf((float)s, 0.0f, 1.0f) * 1000.0f);
@@ -21791,7 +22027,7 @@ int AltSelfTest(char* out, size_t n) {
             mode, mode == 2 ? "front/back-foot" : mode == 1 ? "left/right-foot" : mode == 3 ? "Legacy: OFF" : "none: OFF", (mode == 1 || mode == 2) ? (AltBackLeft(mode, fp == 2 || fp == 4, goofy) ? "LEFT" : "RIGHT") : "-",
             goofy ? "goofy" : "regular", (int)fp, st[0], st[1], st[2], st[3], wOk ? "found" : "NOT found", wOk ? *(const int32_t*)(w + ALT_TDW_COUNT) : 0, wOk ? *(const int32_t*)(w + ALT_TDW_INDEX) : 0,
             (int)bm[BM_MODE], defs, g_alt.downSign > 0.0f ? "+1 (learned)" : "-1", fm, AltFlickModeName(fm), cm, cm == 2 ? "manual" : cm == 1 ? "auto" : "?", AltDeadZone(pc),
-            (!g_sigMode && Exe()[RVA_ALT_GBFSM] == 0xE9) ? "; the game's flip-speed function is hooked by another mod (SessionTweaks' FlipSpeed): the monster takes its answer, and with its FlipSpeed on it counts the alt ollie as a flip trick for its catch rules" : "");   // (review B F4)
+            (!FeatSigOff() && Exe()[RVA_ALT_GBFSM] == 0xE9) ? "; the game's flip-speed function is hooked by another mod (SessionTweaks' FlipSpeed): the monster takes its answer, and with its FlipSpeed on it counts the alt ollie as a flip trick for its catch rules" : "");   // (review B F4)
     }
     snprintf(out, n, "ok %d checks; %s", checks, g);
     return checks;
@@ -21830,7 +22066,7 @@ int nAlt(const Lua& lua) {                                       // (a std::stri
     if (op == "state") {
         const AltT& A = g_alt;
         const int tph = g_altForgetAsk ? 0 : A.t.phase;   // (243) a new skater, mesh or map: the trick being forgotten is not reported (the Lua lets go of its trick slot at once)
-        const int ph = (g_sigMode || !g_hooked || g_altDead) ? -1 : (tph ? tph : ((A.s.in || A.sn.in) ? 1 : 0));   /* (246) + the nollie set's crouch */
+        const int ph = (FeatSigOff() || !g_hooked || g_altDead) ? -1 : (tph ? tph : ((A.s.in || A.sn.in) ? 1 : 0));   /* (246) + the nollie set's crouch */
         char b[128];
         const bool hn = !tph && HospNameLive(NowS());   /* (253 review) no alt trick: a driven hospital's name (kind 11, the note at HospNm) */
         snprintf(b, sizeof(b), "%d %d %llu %ld %d %d %d", ph, ((tph && !A.t.dol && A.t.kind == 9 && A.t.usSweep) ? 3 : 0) + (tph ? (A.t.dol ? (A.t.por ? 10 : 5) : A.t.kind) : 0) + (hn ? 11 : 0), (unsigned long long)(tph ? A.t.def : (hn ? g_hospNm.def : 0)), (long)A.t.n, tph ? A.t.names : (hn ? 1 : 0), (A.s.in == 1) ? (A.engLeft ? 2 : 1) : (A.sn.in == 1 && A.nMir) ? (A.nLeft ? 2 : 1) : 0, A.nFlip ? (A.nFlipLeft ? 2 : 1) : (A.fwrote && !A.nMir && !A.fwPor) ? (A.fwLeft ? 2 : 1) : 0);   // (review F10) + the mirror now: 0 none, 1 the right stick, 2 the left stick; (v134 review) + the front stick turned over now (the dolphin's), the same way
@@ -21901,6 +22137,18 @@ int g_mreg = 0, g_mtries = 0;
 volatile int g_menuOwn = 0;                    // (v60) HJN_Set("menuown", 1): our own pages even when SessionOpenMP's seam is loaded (its menu is off in mods.txt)
 void MenuLock() { if (!g_mlockOk) { InitializeCriticalSection(&g_mlock); g_mlockOk = true; } EnterCriticalSection(&g_mlock); }
 void MenuUnlock() { LeaveCriticalSection(&g_mlock); }
+// (267 guideimg) the trick guide PICTURE the Lua shows over the pause menu: 0 = none, 1..4 = flip, nollie, other, grabs.
+// Set here when A picks a "Picture" row (TrickGuideImg<n>), cleared by B, a page swap or the game rebuilding its pause page;
+// each change is queued to the Lua as "GuideImg=<n>;" (no ini key: NATIVE.menuDrain reads it first).
+volatile int g_guideImg = 0;
+void GuideQueue(int n) {
+    char one[32]; snprintf(one, sizeof(one), "GuideImg=%d;", n);
+    MenuLock();
+    if (strlen(g_mqueue) + strlen(one) < sizeof(g_mqueue) - 1) strcat(g_mqueue, one);
+    MenuUnlock();
+    Log("menu host: trick guide picture %d", n);
+}
+void GuideOff() { if (g_guideImg) { g_guideImg = 0; GuideQueue(0); } }
 MenuVal* MenuFind(const char* key) { for (int i = 0; i < g_mvalN; i++) if (strcmp(g_mval[i].key, key) == 0) return &g_mval[i]; return nullptr; }
 int MenuKind(const char* key) {
     for (int p = 0; p < g_mpageN; p++) for (int r = 0; r < g_mpage[p].n; r++) if (strcmp(g_mpage[p].row[r].key, key) == 0) return g_mpage[p].row[r].kind;
@@ -21994,7 +22242,7 @@ int nMenuPage(const Lua& lua) {
     lua.set_integer(g_mpageN);
     return 1;
 }
-// HJN_MenuRow(kind 1 toggle / 2 slider / 3 page, key, label, description, min, max, step, off label, on label) -> rows on the page
+// HJN_MenuRow(kind 0 info (read-only: label and description, a press does nothing; 266) / 1 toggle / 2 slider / 3 page, key, label, description, min, max, step, off label, on label) -> rows on the page
 int nMenuRow(const Lua& lua) {
     double kind = 0, lo = 0, hi = 1, step = 1; std::string key, label, desc, off, on;
     ArgNum(lua, kind); ArgStr(lua, key); ArgStr(lua, label); ArgStr(lua, desc); ArgNum(lua, lo); ArgNum(lua, hi); ArgNum(lua, step); ArgStr(lua, off); ArgStr(lua, on);
@@ -22127,7 +22375,7 @@ void* DetourInstall(uint8_t* target, const void* hook, int n, const uint8_t* exp
 // SessionTweaks' stick push after it, the foot IK). Arguments read off the two calls in UpdateFootAnchors: (this, dt,
 // catch info, the deck-attached target, the anchor, the catch socket, bool, last turn, out place, out turn, alpha, float).
 // Epic's exe only (the bytes are checked): on another build no hook, and the legs are drawn as before (GameFeet()).
-constexpr uintptr_t RVA_FOOTIKDATA = 0xf57de0;   // void USkaterAnimInstance::GetFootIKData(float, const FCatchFootInfo&, const FTransform&, const FTransform&, const FTransform&, bool, const FQuat&, FVector&, FQuat&, float&, float&) const
+uintptr_t RVA_FOOTIKDATA = 0xf57de0;   // void USkaterAnimInstance::GetFootIKData(float, const FCatchFootInfo&, const FTransform&, const FTransform&, const FTransform&, bool, const FQuat&, FVector&, FQuat&, float&, float&) const
 typedef void (*FootIKDataFn)(const void* self, float dt, const void* ci, const void* defXf, const void* ancXf, const void* catXf, bool b, const void* prevQ, float* outLoc, float* outRot, float* alpha, float* f2);
 FootIKDataFn o_FootIK = nullptr;
 bool FaApply(const float* anc, float* loc, float* rot, float w) {   // POD only (the caller's __try): FTransform = rotation (0), translation (+0x10), scale (+0x20)
@@ -22262,7 +22510,7 @@ void FaInstall() {
 // trick, the nightmare's, every flip of the game's own) passes untouched. HJN_Set("altflipveto", 0) lets them through (to compare).
 // Epic's exe only (its first 18 bytes checked: 5 + 1 + 4 + 8, nothing relative; the cmp's flags reach the je at +0x29 through the
 // trampoline's jump); not in, GameFeet() is off: the legs drawn by the mod and the flip animation not borrowed (HJN_Alt("gamefeet")).
-constexpr uintptr_t RVA_SK_FLIPBOARD = 0xff2d50;   // void ASkaterCharacterBase::FlipBoard(float, float, ECatchMode): (speed, angle) as the notify @0xf5fab0 passes them
+uintptr_t RVA_SK_FLIPBOARD = 0xff2d50;   // void ASkaterCharacterBase::FlipBoard(float, float, ECatchMode): (speed, angle) as the notify @0xf5fab0 passes them
 typedef void (*SkFlipBoardFn)(void* self, float speed, float angle, uint8_t mode);
 SkFlipBoardFn o_SkFlipBoard = nullptr;
 void hkSkFlipBoard(void* self, float speed, float angle, uint8_t mode) {
@@ -22285,7 +22533,7 @@ void hkSkFlipBoard(void* self, float speed, float angle, uint8_t mode) {
 // see in the air is that set: the recordings of builds 240 and 241) -- and while held the index is put on that slot here too (the one
 // with a loop), so a frame the Lua is late for still shows your flip's set. The game thread; plain bytes only. Epic's exe only (18 bytes
 // checked: 2 + 1 + 8 + 7, nothing relative; the stack cookie's load at +0x12 stays in place); not in, the graph takes its catch as in 241.
-constexpr uintptr_t RVA_SAI_NUA = 0xf5e700;   // void USkaterAnimInstance::NativeUpdateAnimation(float)
+uintptr_t RVA_SAI_NUA = 0xf5e700;   // void USkaterAnimInstance::NativeUpdateAnimation(float)
 constexpr int SAI_AUTOCATCH = 0x320, SAI_HASLOOP = 0x494, SAI_FLIPPING = 0x495, SAI_LANDING = 0x5fd;   // IsAutoCatching, HasTrickLoop, IsBoardFlipping, IsLanding (their SetBit functions)
 constexpr int SAI_SETINDEX = 0x4e8, SAI_SLOT1_LOOP = 0x4f0 + 0x8, SAI_SLOT2_LOOP = 0x530 + 0x8;   // FlipTrickAnimSetIndex; FlipTrickAnimSet01 / 02 (FTrickAnimationSet: Trick, TrickLoop +0x8, Catch +0x10, Land +0x18)
 typedef void (*NuaFn)(void* self, float dt);
@@ -22337,7 +22585,7 @@ void FbInstall() {
 // pose. Its place along the ground is the game's. The pose publishes the weight, the game's pelvis height and the ride (g_wrBt); the hook
 // only reads them (it runs in the board's physics substep: plain data, its own __try; nothing older than 0.25 s is taken). Epic's exe
 // only (its first 20 bytes are checked): elsewhere no hook, and the body keeps the game's height (the lean of builds 236-241)
-constexpr uintptr_t RVA_WR_BTARGET = 0xff3220;   // FVector USkaterMovementComponent::GetControlledBoardTargetLocation() (the return pointer in rdx)
+uintptr_t RVA_WR_BTARGET = 0xff3220;   // FVector USkaterMovementComponent::GetControlledBoardTargetLocation() (the return pointer in rdx)
 typedef V3* (*WrBtFn)(void* smc, V3* out);
 WrBtFn o_WrBt = nullptr;
 bool WrBtApply(V3* r) {                          // POD only (the caller's __try)
@@ -22489,14 +22737,14 @@ typedef uint32_t (*FNameToStrFn)(const void* fname, wchar_t* out, uint32_t n);
 //    pitch the game's (+0x40..+0x44).
 // A fault turns the hook's part off (the original runs from then on); another thread than the game's passes through; another board
 // than our skater's passes through. Without the hook (another exe, other bytes) the Lua plays its own 2D copy (main.lua's fallback).
-constexpr uintptr_t RVA_SB_IDLEROLL = 0xf7cde0;        // void ASkateboardEx::AdjustOnBoardIdleRollingAudio(float)
-constexpr uintptr_t RVA_RAM_SPAWNATT = 0x340e400;      // static UAudioComponent* UReplayAudioManager::SpawnSoundAttached(USoundBase*, USceneComponent*, FName, FVector, FRotator, EAttachLocation::Type, bool, float, float, float, USoundAttenuation*, USoundConcurrency*, bool)
-constexpr uintptr_t RVA_RAM_SETVOL = 0x340dbd0;        // static void UReplayAudioManager::SetVolumeMultiplier(UAudioComponent*, float)
-constexpr uintptr_t RVA_RAM_SETPITCH = 0x340d6a0;      // static void UReplayAudioManager::SetPitchMultiplier(UAudioComponent*, float)
-constexpr uintptr_t RVA_SU_SURFAUDIO = 0x11981e0;      // static void FSessionUtils::UpdateAudioWithSurfaceType(UAudioComponent*, int)
-constexpr uintptr_t RVA_SB_WEARDIRT = 0xfa3c00;        // void ASkateboardEx::UpdateAudioWithWearAndDirt(UAudioComponent*, EGrindContactBoardParts)
-constexpr uintptr_t RVA_GS_SURFTYPE = 0x2c47ca0;       // static EPhysicalSurface UGameplayStatics::GetSurfaceType(const FHitResult&)
-constexpr uintptr_t RVA_WEAKOBJ_GET = 0x153f7b0;       // UObject* FWeakObjectPtr::Get() const
+uintptr_t RVA_SB_IDLEROLL = 0xf7cde0;        // void ASkateboardEx::AdjustOnBoardIdleRollingAudio(float)
+uintptr_t RVA_RAM_SPAWNATT = 0x340e400;      // static UAudioComponent* UReplayAudioManager::SpawnSoundAttached(USoundBase*, USceneComponent*, FName, FVector, FRotator, EAttachLocation::Type, bool, float, float, float, USoundAttenuation*, USoundConcurrency*, bool)
+uintptr_t RVA_RAM_SETVOL = 0x340dbd0;        // static void UReplayAudioManager::SetVolumeMultiplier(UAudioComponent*, float)
+uintptr_t RVA_RAM_SETPITCH = 0x340d6a0;      // static void UReplayAudioManager::SetPitchMultiplier(UAudioComponent*, float)
+uintptr_t RVA_SU_SURFAUDIO = 0x11981e0;      // static void FSessionUtils::UpdateAudioWithSurfaceType(UAudioComponent*, int)
+uintptr_t RVA_SB_WEARDIRT = 0xfa3c00;        // void ASkateboardEx::UpdateAudioWithWearAndDirt(UAudioComponent*, EGrindContactBoardParts)
+uintptr_t RVA_GS_SURFTYPE = 0x2c47ca0;       // static EPhysicalSurface UGameplayStatics::GetSurfaceType(const FHitResult&)
+uintptr_t RVA_WEAKOBJ_GET = 0x153f7b0;       // UObject* FWeakObjectPtr::Get() const
 constexpr int SB_AUDIO = 0x330, SB_ROLL = 0x338, SB_SKATER = 0x4d8, SB_ATTACH = 0x4e8;   // the board: its audio data, its rolling loop, its skater, the part the sound rides on
 constexpr int AD_CUE = 0x30, AD_VOL0 = 0x38, AD_VOL1 = 0x3c, AD_PIT0 = 0x40, AD_PIT1 = 0x44, AD_WEAR = 0x499;   // the audio data: the cue, the curves, WearAndDirtIndex
 constexpr int AC_VT_ISPLAYING = 0x568, AC_VT_STOP = 0x560;   // UAudioComponent's vtable: IsPlaying, Stop
@@ -22549,7 +22797,7 @@ void WsSurfNote(const RaySurf* s, int ride) {
     InterlockedExchange(&g_wsHasMat, s->hasMat); InterlockedExchange(&g_wsSurf, s->surf); InterlockedExchange(&g_wsSurfRide, ride);
 }
 int WsSurfStr(char* b, size_t n) {
-    const int ph = (g_sigMode || !g_hooked) ? -1 : g_wr.phase;
+    const int ph = (FeatSigOff() || !g_hooked) ? -1 : g_wr.phase;
     snprintf(b, n, "%ld %ld %d %s", (g_wsSurfRide == g_wr.n && g_wr.n) ? (long)g_wsSurf : -1L, (long)g_wsHasMat, ph, g_wsMat[0] ? g_wsMat : "-");
     return 1;
 }
@@ -22580,7 +22828,7 @@ bool WsRoll(uint8_t* b) {
         }
         return false;
     }
-    if (g_sigMode || !g_hooked) return false;
+    if (FeatSigOff() || !g_hooked) return false;
     const float vol = g_wsVol;
     if (!(vol > 0.0f)) return false;
     if (!S.latched) {
@@ -22985,7 +23233,7 @@ const TArrayHdr* HostChoose(uint8_t* page, const TArrayHdr* items, TArrayHdr* ou
     if (!def) return items;
     if (!HostBuild()) { HostDie("the rows could not be built"); return items; }
     if (*(const uint64_t*)((const uint8_t*)def + DEF_KEY) != g_pauseKey) return items;   // another menu of the game's
-    if (!g_selfRefresh && g_hpage != -1) g_hpage = -1;      // the game built the pause page itself: opened afresh, the root
+    if (!g_selfRefresh && g_hpage != -1) { g_hpage = -1; GuideOff(); }      // the game built the pause page itself: opened afresh, the root (267: no picture left up)
     if (items && items->data && items->num > 0 && !g_tplHave) {
         const uint8_t* it = (const uint8_t*)items->data;
         g_tplPlat = *(const uint32_t*)(it + IT_PLATFORMS); g_tplEditor = it[IT_EDITORONLY]; g_tplDelay = *(const float*)(it + IT_DELAY); g_tplHave = true;
@@ -23083,6 +23331,7 @@ void HostRefresh(uint8_t* page) {
     g_rebuilding = false; g_selfRefresh = false;
 }
 void HostQueue(void* page, const char* title, bool rootTitle) {
+    GuideOff();                                                  /* (267 guideimg) a page swap takes the picture away */
     g_pendingPage = page; g_pendingRefresh = true; g_pendingRoot = rootTitle;
     if (title) snprintf(g_pendingTitle, sizeof(g_pendingTitle), "%s", title); else g_pendingTitle[0] = 0;
 }
@@ -23141,6 +23390,7 @@ void hkEngineTick(void* engine, float dt, bool idle) {
 }
 bool HostBack(void* page) {
     if (g_hpage < 0 || !page) return false;
+    if (g_guideImg) { GuideOff(); return true; }                 /* (267 guideimg) B with a picture up: the picture goes, the page stays */
     const int up = g_hparent[g_hpage];
     if (up >= 0 && up < g_mpageN) { g_hparent[g_hpage] = -1; g_hpage = up; HostQueue(page, g_mpage[up].title, false); return true; }
     g_hpage = -1; HostQueue(page, nullptr, true);
@@ -23159,6 +23409,16 @@ bool HostConfirm(uint8_t* page, uint8_t* params) {
     if (key == g_backKey) return HostBack(page);
     const MenuPage& pg = g_mpage[g_hpage];
     for (int r = 0; r < pg.n; r++) {
+        if (key == g_hkeys[g_hpage][r] && pg.row[r].kind == MENU_ACTION) {   /* (266 trickguide) an info row: read only, the press is ours */
+            if (strncmp(pg.row[r].key, "TrickGuideImg", 13) == 0) {          /* (267 guideimg) a picture row: show that picture (A again: off) */
+                const int n = atoi(pg.row[r].key + 13);
+                if (n >= 1 && n <= 4) {
+                    if (g_guideImg == n) GuideOff();
+                    else { g_guideImg = n; GuideQueue(n); }
+                }
+            } else GuideOff();
+            return true;
+        }
         if (key != g_hkeys[g_hpage][r] || pg.row[r].kind != MENU_PAGE) continue;
         const int target = PageByTitle(pg.row[r].key);
         if (target < 0 || target == g_hpage) return true;
@@ -23918,6 +24178,7 @@ int nSet(const Lua& lua) {
     else if (k == "cavehandout") g_cvHandOut = std::isfinite(v) ? clampf((float)v, 0.0f, 20.0f) : 6.0f;   // (cave, fix) CavemanHandOut: cm further out than the rolling grab's spot the caveman's hand holds the edge
     else if (k == "cavetilt") g_cvTilt = std::isfinite(v) ? clampf((float)v, 10.0f, 85.0f) : 65.0f;   // (cave 243) CavemanTilt: the most the caveman leans off upright with the bend, deg
     else if (k == "cavebendrate") g_cvBendDps = std::isfinite(v) ? clampf((float)v, 30.0f, 3000.0f) : 720.0f;   // (cave 243) CavemanBendRate: deg/s the bend comes and goes at
+    else if (k == "guideimg") { if (std::isfinite(v) && v < 0.5) g_guideImg = 0; }   /* (267 guideimg) the Lua showed no picture (or took it away itself): B is the menu's again */
     else if (k == "menuup") g_menuUp = (std::isfinite(v) && v > 0.5) ? 1 : 0;   // (menufocus 263) a pause menu is up (the Lua's NATIVE.menuWatch): the key work in hkInputKey does nothing
     else if (k == "cavetapwait") g_cvTapWait = std::isfinite(v) ? clampf((float)v, 0.0f, 217.0f) : 150.0f;   // (cave 243) CavemanTapWait: ms the stance's own moves wait for a second Y
     else if (k == "cavelegmin") g_cvLegMin = std::isfinite(v) ? clampf((float)v, 0.2f, 0.85f) : 0.45f;   // (cave 244) CavemanLegMin: the least share of a leg's length (hip to ankle) in the caveman's crouch

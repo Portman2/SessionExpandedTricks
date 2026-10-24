@@ -51,7 +51,7 @@
 -- ============================================================================
 
 ------------------------------------------------------------------- settings
-local MOD_VERSION = "1.1.0"               -- (v121) the release version (the Lua and native halves keep their own build numbers)
+local MOD_VERSION = "1.1.1"               -- (v121) the release version (the Lua and native halves keep their own build numbers)
 local S = {
     Height = 60.0,
     GameGravity   = 1,
@@ -161,6 +161,8 @@ local S = {
     DropSafety    = 1,
     DebugBoardLog = 1,
     TrickNames    = 1,
+    GuideImg      = 1,                     -- (267 guideimg) 1 = the Trick Guide page's "Picture" rows show the trick guide pictures (Mods\ExpandedTricks\guide\*.png) over the pause menu; 0 = words only
+    GuideImgZ     = 1000,                  -- (267 guideimg) the picture's place in the screen's stack over the pause menu's (AddToViewport ZOrder 100000 + this; 269)
     GrabStart     = 1,
     GrabFollowStickMode = 1,
     GrabToeSide = 1,
@@ -688,6 +690,8 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "DropSafety",    "num", 0, 1,    "1 = if the GAME pops a real ollie under you mid-jump (or goes airborne with LiftMethod=0),\n; hand control back to the game (lift fades, its own air + landing take over)" },
     { "DebugBoardLog", "num", 0, 1,    "1 = log movement-state changes and body/board heights during each jump to ExpandedTricks.log" },
     { "TrickNames",    "num", 0, 1,    "1 = hippie jumps and grabs show up in the game's own trick display (\"180 Hippie Jump\", \"Crail Grab\")\n; -- the game's own text line, stacking and fading with its other trick names. 0 = off" },
+    { "GuideImg",      "num", 0, 1,    "1 = the pause menu's Trick Guide page has four Picture rows: A on one shows that part of the trick guide as a picture\n; (Mods\\ExpandedTricks\\guide\\TrickGuide_*.png) over the menu, B takes it away. 0 = off (the words only)" },
+    { "GuideImgZ",     "num", -100000, 100000, "how far over the pause menu the trick guide picture goes in the screen's stack (ZOrder 100000 + this): raise it if the picture shows UNDER the menu" },
     { "GrabFollowStickMode", "num", 0, 1, "1 = the bumpers follow the game's stick mode (Options > Gameplay: left foot / right foot, or front foot / back foot). In the left-foot / right-foot mode (and Legacy) LB is the LEFT hand and RB the right, as the sticks are the left and the right foot: the two change places whenever your left foot is the back one -- a regular rider riding switch, a goofy rider riding forward -- for the air grabs, the two-hand grabs, the rolling grabs, the boneless and the bean plant. In the front-foot / back-foot mode LB is always the front hand. 0 = LB is the front hand whatever the mode (as before build 199)" },
     { "GrabToeSide",   "num", 0, 2,    "which way a grab's stick is pushed for the TOE-side grabs (Mute, Taipan, Indy, Canadian Bacon; the other way for the heel-side ones: Melon, Chicken Salad, Stalefish, Roast Beef). 1 = toward the side of the board your toes are on as you see it from behind: right for a regular rider rolling forward, LEFT for a goofy one, and the other way round riding switch. 0 = right, always (the game's own map, as before build 201). 2 = left, always" },
     { "GrabStart",     "num", 0, 1,    "GRABS are the game's own. 1 = press and HOLD LB or RB in the air to grab (let go to let go):\n; LB = front hand, the LEFT stick's direction picks it: up Nose, toward your toes Mute, toward your heels Melon,\n;      down and toward your toes Taipan, down and toward your heels Chicken Salad, down Seatbelt\n; RB = back hand, the RIGHT stick (the game reads its up/down the other way round): pulled DOWN Crail, down and toward\n;      your toes Canadian Bacon, down and toward your heels Roast Beef, toward your toes Indy, toward your heels Stalefish, pushed UP Tail\n; (Your toes: right for a regular rider rolling forward, left for a goofy one, the other way round riding switch -- GrabToeSide.\n;  Which bumper is which hand in the game's left-foot / right-foot stick mode: GrabFollowStickMode.)\n; The mod starts the grab because the game would only while its catch-orient is up. Needs IsGrabsEnabled in the game's\n; ExperimentalSaveSlot.sav (see the log). 0 = off" },
@@ -772,7 +776,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "CavemanTime", "num", 100, 217, "ms from the Y press for the caveman's board to come from your hand to under your feet (the game puts you on it 217 ms after the press)" },
     { "CavemanOut", "num", 0, 60, "cm in front of you the caveman's board swings out on its way down (it comes in under your feet from there)" },
     { "CavemanLift", "num", 0, 40, "cm over the spot under your feet the caveman's board is when it is that far out" },
-    { "CavemanTurn", "num", 0, 1, "how far round the caveman turns your body toward your stance in the air, as the board comes under your feet (feet and body together, before the game puts you on):\n; 1 = all the way (20 deg short of the feet's line, as the game's own pose stands), 0.75 = three quarters (the game turns the rest after it puts you on), 0 = not at all\n; (the feet are put on the board turned as they ride against your hips). Takes the native half v163" },
+    { "CavemanTurn", "num", 0, 1, "how far round the caveman turns your body toward your stance in the air, as the board comes under your feet (feet and body together, before the game puts you on):\n; 1 = all the way (20 deg short of the feet's line, as the game's own pose stands), 0.75 = three quarters (the game turns the rest after it puts you on), 0 = not at all\n; (the feet are put on the board turned as they ride against your hips). Takes the native half v167" },
     { "CavemanKeepFall", "num", 0, 1, "1 = after the caveman's mount the board is given back the speed you were falling (or rising) at: the game's mount sets it to 0\n; and you hang for a moment; 0 = the game's own" },
     { "CavemanHold", "num", 0, 1.5, "seconds at most the caveman's hand holds the board (a Melon with the front hand, an Indy with the back hand: the hand that carried it) once you are on the board in the air, with the knees\n; up and the hips down as in a rolling grab; it lets go CavemanLetGo before touchdown in any case. 0 = no grab" },
     { "CavemanSquat", "num", 0, 55, "cm at most the hips come down toward the board in the caveman's grab (no leg is folded under 35 % of its length for it: the back leans on)" },
@@ -806,7 +810,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "CavemanHandReach", "num", 0, 1, "1 = the caveman's holding arm reaches for the board again once his crouch is drawn deeper: the elbow straightens as far as it needs and the hand comes down onto the board with the shoulder; 0 = build 247's (the hand kept where the arm reached before the crouch: elbow bent, hand over the board)" },
     { "CavemanHandLean", "num", 0, 45, "deg at most the caveman's upper body leans from the waist toward the board while his hand holds it, when the straight arm is still short of its spot: down, forward and toward that side, eased in over the hold and let go with the grab -- the resting grip on the board, not over it;\n; 0 = build 248's (the hand 13-20 cm over the board)" },
     { "CavemanHeadEase", "num", 0, 30, "poses the caveman's head is handed back to the game over once the hand lets go (his look ahead held whole while the hand holds): no snap;\n; 0 = build 248's (let go with the feet's hold)" },
-    { "WallRide", "num", 0, 1, "WALLRIDES. 1 = fly into a wall at a shallow angle in any air on the board (an ollie; a flip once its spin is over) and you ride along it for a moment,\n; the board on the wall: automatic, no button. A head-on hit is left to the game (it bails you). 0 = off, the game's own. Takes the native half v163" },
+    { "WallRide", "num", 0, 1, "WALLRIDES. 1 = fly into a wall at a shallow angle in any air on the board (an ollie; a flip once its spin is over) and you ride along it for a moment,\n; the board on the wall: automatic, no button. A head-on hit is left to the game (it bails you). 0 = off, the game's own. Takes the native half v167" },
     { "WallRideMaxAngle", "num", 5, 60, "no longer used since build 233 (WallRideMaxApproach replaced it: an ini keeps a key's old value for ever, and build 232's 35 refused 24 of 35 tries)" },
     { "WallRideMinSpeed", "num", 100, 1500, "cm/s along the ground you need to start a wallride" },
     { "WallRideMinHeight", "num", 10, 200, "cm the board must be over the ground to start a wallride (lower leaves no time to get on and off the wall)" },
@@ -873,7 +877,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "WallRideGroundWallieRate", "num", 100, 1500, "degrees a second that nose pitch (WallRideGroundWallie) comes at as a wallride from the ground takes off: 600 is up 45 in about 0.08 s. New in build 253" },
     { "WallRideGroundWallieBody", "num", 0, 45, "degrees your body leans back toward the tail while the board's nose is pitched up (WallRideGroundWallie) as a wallride\n; from the ground takes off: your weight over the tail, your feet on the pitched board, your knees bent, back to the ride's line as the\n; board flattens on the wall. 0 = the feet on the board only. New in build 253" },
     { "StickClickPass", "num", 0, 1, "1 = a stick click the mod does not use goes on to the game (L3 opens the missions); one it uses (a hippie jump, a mini hop, a board hop, a click grab) does not;\n; 0 = every stick click goes to the game as well (as before build 225: the mission viewer came up with every hippie jump)" },
-    { "AltFlips", "num", 0, 1, "ALT FLIP SET. 1 = push the back-foot stick UP to crouch for a second set of flip tricks (front/back-foot or left/right-foot stick mode; not in Legacy):\n; front stick pulled DOWN = Monster Flip, pushed UP = Dolphin Flip (AltFrontSwap); the varial flip's scoop, swept from up toward the SAME side as your varial's, and its flick = Nightmare Flip;\n; the varial heel's, the same way, = Daydream Flip; every other trick from that crouch is the game's own. 0 = off (up does nothing, as in the game). Takes the native half v163" },
+    { "AltFlips", "num", 0, 1, "ALT FLIP SET. 1 = push the back-foot stick UP to crouch for a second set of flip tricks (front/back-foot or left/right-foot stick mode; not in Legacy):\n; front stick pulled DOWN = Monster Flip, pushed UP = Dolphin Flip (AltFrontSwap); the varial flip's scoop, swept from up toward the SAME side as your varial's, and its flick = Nightmare Flip;\n; the varial heel's, the same way, = Daydream Flip; every other trick from that crouch is the game's own. 0 = off (up does nothing, as in the game). Takes the native half v167" },
     { "AltFlipEngage", "num", 0.25, 0.95, "how far UP the back-foot stick must go (0..1 of its throw past the game's dead zone) to crouch for the alt set; it must point within 40 deg of straight up (sideways is the game's pressure tricks)" },
     { "AltFlipRelease", "num", 0.1, 0.6, "the back-foot stick let back inside this (0..1) ends the alt crouch; after an alt trick it must come back inside it once before the next alt crouch (kept under AltFlipEngage)" },
     { "AltMonster", "num", 0, 1, "MONSTER FLIP: alt crouch + front stick pulled DOWN (AltFrontSwap; handed to the game as its ollie) and the board turns end over end (about its short axis) in the air: one full turn,\n; or in manual catch until you catch it (AltMonsterCatch); 0 = the alt ollie stays an ollie" },
@@ -6879,7 +6883,7 @@ NATIVE.wallTick = function()                          -- every frame of our skat
     if type(HJN_Wall) ~= "function" then
         if on and not W.said.old then
             W.said.old = true
-            log("wallride: the native half beside this file (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall: it is not the one made with this main.lua (v163, with wallrides) -- NOT TAKEN: no wallrides on this run")   -- (fixer, Lua review F7: by the function, not the number)
+            log("wallride: the native half beside this file (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall: it is not the one made with this main.lua (v167, with wallrides) -- NOT TAKEN: no wallrides on this run")   -- (fixer, Lua review F7: by the function, not the number)
         end
         return
     end
@@ -6971,7 +6975,7 @@ NATIVE.wallCfg = function(force)                      -- from NATIVE.sync: the s
         took = ok and tonumber(r) or 0
     end
     local tail = ""
-    if took == nil then tail = " -- NOT TAKEN: the native half (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall; these need the v163 made with this main.lua"   -- (fixer, Lua review F7)
+    if took == nil then tail = " -- NOT TAKEN: the native half (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall; these need the v167 made with this main.lua"   -- (fixer, Lua review F7)
     elseif took == -1 then tail = " -- stood down: not on this build of the game (ExpandedTricks.native.log says why)"
     elseif took > 0 and took < #n then tail = " -- an older native half took the first " .. tostring(took) .. " of " .. #n .. ": WallRideMaxApproach is its approach limit there, and the carve, the slam guard and the exit turn are not in it (copy the native half made with this main.lua)"
     elseif took ~= #n then tail = " -- REFUSED by the native half (" .. tostring(took) .. " of " .. #n .. " taken; ExpandedTricks.native.log says why)" end
@@ -8138,7 +8142,12 @@ NATIVE.MENU = {
         { "slider", "WallRideSound", "Wallride: wheel sound volume", 100, 10, "The volume of the wheels rolling on the wall in a wallride (the game's own rolling sound, on the wall's own material), as a percentage (%). 0 = no sound.", 0, 2, unit = "%" },
         { "toggle", "WallRideFromGround", "Wallride from the ground", 1, 1, "Ride into a wall at a shallow angle, fast enough, and the board goes up onto it into a wallride, no ollie needed. Benches, ledges, curbs and ramps are left alone. Needs Wallrides on." },
     } },
+    -- (266 trickguide) "see if you can bake the trick guide into the game ... maybe as a popup in the menu screen": every trick
+    -- and its input, one read-only row each; highlight a row and its description panel says how. Rows: NATIVE.trickGuideRows below
+    { "Trick Guide", {
+    } },
     { "Expanded Tricks", {
+        { "page", "Trick Guide", "Trick Guide", 1, 0, "Every trick the mod adds and how to do it. Highlight a trick to read its input here; pressing a row does nothing." },
         { "page", "General gameplay settings", "General gameplay settings", 1, 0, "Top speed, push strength, throwdown speed, left-stick steering, on-screen trick names and automatic updates." },
         { "page", "Quick", "Quick settings", 1, 0, "The most used switches and sliders from all the pages, in one place." },
         { "page", "Hippie Jumps", "Hippie Jumps", 1, 0, "The hippie jump and the mini hippie jump: their heights, spinning in the air, jumping back onto your board, and the caveman." },
@@ -8162,6 +8171,198 @@ NATIVE.menuQuick = function()
     table.insert(NATIVE.MENU, 1, { "Quick", rows })
 end
 NATIVE.menuQuick()
+-- (266 trickguide) THE TRICK GUIDE: the release README's Controls table, in words, one entry a trick: { label, the input in the
+-- front foot / back foot stick mode for a regular rider riding forward [, the left foot / right foot mode's input when it is not
+-- just the first one traded, or true: the same in both modes] [, a whole description instead (the note rows)] [, note = a sentence added
+-- when it fits] }. The second column is made by NATIVE.tgSwap: the game's left-foot / right-foot mode with the left foot at the back (goofy forward, regular switch) is the first with the sticks,
+-- bumpers, triggers, clicks and every left / right traded (a 12 to 9 sweep becomes 12 to 3). The game has a rich-text button
+-- decorator (TRX "<button key=...>"), but whether the pause menu's description panel parses it is not known offline: words,
+-- written lower case so the swap is exact.
+NATIVE.TRICK_GUIDE = {
+    { "How to read this guide", nil, nil, "Highlight a trick to read its input here. F/B: the front foot / back foot stick mode (Options > Gameplay), riding regular and forward. L/R: the left foot / right foot mode, left foot at the back (goofy forward, regular switch)." },
+    { "Riding goofy or switch", nil, nil, "F/B mode riding goofy forward or regular switch: the F/B input with every left and right swapped (a 12 to 9 sweep becomes 12 to 3). Goofy riding switch: your left foot leads again, so the F/B input in either mode." },
+    { "Hippie jump", "left stick down + R3, or right stick down + L3", true },
+    { "Mini hippie jump", "L3 + R3 together", true },
+    { "180 / 360 hippie jump", "a hippie jump, then LT or RT held in the air", true },
+    { "Alternate crouch", "right stick up from a centred stick, held (the alt flip set)" },
+    { "Monster Flip", "right stick up, held; then left stick down" },
+    { "Dolphin Flip", "right stick up, held; then left stick up" },
+    { "Porpoise Flip", "right stick up, held; then left stick up, leaning 20 to 30 deg toward your heelflip's side (right)" },
+    { "Nightmare Flip", "right stick up; sweep it round from 12 to 9 o'clock; then left stick left" },
+    { "Daydream Flip", "right stick up; sweep it round from 12 to 3 o'clock; then left stick right" },
+    { "Kickflip Underflip", "right stick up, held; then left stick left; in the air, the board upside down: left stick right" },
+    { "Heelflip Cancel Flip", "right stick up, held; then left stick right; in the air, the board upside down: left stick left" },
+    { "BS Shuv-it Underflip", "right stick up; sweep it 12 to 9, let go; late in the air: left stick right" },
+    { "FS Shuv-it Underflip", "right stick up; sweep it 12 to 3, let go; late in the air: left stick left" },
+    { "BS Shuv-it Under Varial Flip", "right stick up; sweep it 12 to 6 round by 9 (135 deg or more), let go; late in the air: left stick right" },
+    { "FS Shuv-it Under Varial Flip", "right stick up; sweep it 12 to 6 round by 3 (135 deg or more), let go; late in the air: left stick left" },
+    { "Alternate nollie crouch", "left stick down from a centred stick, held (the alt nollie set)" },
+    { "Nollie Monster Flip", "left stick down, held; then right stick down" },
+    { "Nollie Dolphin Flip", "left stick down, held; then right stick up" },
+    { "Nollie Porpoise Flip", "left stick down, held; then right stick up, leaning toward your heelflip's side (right)" },
+    { "Nollie Nightmare Flip", "left stick down; sweep it 6 to 9 (or 6 to 3); then right stick left" },
+    { "Nollie Daydream Flip", "left stick down; sweep it 6 to 3 (or 6 to 9); then right stick right" },
+    { "Nollie Kickflip Underflip", "left stick down, held; then right stick left; in the air, the board upside down: right stick right" },
+    { "Nollie Heelflip Cancel Flip", "left stick down, held; then right stick right; in the air, the board upside down: right stick left" },
+    { "Nollie BS Shuv-it Underflip", "left stick down; sweep it 6 to 3, let go; late in the air: right stick left" },
+    { "Nollie FS Shuv-it Underflip", "left stick down; sweep it 6 to 9, let go; late in the air: right stick right" },
+    { "Nollie BS Shuv-it Under Varial", "left stick down; sweep it 6 to 12 round by 3, let go; late in the air: right stick left" },
+    { "Nollie FS Shuv-it Under Varial", "left stick down; sweep it 6 to 12 round by 9, let go; late in the air: right stick right" },
+    { "Hospital Flip", "right stick up, held; then left stick left; once caught in a casper: left stick down", note = "Needs Caspers on (the game's experimental settings)." },
+    { "Wallride", "automatic: in the air on the board, fly into a wall at a shallow angle; stick up on the wall pops you off", true },
+    { "Wallride from the ground", "roll into a wall at a shallow angle holding the crouch", true },
+    { "Caveman", "on foot, board in hand: X (jump), then Y in the air; Y tapped twice for a switch caveman", true },
+    { "No comply", "right stick left, then left stick down" },
+    { "Boneless", "RB, then right stick left, then left stick down" },
+    { "Bean plant", "LB, then right stick left, then left stick down" },
+    { "Grabs", "in the air: LB + left stick (front hand) or RB + right stick (back hand); LB + RB together for a two-hand grab" },
+    { "Grab tweak", "holding a grab, turn its stick round the rim, e.g. an Indy: RB + right stick right, then 3 to 1 or 3 to 5",
+        "holding a grab, turn its stick round the rim, e.g. an Indy: LB + left stick left, then 9 to 11 or 9 to 7", note = "Bone or rotate: the Grabs page." },
+    { "Rolling grab", "while riding: RB (back hand) or LB (front hand)" },
+    { "Finger flip", "RB or LB + a flip trick's flick", true },
+    { "Drop-in", "on foot, board in hand, at an edge: Y (Y tapped twice: in switch); then stick up to go, LB / RB to step back, Y to step off", true },
+    { "Jump onto the board", "L3 or R3 near the board", true },
+}
+NATIVE.TG_SWAP = { left = "right", right = "left", LB = "RB", RB = "LB", LT = "RT", RT = "LT", L3 = "R3", R3 = "L3", ["3"] = "9", ["9"] = "3" }
+NATIVE.tgSwap = function(s)                           -- the left foot / right foot mode, left foot back: everything traded
+    return (s:gsub("%w+", function(w) return NATIVE.TG_SWAP[w] end))
+end
+NATIVE.tgText = function(e)                           -- a row's description: both modes, or the first and the rule when both do not fit
+    if e[4] then return e[4] end
+    local fb, lr = e[2], (type(e[3]) == "string") and e[3] or NATIVE.tgSwap(e[2])
+    local d = (e[3] == true) and ("Either stick mode: " .. fb .. ".") or ("F/B: " .. fb .. ".  L/R: " .. lr .. ".")
+    if #d > 239 then d = "F/B: " .. fb .. ".  L/R: the same with sticks, bumpers and left / right traded." end
+    if e.note and #d + 1 + #e.note <= 239 then d = d .. " " .. e.note end
+    return d
+end
+-- (267 guideimg) THE TRICK GUIDE AS PICTURES. "The game itself, under this pause menu, then skate guide, then trick lists ... almost
+-- brings up like a static image ... The image would be better." (The game's own list is a table its code builds, with an arrow
+-- FONT; ours are pictures drawn in its style from the README's Controls table: guide.html in the release's source tools.)
+-- The rows, in the order of the pictures (NATIVE.GI.pages) and of the native keys TrickGuideImg1..4:
+NATIVE.GI_ROWS = {
+    { "Flip tricks", "Press A to see the alternate flip set (and the hospital flip) as a picture: both stick modes. B takes it away." },
+    { "Nollie flip tricks", "Press A to see the alternate nollie set as a picture: both stick modes. B takes it away." },
+    { "Other tricks", "Press A to see the hippie jumps, the plants, the wallrides, the caveman and the drop-in as a picture. B takes it away." },
+    { "Grabs", "Press A to see the grabs, the tweaks, the two-hand grabs, the rolling grab and the finger flip as a picture. B takes it away." },
+}
+NATIVE.trickGuideRows = function()                    -- fills the Trick Guide page's rows: { "info", key, label, 1, 0, description }
+    for _, pg in ipairs(NATIVE.MENU) do
+        if pg[1] == "Trick Guide" and #pg[2] == 0 then
+            for i, p in ipairs(NATIVE.GI_ROWS) do     -- (267 guideimg) the pictures first: { "info", "TrickGuideImg<n>", label, 1, 0, description }
+                pg[2][#pg[2] + 1] = { "info", "TrickGuideImg" .. i, p[1], 1, 0, p[2] }
+            end
+            -- (269) the word rows are gone: "get rid of all the other non-picture ones" (24 Oct)
+        end
+    end
+end
+NATIVE.trickGuideRows()
+NATIVE.GI = { pages = { "flip", "nollie", "other", "grabs" }, tex = {}, host = nil, img = nil, shown = 0, failed = 0, gone = 0 }
+NATIVE.GI_DIR = "Mods\\ExpandedTricks\\guide\\"
+NATIVE.GI_MENUZ = 100000                           -- (269) the game's pause menu's ZOrder (ShowPauseMenu: AddToViewport(100000))
+NATIVE.GI_HOST = "/TRX/UI/WBP_ControllerKeyWidget.WBP_ControllerKeyWidget_C"   -- the game's smallest picture widget: a canvas + one image
+NATIVE.guidePath = function(name) return NATIVE.GI_DIR .. "TrickGuide_" .. name .. ".png" end
+NATIVE.guideFail = function(why)                       -- no picture: one line, and the native half lets B be the menu's again
+    NATIVE.GI.failed = NATIVE.GI.failed + 1
+    log("trick guide picture: " .. why .. " -- no picture (the menu goes on as before)")
+    if type(HJN_Set) == "function" then pcall(HJN_Set, "guideimg", 0) end
+    return false
+end
+NATIVE.guideTex = function(name)                       -- the picture as a transient texture, imported once and kept (rooted)
+    local GI = NATIVE.GI
+    if GI.tex[name] then return GI.tex[name] end
+    local path = NATIVE.guidePath(name)
+    local fh = io.open(path, "rb")
+    if not fh then NATIVE.guideFail(path .. " is missing") return nil end
+    fh:close()
+    local krl = alive(q(function() return StaticFindObject("/Script/Engine.Default__KismetRenderingLibrary") end))
+    if not krl then NATIVE.guideFail("no KismetRenderingLibrary") return nil end
+    local tex = alive(q(function() return krl:ImportFileAsTexture2D(GI.host or krl, path) end))
+    if not tex then NATIVE.guideFail("ImportFileAsTexture2D gave nothing for " .. path) return nil end
+    if type(HJN_Root) == "function" then pcall(HJN_Root, q(function() return tex:GetAddress() end, 0)) end   -- nothing of the game's points at it
+    GI.tex[name] = tex
+    log(string.format("trick guide picture: %s imported (%s x %s)", path,
+        tostring(q(function() return tex:Blueprint_GetSizeX() end, "?")), tostring(q(function() return tex:Blueprint_GetSizeY() end, "?"))))
+    return tex
+end
+NATIVE.guideHost = function()                          -- one host widget for the whole game, made the first time
+    local GI = NATIVE.GI
+    if GI.host and GI.img and alive(GI.host) and alive(GI.img) then return true end
+    GI.host, GI.img = nil, nil
+    local cls = alive(q(function() return StaticFindObject(NATIVE.GI_HOST) end))
+    if not cls then pcall(function() LoadAsset(NATIVE.GI_HOST) end) cls = alive(q(function() return StaticFindObject(NATIVE.GI_HOST) end)) end
+    local wbl = alive(q(function() return StaticFindObject("/Script/UMG.Default__WidgetBlueprintLibrary") end))
+    local pc = alive(SB.pc) or alive(q(function() return NATIVE.first("SessionPlayerController") end))
+    if not (cls and wbl and pc) then
+        return NATIVE.guideFail(string.format("host class %s, widget library %s, controller %s", tostring(cls ~= nil), tostring(wbl ~= nil), tostring(pc ~= nil)))
+    end
+    local host = alive(q(function() return wbl:Create(pc, cls, pc) end))
+    local img = host and alive(q(function() return host.Image_Button end))      -- its one image: ours now (brushed after it is on the screen,
+    local slot = img and alive(q(function() return img.Slot end))               -- as the widget sets its own key icon when it is made)
+    if not (img and slot) then return NATIVE.guideFail("the host widget has no image on a canvas") end
+    if type(HJN_Root) == "function" then pcall(HJN_Root, q(function() return host:GetAddress() end, 0)) end
+    GI.host, GI.img = host, img
+    log("trick guide picture: host made (" .. NATIVE.GI_HOST .. ", its image laid out over the screen once it is up)")
+    return true
+end
+NATIVE.guideLayout = function()                       -- (268 guidesize) the image sized to the whole screen AFTER it is up: the widget's own
+    local GI = NATIVE.GI                               -- construct sizes its slot to its KeySize (UTRXControllerKeyWidget::NativePreConstruct ->
+    local slot = alive(q(function() return GI.img.Slot end))   -- UCanvasPanelSlot::SetSize), so the size goes in through its own SetKeySize too
+    if not slot then return "no slot" end
+    local wll = alive(q(function() return StaticFindObject("/Script/UMG.Default__WidgetLayoutLibrary") end))
+    local pc = alive(SB.pc) or GI.host
+    local vs = wll and q(function() return wll:GetViewportSize(pc) end)
+    local sc = wll and tonumber(q(function() return wll:GetViewportScale(pc) end, 1)) or 1
+    local vw, vh = tonumber(vs and q(function() return vs.X end)), tonumber(vs and q(function() return vs.Y end))
+    local how = "viewport"
+    if not (vw and vh and vw > 0 and vh > 0) then vw, vh, sc, how = 1920, 1080, 1, "viewport size unread, 1920 x 1080" end
+    if not sc or sc <= 0 then sc = 1 end
+    local w, h = vw / sc, vh / sc
+    pcall(function() slot:SetAnchors({ Minimum = { X = 0.0, Y = 0.0 }, Maximum = { X = 0.0, Y = 0.0 } }) end)
+    pcall(function() slot:SetAlignment({ X = 0.0, Y = 0.0 }) end)
+    pcall(function() slot:SetPosition({ X = 0.0, Y = 0.0 }) end)
+    local okK = pcall(function() GI.host:SetKeySize({ X = w, Y = h }) end)
+    local okS = pcall(function() slot:SetSize({ X = w, Y = h }) end)
+    pcall(function() GI.img:SetBrushSize({ X = w, Y = h }) end)
+    local rw = q(function() return slot:GetSize().X end, "?")
+    return string.format("sized %.0f x %.0f (%s %.0f x %.0f, scale %.2f; SetKeySize %s, SetSize %s, read back %s)", w, h, how, vw, vh, sc, tostring(okK), tostring(okS), tostring(rw))
+end
+NATIVE.guideShow = function(n)                         -- (game thread) n = 1..4 a picture, 0 = take it away
+    local GI = NATIVE.GI
+    if n == 0 then
+        if GI.shown ~= 0 and GI.host then q(function() GI.host:RemoveFromParent() end) log("trick guide picture: off") end
+        GI.shown = 0
+        return true
+    end
+    local name = GI.pages[n]
+    if not name then return NATIVE.guideFail("no picture " .. tostring(n)) end
+    if S.GuideImg == 0 then return NATIVE.guideFail("GuideImg=0 in the ini") end
+    if not NATIVE.guideHost() then return false end
+    local tex = NATIVE.guideTex(name)
+    if not tex then return false end
+    if GI.shown == 0 then
+        local z = NATIVE.GI_MENUZ + math.floor(tonumber(S.GuideImgZ) or 1000)   -- (269) over the pause menu's layer
+        if not pcall(function() GI.host:AddToViewport(z) end) then return NATIVE.guideFail("AddToViewport failed") end
+    end
+    if not pcall(function() GI.img:SetBrushFromTexture(tex, false) end) then        -- after AddToViewport: the widget's own construct brushes its key icon
+        q(function() GI.host:RemoveFromParent() end)
+        GI.shown = 0
+        return NATIVE.guideFail("SetBrushFromTexture failed")
+    end
+    local lay = NATIVE.guideLayout()
+    GI.shown, GI.gone = n, 0
+    log("trick guide picture: showing " .. name .. " -- " .. tostring(lay))
+    return true
+end
+NATIVE.guideWatch = function()                         -- (game thread, after NATIVE.menuWatch) the pause menu gone two looks running: the picture too
+    local GI = NATIVE.GI
+    if GI.shown == 0 then return end
+    if NATIVE.mg and NATIVE.mg.a then GI.gone = 0 return end
+    GI.gone = GI.gone + 1
+    if GI.gone >= 2 then
+        NATIVE.guideShow(0)
+        if type(HJN_Set) == "function" then pcall(HJN_Set, "guideimg", 0) end
+    end
+end
 NATIVE.menuRow = {}
                                     -- ini key -> its row (for the units and limits)
 NATIVE.menuSend = function()
@@ -8190,7 +8391,9 @@ NATIVE.menuSend = function()
             for _, r in ipairs(pg[2]) do
                 local kind, key, label, scale, step, desc = r[1], r[2], r[3], r[4], r[5], r[6]
                 local sp = by[key]
-                if kind == "page" then
+                if kind == "info" then                     -- (266 trickguide) read-only: the native half's kind 0 (its label and description; a press does nothing)
+                    if (tonumber(HJN_MenuRow(0, key, label, desc, 0, 0, 0, "", "")) or 0) > 0 then rows = rows + 1 end
+                elseif kind == "page" then
                     if not (own and key == "Quick") and (tonumber(HJN_MenuRow(3, key, label, desc, 0, 0, 0, "", "")) or 0) > 0 then rows = rows + 1 end   -- (review: it returns the page's running count)
                 elseif not sp or sp[2] ~= "num" then
                     log("menu: no ini setting called " .. tostring(key) .. " -- row skipped")
@@ -8216,7 +8419,12 @@ end
 NATIVE.menuDrain = function()                          -- what the player changed in the menu -> the ini
     if type(HJN_MenuTake) ~= "function" then return end
     local q = tostring(HJN_MenuTake() or "")
+    if NATIVE.GI and NATIVE.GI.shown ~= 0 then NATIVE.gt(function() pcall(NATIVE.guideWatch) end, "guide watch") end   -- (267) a picture up: the pause menu gone, it goes too
     if q == "" then return end
+    for gi in q:gmatch("GuideImg=(%d+);") do                  -- (267 guideimg) a picture row pressed / B / the page left: no ini key
+        local n = math.floor(tonumber(gi) or 0)
+        NATIVE.gt(function() local ok, err = pcall(NATIVE.guideShow, n) if not ok then NATIVE.guideFail("error: " .. tostring(err)) end end, "guide")
+    end
     local changed = false
     for key, v in q:gmatch("([%w_]+)=([%-%d%.e]+);") do
         local r, n = NATIVE.menuRow[key], tonumber(v)
@@ -8493,7 +8701,7 @@ function NATIVE.sync()
         -- (v191, review) AN OLDER NATIVE HALF BESIDE THIS FILE (main.lua copied by hand, or main.dll not replaced because the
         -- game held it): everything runs, what needs the newer one is left out -- and nothing said so
         if (tonumber(NATIVE.v) or 0) < (NATIVE.WANT or 0) then
-            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then what needs the newer one is left out, each saying so in its own line (wallrides need v163: without it the log says NOT TAKEN)")
+            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then what needs the newer one is left out, each saying so in its own line (wallrides need v167: without it the log says NOT TAKEN)")
             NATIVE.upd = NATIVE.upd or {}
             if not NATIVE.upd.show then NATIVE.upd.show, NATIVE.upd.tries = "Expanded Tricks: native half is old - see the log", 0 end
         end
@@ -11794,8 +12002,8 @@ end
 -- latest release's update.txt: its version, build number, the game build it is for and the two files' SHA-256). With
 -- AutoUpdate=2 a newer build is downloaded, checked and put in place for the next start; with 1 you are only told.
 -- NATIVE.BUILD is this file's own build number: the release's update.txt carries the same number, and that is what is compared.
-NATIVE.BUILD = 265
-NATIVE.WANT = 163      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
+NATIVE.BUILD = 269
+NATIVE.WANT = 167      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
 NATIVE.updateTick = function(live)
     local U = NATIVE.upd or {}
     NATIVE.upd = U
@@ -12075,7 +12283,7 @@ LoopAsync(2000, function()
     return false
 end)
 
-log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v265 / native v163)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
+log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v269 / native v167)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
 
 -- the game's grabs need IsGrabsEnabled in its experimental save (the profile loads it at start-up). (v121) If it is off or
 -- missing, the save is PATCHED here: a BoolProperty tag put into FExperimentalSettings -- the bytes the game's own serializer

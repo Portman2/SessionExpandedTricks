@@ -92,7 +92,9 @@ foreach ($f in @($luaPath, $dllPath, $cppPath,
         (Join-Path $Root 'ue4ss\UE4SS.dll'), (Join-Path $Root 'ue4ss\dwmapi.dll'), (Join-Path $Root 'ue4ss\UE4SS-settings.ini'),
         (Join-Path $Root 'SessionGame\Binaries\Win64\Mods\ExpandedTricks\enabled.txt'), (Join-Path $Root 'SessionGame\Binaries\Win64\Mods\ExpandedTricksNative\enabled.txt'),
         (Join-Path $Root 'SessionGame\Binaries\Win64\Mods\ExpandedTricks\pack-logs.bat'), (Join-Path $Root 'SessionGame\Binaries\Win64\Mods\ExpandedTricks\pack-logs.ps1'),
-        (Join-Path $Root 'README.md'), (Join-Path $Root 'LICENSE'), (Join-Path $Root 'THIRD_PARTY.md'), (Join-Path $Root 'CHANGELOG.md'))) {
+        (Join-Path $Root 'README.md'), (Join-Path $Root 'LICENSE'), (Join-Path $Root 'THIRD_PARTY.md'), (Join-Path $Root 'CHANGELOG.md'),
+        (Join-Path $Root 'SessionGame\Binaries\Win64\Mods\ExpandedTricks\guide\TrickGuide_flip.png'), (Join-Path $Root 'SessionGame\Binaries\Win64\Mods\ExpandedTricks\guide\TrickGuide_nollie.png'),
+        (Join-Path $Root 'SessionGame\Binaries\Win64\Mods\ExpandedTricks\guide\TrickGuide_other.png'), (Join-Path $Root 'SessionGame\Binaries\Win64\Mods\ExpandedTricks\guide\TrickGuide_grabs.png'))) {
     if (-not (Test-Path -LiteralPath $f)) { $problems.Add("missing: " + $f) }
 }
 if (-not (Test-Path -LiteralPath $KeyFile)) { $problems.Add("no signing key at $KeyFile (the author's own; -KeyFile names another place, -NewKey makes one -- only before the first release)") }

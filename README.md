@@ -1,4 +1,4 @@
-# Expanded Tricks 1.1.0 for Session: Skate Sim
+# Expanded Tricks 1.1.1 for Session: Skate Sim
 
 New flip tricks (monster, dolphin, porpoise, nightmare, daydream, underflips, the hospital flip), wallrides, the caveman,
 hippie jumps, grabs, no complies, bonelesses, finger flips and drop-ins for Session, with its own settings pages in the
