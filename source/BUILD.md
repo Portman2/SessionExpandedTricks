@@ -36,12 +36,12 @@ if every one is found; the log lists what each signature found.
   `build_luareal.bat`, then copy `luareal.exe`, `dryrun.lua` and a copy of `UE4SS.dll` and `UE4SS-settings.ini` into
   `%USERPROFILE%\.expandedtricks\luareal\`: `make-release.ps1` then refuses a `main.lua` that does not start.
   Never run it inside a game's folder.
-- `tools/luareal/test_*.lua` (23 suites) each cut one piece out of `main.lua` and run it in real Lua against a stand-in
+- `tools/luareal/test_*.lua` (27 suites) each cut one piece out of `main.lua` and run it in real Lua against a stand-in
   for the game and the native half: `luareal -run test_<name>.lua result.txt main.lua`, each in its own empty folder;
   each writes its checks (`ok` / `FAIL`) to a `*_out.txt` there and fails the run if any check fails. The first
   comment lines of each file say what it covers (throwdown speed, the grab hands in both stick modes, the two-hand
   grabs and the bone, hops, the no comply's step-off, the drop-in's set-down, GO and arms, the trick display's
-  stutter fixes, the pause menu and its guard, other mods, the class layout check). Checks marked `[new]` must fail
+  stutter fixes, the pause menu and its guard, the stick clicks handed on to the game, the caveman, the wallride, the alternate flip set, other mods, the class layout check). Checks marked `[new]` must fail
   on the build before the one that added them. Run all of them after every change to `main.lua`.
 
 The Lua half needs no build: it is `Mods/ExpandedTricks/Scripts/main.lua`. `tools/snapshot_defaults.pl` rewrites its

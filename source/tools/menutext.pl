@@ -1,7 +1,7 @@
 use strict; use warnings;
 # menutext.pl <new main.lua> <old main.lua> <ExpandedTricks.ini> <out.txt> [check]
 # The in-game menus as plain text, from the mod's own menu table (NATIVE.MENU): one block a row, for the author to edit.
-# Also checks what the native half can hold: 8 pages, 48 rows a page, a label of 63 characters, a description of 239.
+# Also checks what the native half can hold: 12 pages (build 247; 8 before), 48 rows a page, a label of 63 characters, a description of 239.
 my ($new, $old, $ini, $out) = @ARGV;
 sub slurp { open my $f, '<', $_[0] or die "$_[0]: $!"; local $/; my $t = <$f>; close $f; $t =~ s/\r\n/\n/g; return $t; }
 my $t = slurp($new);
@@ -71,11 +71,12 @@ sub wrap {
 
 my ($bad, $nrows, %byKey, $root) = (0, 0);
 for my $p (@$pages) { for my $r (@{ $p->{rows} }) { $root = $p if $r->{kind} eq 'page'; $byKey{ $r->{key} } //= $r if $r->{kind} ne 'page'; } }
-print STDERR "PAGES: " . (scalar(@$pages) + 1) . " (with Quick; the native half holds 8)\n";
-$bad++ if @$pages + 1 > 8;
+print STDERR "PAGES: " . (scalar(@$pages) + 1) . " (with Quick; the native half holds 12 since build 247)\n";
+$bad++ if @$pages + 1 > 12;
 
 my $o = '';
-$o .= "EXPANDED TRICKS 1.0.0 -- THE IN-GAME MENUS AS PLAIN TEXT\n";
+my $modVersion = ($t =~ /\nlocal MOD_VERSION = "([0-9A-Za-z.\-]+)"/) ? $1 : '?';   # (264) the version main.lua says
+$o .= "EXPANDED TRICKS $modVersion -- THE IN-GAME MENUS AS PLAIN TEXT\n";
 $o .= "Made from the mod's own menu table (Lua v184) on 5 Oct 2026. This is exactly what the pause menu shows.\n\n";
 $o .= "HOW TO EDIT THIS FILE\n";
 $o .= "  - Change any Label: or Text: line. Leave the [Key] line alone: it says which setting the row belongs to.\n";
