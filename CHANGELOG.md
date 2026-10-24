@@ -1,7 +1,7 @@
 # Changelog
 
 ## 1.1.0 -- new flip tricks, wallrides and the caveman
-Lua build 265, native v162. For Session: Skate Sim 1.0.6.42 on PC (exe stamp 69ca6d05, built 30 March 2026). Everything
+Lua build 265, native v163. For Session: Skate Sim 1.0.6.42 on PC (exe stamp 69ca6d05, built 30 March 2026). Everything
 since 1.0.0 (builds 225 to 264). A 1.0.0 install with *Automatic updates* at 2 installs it by itself at its next start.
 How to do each trick: [docs/TRICKS.md](docs/TRICKS.md).
 
@@ -80,7 +80,7 @@ hop, a jump onto the board) is now kept from the game; one it does nothing with 
 
 ### Build by build
 The full history of these builds, for testers:
-- Build 265, native v162: the release's starting settings: Wallride from the ground is on and the Hospital Flip takes 0.4 s (`WallRideFromGround`, `AltHospitalSecs`; an ini that already has them keeps its values).
+- Build 265, native v163: the release's starting settings (and the native version moved with it, no code change): Wallride from the ground is on and the Hospital Flip takes 0.4 s (`WallRideFromGround`, `AltHospitalSecs`; an ini that already has them keeps its values).
 - Build 264, native v162: the Monster Flip's off-axis scoop runs through the whole rotation, not only its second half ("apply the dirtiness to the whole rotation"). Version 1.1.0: the README's trick guide, docs/TRICKS.md and this changelog rewritten for the release.
 - Build 263, native v161: Hospital Flip: the return 180 scoops -- the board turns about its own up (Z) axis, its rising end swinging out toward the toes and back (`AltHospitalZScoop` 35; negative scoops toward the heels), the face tilt reversed (`AltHospitalBankSide`), still landing grip up and reversed; the front foot rides just under the board's rising end at the board's own speed instead of passing through it (`AltHospitalFootGap`). Monster Flip: its second half gets a slighter scoop about the board's Z axis, back to straight before the catch (`AltMonsterZScoop` 18; 0 = the old monster). The heelflip version of the underflip is now named Heelflip Cancel Flip (the kickflip one stays Kickflip Underflip). Fixed: a pause menu left without the controller (after Windows' Start/Search window came in front) could not be closed -- the menu gets the controller back, and the mod's own button moves do nothing while it is up.
 - Build 262, native v160: shuv-it underflips follow one rule in every stance, foot and stick mode: the foot that pops the shove-it does the underflip (off the tail for regular and switch: backside = the kickflip's way, frontside = the heelflip's; off the nose for nollie and fakie: mirrored), started by the flick toward the other flip's side, rolling the way the game's own kickflip / heelflip rolls for your foot and stance -- fixing switch (the flip), nollie (the flick and the flip) and fakie (the flick). The Shuv-it Under Varial Flip's second half is a straight varial flip: the rest of the spin is paced with the flip so they finish together (`AltUnderShuvVarialSync`). Hospital Flip: only out of a kickflip casper (`AltHospitalKickOnly`); the front foot comes back toward the back foot as it lifts (`AltHospitalFootBack`); the return flip banks harder, always toward the toes (`AltHospitalToeScoop`).
