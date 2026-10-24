@@ -43,7 +43,7 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 167
+#define HJN_VERSION 168
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
@@ -8591,7 +8591,7 @@ bool UpdPaths(std::wstring& dll, std::wstring& lua) {
     lua = d + L"\\ExpandedTricks\\Scripts\\main.lua";
     return GetFileAttributesW(lua.c_str()) != INVALID_FILE_ATTRIBUTES;
 }
-uint32_t UpdExeStamp() {
+void UpdExtras(const std::string& t);   /* (270 updextras) below */ uint32_t UpdExeStamp() {
     const uint8_t* b = (const uint8_t*)GetModuleHandleW(nullptr);
     if (!b) return 0;
     const IMAGE_DOS_HEADER* dos = (const IMAGE_DOS_HEADER*)b;
@@ -8624,7 +8624,7 @@ void UpdRun() {
     bool verOk = !ver.empty() && ver.size() <= 24;
     for (char ch : ver) if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '.' || ch == '-')) verOk = false;
     if (!verOk || build <= 0) { UpdSay(5, "the release's update.txt could not be read -- not checked this time"); return; }
-    if (build <= g_updBuild) { UpdSay(2, "up to date (this is build %d; the latest release is %s, build %d)", g_updBuild, ver.c_str(), build); return; }
+    if (g_updMode >= 2) UpdExtras(t);   /* (270 updextras) the release's other files (the trick guide pictures) */ if (build <= g_updBuild) { UpdSay(2, "up to date (this is build %d; the latest release is %s, build %d)", g_updBuild, ver.c_str(), build); return; }
     const std::string stamp = UpdKey(t, "game_stamp", true);
     const uint32_t mine = UpdExeStamp();
     bool stampOk = stamp.empty() || stamp.size() == 8;           // (review) it goes into both logs: eight hex digits, as make-release.ps1 writes it, or nothing
@@ -24380,6 +24380,57 @@ class HippieNative : public RC::CppUserModBase {
     }
 };
 
+namespace {   /* (270) the declaration above is in it */
+// (270 updextras) the release's other files: update.txt (signed) lists them as extraN=<asset name> <path under Mods> <sha256>, N = 1..16.
+// Each is fetched from the same release when it is missing or differs from its checksum, and written only under Mods\ExpandedTricks.
+// It runs at every check with AutoUpdate=2, so a player whose updater put in only main.lua and main.dll gets them at the next start.
+bool UpdExtraName(const std::string& s, bool path) {
+    if (s.empty() || s.size() > 120 || s.find("..") != std::string::npos || s.find("//") != std::string::npos) return false;
+    for (char ch : s) if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_' || ch == '-' || ch == '.' || (path && ch == '/'))) return false;
+    return !path || (s.compare(0, 15, "ExpandedTricks/") == 0 && s.back() != '/');
+}
+void UpdExtras(const std::string& t) {
+    std::wstring dllPath, luaPath;
+    if (!UpdPaths(dllPath, luaPath)) return;
+    std::wstring mods = dllPath;
+    for (int up = 0; up < 3; up++) { const size_t a = mods.find_last_of(L"\\/"); if (a == std::wstring::npos) return; mods.resize(a); }
+    int have = 0, got = 0, bad = 0;
+    for (int i = 1; i <= 16; i++) {
+        char key[16]; snprintf(key, sizeof(key), "extra%d", i);
+        const std::string v = UpdKey(t, key, false);
+        if (v.empty()) continue;
+        const size_t s1 = v.find(' '), s2 = (s1 == std::string::npos) ? s1 : v.find(' ', s1 + 1);
+        if (s2 == std::string::npos) { bad++; continue; }
+        const std::string name = v.substr(0, s1), rel = v.substr(s1 + 1, s2 - s1 - 1);
+        std::string want = v.substr(s2 + 1);
+        for (char& ch : want) if (ch >= 'A' && ch <= 'Z') ch = (char)(ch - 'A' + 'a');
+        if (!UpdExtraName(name, false) || !UpdExtraName(rel, true) || want.size() != 64) { Log("update: extra file %d refused (its name, path or checksum is not one the updater writes)", i); bad++; continue; }
+        std::wstring dst = mods + L"\\";
+        for (char ch : rel) dst += (ch == '/') ? L'\\' : (wchar_t)ch;
+        std::vector<uint8_t> cur;
+        {
+            HANDLE f = CreateFileW(dst.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+            if (f != INVALID_HANDLE_VALUE) {
+                LARGE_INTEGER sz; DWORD rd = 0;
+                if (GetFileSizeEx(f, &sz) && sz.QuadPart > 0 && sz.QuadPart < (16 << 20)) { cur.resize((size_t)sz.QuadPart); if (!ReadFile(f, cur.data(), (DWORD)cur.size(), &rd, nullptr) || rd != cur.size()) cur.clear(); }
+                CloseHandle(f);
+            }
+        }
+        char h[65] = "";
+        if (!cur.empty() && Sha256Hex(cur.data(), cur.size(), h) && want == h) { have++; continue; }
+        const std::wstring wname(name.begin(), name.end());
+        std::vector<uint8_t> d;
+        const int st = UpdGet(wname.c_str(), d, 16u << 20);
+        if (st != 200 || d.empty() || !Sha256Hex(d.data(), d.size(), h) || want != h) { Log("update: extra file %s: download answered %d%s -- not written", rel.c_str(), st, st == 200 ? " but did not match its checksum" : ""); bad++; continue; }
+        for (size_t p = mods.size() + 1; (p = dst.find(L'\\', p)) != std::wstring::npos; p++) CreateDirectoryW(dst.substr(0, p).c_str(), nullptr);
+        const std::wstring tmp = dst + L".new";
+        if (!UpdWrite(tmp, d) || !MoveFileExW(tmp.c_str(), dst.c_str(), MOVEFILE_REPLACE_EXISTING)) { Log("update: extra file %s could not be written (error %lu)", rel.c_str(), GetLastError()); DeleteFileW(tmp.c_str()); bad++; continue; }
+        got++;
+        Log("update: extra file %s %s (%u bytes)", rel.c_str(), cur.empty() ? "fetched" : "brought up to date", (unsigned)d.size());
+    }
+    if (have + got + bad > 0) Log("update: the release's extra files: %d already here, %d fetched, %d not", have, got, bad);
+}
+}
 #define HJN_API __declspec(dllexport)
 extern "C" {
 HJN_API RC::CppUserModBase* start_mod() { return new HippieNative(); }

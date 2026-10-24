@@ -188,6 +188,14 @@ $txt = (@(
     "lua_sha256=$hl",
     "dll_sha256=$hd"
 ) -join "`n") + "`n"
+# (270) the release's other files, fetched by updaters from native v168 on: extraN=<asset name> <path under Mods> <sha256>
+$guideDir = Join-Path $Root 'SessionGame\Binaries\Win64\Mods\ExpandedTricks\guide'
+$extraN = 0
+foreach ($g in (Get-ChildItem -LiteralPath $guideDir -Filter '*.png' -File | Sort-Object Name)) {
+    $extraN++
+    Copy-Item -LiteralPath $g.FullName -Destination (Join-Path $Out $g.Name) -Force
+    $txt += "extra$extraN=$($g.Name) ExpandedTricks/guide/$($g.Name) $((Get-FileHash -LiteralPath $g.FullName -Algorithm SHA256).Hash.ToLower())`n"
+}
 $txtBytes = [System.Text.Encoding]::ASCII.GetBytes($txt)
 [System.IO.File]::WriteAllBytes((Join-Path $Out 'update.txt'), $txtBytes)
 # the signature over update.txt's exact bytes: r || s, 64 bytes, written as 128 hex digits
@@ -206,4 +214,5 @@ try {
 Write-Host ("Expanded Tricks {0}, build {1} (native v{2}, game build {3})" -f $version, $build, $native, $stamp)
 Write-Host ("  {0}  ({1:N1} MB)" -f $zip, ((Get-Item -LiteralPath $zip).Length / 1MB))
 foreach ($n in @('update.txt', 'update.txt.sig', 'main.lua', 'main.dll')) { Write-Host ("  {0}" -f (Join-Path $Out $n)) }
-Write-Host "Attach all five to one GitHub release (tag v$version). The updater reads the release marked 'latest'."
+Get-ChildItem -LiteralPath $guideDir -Filter '*.png' -File | ForEach-Object { Write-Host ("  {0}" -f (Join-Path $Out $_.Name)) }
+Write-Host "Attach all of them ($(5 + $extraN) files) to one GitHub release (tag v$version). The updater reads the release marked 'latest'."

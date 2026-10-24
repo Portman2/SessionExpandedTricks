@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.2 -- the trick guide pictures come with the automatic update
+Lua build 270, native v168. The in-game updater now fetches the release's other files too (the four trick guide pictures):
+an install that updated itself to 1.1.1 got only the two program files, and gets the pictures at its next start after this.
+Each file is checked against the checksum in the signed update.txt and written only into `Mods\ExpandedTricks`.
+
+### Build by build
+- Build 270, native v168: the updater fetches the extra files the signed update.txt lists (extra1..16), when they are missing or differ.
+
 ## 1.1.1 -- the trick guide in the game, and the new tricks on Steam
 Lua build 269, native v167. A 1.1.0 or 1.0.0 install with *Automatic updates* at 2 installs it by itself at its next start
 (the updater replaces the two program files; the trick guide pictures come with the zip and the installer).
