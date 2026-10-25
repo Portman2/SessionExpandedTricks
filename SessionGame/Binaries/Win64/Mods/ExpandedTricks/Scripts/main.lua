@@ -51,7 +51,7 @@
 -- ============================================================================
 
 ------------------------------------------------------------------- settings
-local MOD_VERSION = "1.1.2"               -- (v121) the release version (the Lua and native halves keep their own build numbers)
+local MOD_VERSION = "1.1.3"               -- (v121) the release version (the Lua and native halves keep their own build numbers)
 local S = {
     Height = 60.0,
     GameGravity   = 1,

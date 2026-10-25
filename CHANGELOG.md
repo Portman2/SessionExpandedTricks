@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased (in the repository, not yet in a release)
+## 1.1.3 -- grabs in grinds, the auto casper
+Lua build 274, native v172. Both new options are off until you turn them on. A 1.0.0 or 1.1.x install with *Automatic updates* at 2 installs it by itself at its next start.
+
 - **Grabs in grinds** (Grabs page, `GrindGrabs`, off by default): 1 = LB / RB grabs start and hold in a grind or slide, and the bumpers no longer lean you out of it; 2 = the same, and in a grind L3 / R3 lean you off to the left / right instead.
 - **Auto casper** (Flip Tricks page, `AltCasperCatch`, off by default): the alt crouch's kickflip locks into the game's casper at 180; then the front-foot stick back = hospital flip, a side flick = kickflip underflip. *Auto casper landing* (`AltCasperLand`): 1 flip out, 2 land in the casper, 3 bail.
 
