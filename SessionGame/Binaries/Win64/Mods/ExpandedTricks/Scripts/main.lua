@@ -171,6 +171,7 @@ local S = {
     ClickGrabs    = 0,
     GrabHold      = 1,
     GrabLetGo = 0,
+    GrindGrabs = 0,                        -- (271) 1 = GRABS IN A GRIND: LB / RB put a hand on the board while you grind; the bumpers then no longer lean you off the grind (ollie out or ride off the end); (273) 2 = the same, and L3 / R3 lean you off the grind instead (L3 to the left, R3 to the right, as LB / RB did)
     GrabMaxTime   = 3,
     GrabMinTime   = 0.25,
     GrabCrouch    = 0,
@@ -424,6 +425,9 @@ local S = {
     AltHospitalDrift = 4,                  -- (255) degrees the hospital flip's board's heading drifts through the 180, random side, back to exact at the catch (0..15) (native)
     AltHospitalDirt = 1.5,                 -- (257) how dirty the hospital flip's return flip is: x the bank and the drift, past 1 their sides paired (they add), an uneven turn and off-centre swells; 1 = build 256's (0..3) (native)
     AltHospitalCasperFoot = 1,             -- (259) 1 = THE ALTERNATE CASPER: a casper caught from the alt crouch's kickflip / heelflip keeps the back foot OFF the board (lifted over the tail) into the hospital flip; 0 = build 258's (native)
+    AltCasperLand = 1,                     -- (272) the auto casper not flicked out of by the landing: 1 = it flips out by itself (build 271's), 2 = it lands in the casper and rides on as the game's casper, 3 = it bails (native)
+    AltCasperMatch = 1,                    -- (274) 1 = the auto casper made like a manual one at the hospital's flick: the board's feet-catch held at 0 (a flip the game had already caught rolled the hospital's deck on its side) and the casper ratio 0 at the flick (native; logs both)
+    AltCasperCatch = 0,                    -- (271) 1 = AUTO CASPER: the alt crouch's kickflip locks into the game's casper when the board is upside down (180); then front stick BACK = hospital flip, a side flick = the underflip back, nothing = the game's casper (native; needs the game's Caspers on)
     AltHospitalKickOnly = 1,               -- (262) 1 = the hospital flip only out of a casper caught from a KICKFLIP (out of a heelflip the game's casper goes on); 0 = build 261's (native)
     AltHospitalFootBack = 12,              -- (262) cm the front foot is drawn back toward the back foot as it lifts in the hospital's turn (0..25; 0 = build 261's) (native)
     AltHospitalToeScoop = 8,               -- (262) degrees more bank in the hospital's return flip, always toward the rider's TOE side (0..20; 0 = build 261's random side) (native)
@@ -700,6 +704,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "ClickGrabs",    "num", 0, 1,    "1 = ALSO the mod's older stick-CLICK grabs: push a stick and click it (left = front hand, right = back\n; hand; the Grab... table below picks the grab). 0 = off" },
     { "GrabHold",      "num", 0, 1,    "1 = the grab lasts while you keep the stick pushed; let the stick go and you let go of the board.\n; 0 = the grab lasts until you are about to land (or click the same stick again)" },
     { "GrabLetGo",     "num", 0, 1,    "1 = you let go by yourself when the game says you are about to land.\n; 0 = you hold on as long as you like -- still holding the board when the wheels touch down = a bail" },
+    { "GrindGrabs",    "num", 0, 2,    "1 = GRABS IN A GRIND: hold LB (front hand) or RB (back hand) while grinding and the hand goes to the board as in a rolling grab; the grind goes on.\n; While this is on the bumpers NO LONGER lean you off a grind (the game's LB / RB grind exit): leave it with an ollie or at the end of the rail.\n; 2 = as 1, and in a grind a stick click leans you off it as the bumpers did: L3 to the left (LB's lean-out), R3 to the right (RB's); the click is then kept from the game and is no hippie jump. 0 = the game's own (the bumpers lean you off)" },
     { "GrabMaxTime",   "num", 0.2, 10, "longest a grab is held, in seconds" },
     { "GrabMinTime",   "num", 0, 2,    "a grab is held at least this long (seconds) before the landing can make you let go" },
     { "GrabCrouch",    "num", -40, 60, "extra crouch on top of the game's grab pose, in cm: + = board (and knees) further up,\n; - = board lower / legs longer (the game's pose alone is already tight). 0 = the game's pose" },
@@ -776,7 +781,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "CavemanTime", "num", 100, 217, "ms from the Y press for the caveman's board to come from your hand to under your feet (the game puts you on it 217 ms after the press)" },
     { "CavemanOut", "num", 0, 60, "cm in front of you the caveman's board swings out on its way down (it comes in under your feet from there)" },
     { "CavemanLift", "num", 0, 40, "cm over the spot under your feet the caveman's board is when it is that far out" },
-    { "CavemanTurn", "num", 0, 1, "how far round the caveman turns your body toward your stance in the air, as the board comes under your feet (feet and body together, before the game puts you on):\n; 1 = all the way (20 deg short of the feet's line, as the game's own pose stands), 0.75 = three quarters (the game turns the rest after it puts you on), 0 = not at all\n; (the feet are put on the board turned as they ride against your hips). Takes the native half v168" },
+    { "CavemanTurn", "num", 0, 1, "how far round the caveman turns your body toward your stance in the air, as the board comes under your feet (feet and body together, before the game puts you on):\n; 1 = all the way (20 deg short of the feet's line, as the game's own pose stands), 0.75 = three quarters (the game turns the rest after it puts you on), 0 = not at all\n; (the feet are put on the board turned as they ride against your hips). Takes the native half v172" },
     { "CavemanKeepFall", "num", 0, 1, "1 = after the caveman's mount the board is given back the speed you were falling (or rising) at: the game's mount sets it to 0\n; and you hang for a moment; 0 = the game's own" },
     { "CavemanHold", "num", 0, 1.5, "seconds at most the caveman's hand holds the board (a Melon with the front hand, an Indy with the back hand: the hand that carried it) once you are on the board in the air, with the knees\n; up and the hips down as in a rolling grab; it lets go CavemanLetGo before touchdown in any case. 0 = no grab" },
     { "CavemanSquat", "num", 0, 55, "cm at most the hips come down toward the board in the caveman's grab (no leg is folded under 35 % of its length for it: the back leans on)" },
@@ -810,7 +815,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "CavemanHandReach", "num", 0, 1, "1 = the caveman's holding arm reaches for the board again once his crouch is drawn deeper: the elbow straightens as far as it needs and the hand comes down onto the board with the shoulder; 0 = build 247's (the hand kept where the arm reached before the crouch: elbow bent, hand over the board)" },
     { "CavemanHandLean", "num", 0, 45, "deg at most the caveman's upper body leans from the waist toward the board while his hand holds it, when the straight arm is still short of its spot: down, forward and toward that side, eased in over the hold and let go with the grab -- the resting grip on the board, not over it;\n; 0 = build 248's (the hand 13-20 cm over the board)" },
     { "CavemanHeadEase", "num", 0, 30, "poses the caveman's head is handed back to the game over once the hand lets go (his look ahead held whole while the hand holds): no snap;\n; 0 = build 248's (let go with the feet's hold)" },
-    { "WallRide", "num", 0, 1, "WALLRIDES. 1 = fly into a wall at a shallow angle in any air on the board (an ollie; a flip once its spin is over) and you ride along it for a moment,\n; the board on the wall: automatic, no button. A head-on hit is left to the game (it bails you). 0 = off, the game's own. Takes the native half v168" },
+    { "WallRide", "num", 0, 1, "WALLRIDES. 1 = fly into a wall at a shallow angle in any air on the board (an ollie; a flip once its spin is over) and you ride along it for a moment,\n; the board on the wall: automatic, no button. A head-on hit is left to the game (it bails you). 0 = off, the game's own. Takes the native half v172" },
     { "WallRideMaxAngle", "num", 5, 60, "no longer used since build 233 (WallRideMaxApproach replaced it: an ini keeps a key's old value for ever, and build 232's 35 refused 24 of 35 tries)" },
     { "WallRideMinSpeed", "num", 100, 1500, "cm/s along the ground you need to start a wallride" },
     { "WallRideMinHeight", "num", 10, 200, "cm the board must be over the ground to start a wallride (lower leaves no time to get on and off the wall)" },
@@ -877,7 +882,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "WallRideGroundWallieRate", "num", 100, 1500, "degrees a second that nose pitch (WallRideGroundWallie) comes at as a wallride from the ground takes off: 600 is up 45 in about 0.08 s. New in build 253" },
     { "WallRideGroundWallieBody", "num", 0, 45, "degrees your body leans back toward the tail while the board's nose is pitched up (WallRideGroundWallie) as a wallride\n; from the ground takes off: your weight over the tail, your feet on the pitched board, your knees bent, back to the ride's line as the\n; board flattens on the wall. 0 = the feet on the board only. New in build 253" },
     { "StickClickPass", "num", 0, 1, "1 = a stick click the mod does not use goes on to the game (L3 opens the missions); one it uses (a hippie jump, a mini hop, a board hop, a click grab) does not;\n; 0 = every stick click goes to the game as well (as before build 225: the mission viewer came up with every hippie jump)" },
-    { "AltFlips", "num", 0, 1, "ALT FLIP SET. 1 = push the back-foot stick UP to crouch for a second set of flip tricks (front/back-foot or left/right-foot stick mode; not in Legacy):\n; front stick pulled DOWN = Monster Flip, pushed UP = Dolphin Flip (AltFrontSwap); the varial flip's scoop, swept from up toward the SAME side as your varial's, and its flick = Nightmare Flip;\n; the varial heel's, the same way, = Daydream Flip; every other trick from that crouch is the game's own. 0 = off (up does nothing, as in the game). Takes the native half v168" },
+    { "AltFlips", "num", 0, 1, "ALT FLIP SET. 1 = push the back-foot stick UP to crouch for a second set of flip tricks (front/back-foot or left/right-foot stick mode; not in Legacy):\n; front stick pulled DOWN = Monster Flip, pushed UP = Dolphin Flip (AltFrontSwap); the varial flip's scoop, swept from up toward the SAME side as your varial's, and its flick = Nightmare Flip;\n; the varial heel's, the same way, = Daydream Flip; every other trick from that crouch is the game's own. 0 = off (up does nothing, as in the game). Takes the native half v172" },
     { "AltFlipEngage", "num", 0.25, 0.95, "how far UP the back-foot stick must go (0..1 of its throw past the game's dead zone) to crouch for the alt set; it must point within 40 deg of straight up (sideways is the game's pressure tricks)" },
     { "AltFlipRelease", "num", 0.1, 0.6, "the back-foot stick let back inside this (0..1) ends the alt crouch; after an alt trick it must come back inside it once before the next alt crouch (kept under AltFlipEngage)" },
     { "AltMonster", "num", 0, 1, "MONSTER FLIP: alt crouch + front stick pulled DOWN (AltFrontSwap; handed to the game as its ollie) and the board turns end over end (about its short axis) in the air: one full turn,\n; or in manual catch until you catch it (AltMonsterCatch); 0 = the alt ollie stays an ollie" },
@@ -926,6 +931,9 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "AltHospitalDirt", "num", 0, 3, "How dirty the hospital flip's return flip is: times the bank (AltHospitalWobble) and the drift (AltHospitalDrift), and past 1 the two add up on every flip,\n; the end over end goes a bit fast then slow, the bank swells early and the heading late. Still grip up and reversed at the catch. Default 1.5; 1 = build 256's; 0 = clean" },
     { "AltHospitalCasperFoot", "num", 0, 1, "1 = the alternate casper: a casper caught from the ALT CROUCH's kickflip / heelflip keeps the BACK foot off the board (lifted over the tail,\n; sole down) through the casper and into the hospital flip; a casper from any other trick stays the game's. Default 1; 0 = build 258's" },
     { "AltHospitalKickOnly", "num", 0, 1, "1 = the hospital flip only out of a casper caught from a KICKFLIP (any stance, the alt crouch's kick underflip too);\n; out of a heelflip the flick is not taken and the game's casper goes on. Default 1; 0 = build 261's (out of any flip)" },
+    { "AltCasperCatch", "num", 0, 1, "1 = AUTO CASPER: in the alt crouch (the back-foot stick UP) your KICKFLIP locks into the game's casper by itself when the board is upside down (180),\n; no casper stick needed (turn on Caspers in the game's experimental settings). In it: the front-foot stick BACK = the hospital flip, a side flick\n; of either stick = the kickflip underflip (the board goes back the other way), nothing = the game's casper to the ground (hold its stick to ride it).\n; While on, the kickflip underflip waits for the casper. Default 0 = off (build 270's)" },
+    { "AltCasperMatch", "num", 0, 1, "with AltCasperCatch=1: 1 = the hospital flip out of the AUTO casper made like one out of your manual casper: when the game had already\n; caught the kickflip before the auto casper locked, its catch kept rolling the board on its side through the hospital (the 'tornado').\n; 1 holds that catch off while the auto casper is ours and through the hospital's turn, and drops the casper ratio at the flick as\n; your stick does. Also logs both (casper match: lines). Default 0 = off (build 273's)" },
+    { "AltCasperLand", "num", 1, 3, "with AltCasperCatch=1: what the auto casper does if you have not flicked out of it by the landing.\n; 1 = it flips out by itself (the game lets a casper with no stick go after 0.3 s; build 271's).\n; 2 = it lands in the casper and you ride on in it as the game's casper, no stick needed, until a trick out of it (or a bail).\n; 3 = it bails at the touchdown (the game's own 'Failed casper' bail). Default 1" },
     { "AltHospitalFootBack", "num", 0, 25, "Centimetres the front foot is drawn back along the board, toward the back foot, as it lifts in the hospital flip's turn\n; (most a third of the way in, gone by the catch). Default 12; 0 = build 261's" },
     { "AltHospitalToeScoop", "num", 0, 20, "Degrees more bank in the hospital flip's return flip, always toward the rider's TOE side (the board's bottom turned to his toes),\n; not a random side. Still grip up and reversed at the catch. Default 8; 0 = build 261's (a random side)" },
     { "AltHospitalZScoop", "num", -60, 60, "Degrees the hospital flip's return 180 turns about the board's OWN up (Z axis) and back, a scoop: positive = the\n; rising end swings out toward your TOE side, negative = toward your heels. Grip up and reversed at the catch. Default 35; 0 = build 262's" },
@@ -5172,6 +5180,83 @@ end
 -- legs scrambled; v150 posed the hand only from the pop). The bumpers are read off the pad itself, and kept from the game
 -- during the trick (it would pick a grab of its own once the board is caught). In any other air the hand lets go and the
 -- game's own grabs are what they were.
+-- (271) GRABS IN A GRIND (GrindGrabs, off by default). "Allow grabs during grinds. This conflicts directly with the bumpers
+-- being used to exit grinds, so if this is on, you'll have to override that." The game's bumpers in a grind are its LEAN-OUT:
+-- the Skate_LeanLeft / Skate_LeanRight actions (DefaultInput.ini: LB / RB, the same keys as the grabs) call
+-- USkateboardExMovementComponent::LeanLeft / LeanRight -> CalculateLeanOutInfo(-1 / +1), and Skate_CanLean is true ONLY on a
+-- grind (its last test is IsOnGrind). With the key on, the native half has those two return at once (HJN_Set("grindgrabs", 1);
+-- 0 puts them back), so only the lean-out is lost: Skate_GrabLeft/Right still see the bumpers (the pad read below, the game's own
+-- air grabs). On a build where that cannot be done the bumpers are kept from the game while grinding by the key hook instead
+-- (HJN_Set("bumpermask"), XInput pads only). The hand itself is the rolling grab's (NATIVE.groundGrab): it may START in a grind,
+-- is kept through it, and carried into the air when you ollie out (as a rolling grab is); the wheels down on the ground end it
+-- (unless GroundGrabs keeps it on as a rolling grab). Returns true while grinding with the key on.
+NATIVE.grindGrabState = function(GG, cm, now)
+    local on = (tonumber(S.GrindGrabs) or 0) ~= 0
+    local want = on and 1 or 0
+    if (GG.gLean or 0) ~= want then
+        local okl, r = false, nil
+        if type(HJN_Set) == "function" then okl, r = pcall(HJN_Set, "grindgrabs", want) end
+        GG.gLean = want
+        GG.gPatched = (want == 1) and okl and tonumber(r) == 1
+        if want == 1 then
+            log("grind grab: ON (GrindGrabs=" .. tostring(S.GrindGrabs) .. ((tonumber(S.GrindGrabs) == 2) and ": L3 / R3 in a grind lean you off it, left / right, as LB / RB did" or "") .. ") -- " .. (GG.gPatched and "the game's bumper lean-out of a grind is off (Skate_LeanLeft/Right return at once): LB / RB in a grind are the hands'"
+                or "the native half could not switch the game's lean-out off on this build: the bumpers are kept from the game while grinding instead (XInput pads only -- with another pad LB / RB still lean you off)"))
+        else
+            log("grind grab: off (GrindGrabs=0) -- the game's bumper lean-out of a grind is back")
+        end
+    end
+    if not on then
+        if GG.gMasked then GG.gMasked = nil if not GG.kind then pcall(HJN_Set, "bumpermask", 0) end end
+        GG.gWas, GG.gBtn = nil, nil
+        return false
+    end
+    local g = cm ~= MODE_BAILING and q(function() return inst.IsGrinding end, false) == true
+    if g and not GG.gPatched and type(HJN_Set) == "function" then pcall(HJN_Set, "bumpermask", 0.3) GG.gMasked = true
+    elseif not g and GG.gMasked then
+        GG.gMasked = nil
+        if not GG.kind then pcall(HJN_Set, "bumpermask", 0) end
+    end
+    if GG.gWas and not g and GG.kind and GG.gStart then
+        log(string.format("grind grab: off the grind with the hand still on (mode %s) -- %s", tostring(cm),
+            (cm == MODE_AIR) and "carried into the air while the bumper is held; it ends when the wheels come down on the ground"
+            or ((S.GroundGrabs ~= 0) and "kept on as a rolling grab (GroundGrabs)" or "it ends now (GroundGrabs is off)")))
+    end
+    if not g then GG.gBtn = nil end
+    GG.gWas = g
+    return g
+end
+NATIVE.grindName = function()
+    local n = q(function() return s0:GetCurrentGrindName():ToString() end, nil)
+    n = tostring(n or "")
+    if n == "" or n == "None" then return "grind" end
+    return n
+end
+-- (273 grind3) GrindGrabs = 2: THE STICK CLICKS ARE THE GRIND'S EXITS. "a third one enables stick clicks to replace the bumpers that
+-- push you off the grind ... left or right stick click is important -- it pushes you off the grind one of the other ways." With
+-- GrindGrabs on the bumpers are the hands' (the controller's Skate_LeanLeft/Right return at once), so with 2 a click in a grind does
+-- what they did: HJN_Set("grindexit", -1 / +1) runs the game's own gate (Skate_CanLean) and its own lean-out (the movement
+-- component's LeanLeft / LeanRight -> CalculateLeanOutInfo(-1 / +1)), past the patched entries. L3 = LeanLeft = LB's side, R3 =
+-- LeanRight = RB's: the side is the game's (from the board's frame), exactly as the bumpers had it. Asked from onClick (game
+-- thread) before anything else of the mod's: true = the click was a grind's (kept from the game, no hippie jump / board hop / grab).
+NATIVE.grindClick = function(which)
+    if (tonumber(S.GrindGrabs) or 0) < 2 then return false end
+    if not refs() or modeNow() == MODE_BAILING then return false end
+    if q(function() return inst.IsGrinding end, false) ~= true then return false end
+    local side = (which == "L3") and -1 or 1
+    local way = (side < 0) and "left" or "right"
+    local ok, r = false, nil
+    if type(HJN_Set) == "function" then ok, r = pcall(HJN_Set, "grindexit", side) end
+    r = ok and tonumber(r) or nil
+    local name = NATIVE.grindName()
+    if r == 1 then log(string.format("grind grab: %s -> the lean-out %s (the game's own) off the %s", which, way, name))
+    elseif r == 0 then log(string.format("grind grab: %s in the %s -- the game's own gate says no lean-out now (Skate_CanLean: a pop pending, a lean-out already on, ...); the click is kept from the game", which, name))
+    else
+        local why = ({ [-1] = "another build of the game: its lean-out's addresses are not known", [-2] = "no controller / skater / board yet",
+            [-3] = "the game's lean-out code is not as read", [-4] = "a fault in the game's lean-out" })[r or 0] or "the native half did not answer"
+        logOnce("grindexit" .. tostring(r), string.format("grind grab: %s in the %s -- the lean-out %s could not be done (%s); the click is kept from the game", which, name, way, why))
+    end
+    return true
+end
 NATIVE.gg = { kind = nil, frames = 0 }
 NATIVE.groundGrab = function(cm, now)
     local GG = NATIVE.gg
@@ -5198,13 +5283,27 @@ NATIVE.groundGrab = function(cm, now)
             end
         end
     end
-    if not GG.kind and not GG.ffLatch and not inNC and (S.GroundGrabs == 0 or cm ~= MODE_RIDING) then return end      -- nothing on, nothing could start: no pad read
+    local grind = false                                                -- (271) GrindGrabs: in a grind with the key on (NATIVE.grindGrabState)
+    if S.GrindGrabs ~= 0 or GG.gLean ~= nil then
+        local okgg, gr = pcall(NATIVE.grindGrabState, GG, cm, now)
+        if okgg then grind = gr == true else logOnce("grindgrab", "grind grab: error: " .. tostring(gr)) end
+    end
+    if not GG.kind and not GG.ffLatch and not inNC and (S.GroundGrabs == 0 or cm ~= MODE_RIDING) and not grind then return end      -- nothing on, nothing could start: no pad read
     local btn = tonumber((tostring(type(HJN_PadSticks) == "function" and HJN_PadSticks() or "")):match("^%S+ %S+ %S+ %S+ %S+ %S+ (%d+)"))
     local lb, rb
     if btn then lb, rb = (math.floor(btn / 256) % 2) == 1, (math.floor(btn / 512) % 2) == 1     -- XInput's shoulders: 0x0100, 0x0200
     else
         local held = tonumber(type(HJN_Bumpers) == "function" and HJN_Bumpers() or 0) or 0
         lb, rb = (held == 1 or held == 3), (held == 2 or held == 3)
+    end
+    if grind then                                                      -- (271) a bumper PRESSED in a grind (one held into it is no press)
+        local b = (lb and 1 or 0) + (rb and 2 or 0)
+        if GG.gBtn ~= nil and (b & ~GG.gBtn) ~= 0 then
+            GG.gKept = (GG.gKept or 0) + 1
+            if GG.gKept <= 60 then log(string.format("grind grab: bumper kept from the game's grind exit (%s pressed in the %s; %s)", ((b & ~GG.gBtn) & 1) ~= 0 and "LB" or "RB", NATIVE.grindName(),
+                GG.gPatched and "its lean-out is off" or "held from the game by the key hook")) end
+        end
+        GG.gBtn = b
     end
     -- (v199) from here on 'lb' is the FRONT hand's bumper and 'rb' the BACK hand's: in the game's left-foot / right-foot
     -- stick mode they change places whenever the left foot is the back one (GR.swap). Kept as it was when the hand went on: a turn with the
@@ -5232,8 +5331,8 @@ NATIVE.groundGrab = function(cm, now)
     local onBoard = (cm == MODE_RIDING or cm == MODE_AIR)
     local busy = active or (NATIVE.dropBusy and NATIVE.dropBusy()) or false
     local ncOff = inNC and S.Boneless == 0                             -- the boneless switched off: no hand in a no comply
-    local canStart = not busy and not ncOff and ((S.GroundGrabs ~= 0 and cm == MODE_RIDING) or (inNC and onBoard))
-    local canKeep = not busy and not ncOff and onBoard and (S.GroundGrabs ~= 0 or inNC)
+    local canStart = not busy and not ncOff and ((S.GroundGrabs ~= 0 and cm == MODE_RIDING) or (inNC and onBoard) or grind)
+    local canKeep = not busy and not ncOff and ((onBoard and (S.GroundGrabs ~= 0 or inNC)) or (GG.gStart and (grind or cm == MODE_AIR)))   -- (271) a grind grab: through the grind and the air after it
     -- the bumpers are the hand's, not the game's: during a no comply, and in any air the hand is carried into (the game,
     -- seeing a bumper held once the board is caught, would pick a grab of its own and pose the legs for it)
     if btn and ((inNC and S.Boneless ~= 0) or (GG.kind and cm == MODE_AIR)) then pcall(HJN_Set, "bumpermask", 0.3) end
@@ -5293,8 +5392,9 @@ NATIVE.groundGrab = function(cm, now)
         elseif not held then why = string.format("%s let go (the pad reads %s)", ((GG.kind == 102) ~= (GG.swap == true)) and "RB" or "LB", btn and string.format("0x%04x", btn) or "no XInput")
         elseif busy then why = active and "a hippie jump" or "a drop-in"
         elseif ncOff then why = "a no comply with the boneless switched off" GG.offSince = now - 1   -- (v186) at once: it stayed on 0.13 s into the trick and read as a boneless
+        elseif GG.gStart and not grind and cm ~= MODE_AIR then why = "the grind is over and the wheels are on the ground (GroundGrabs is off: no hand while rolling)"   -- (271)
         else why = "off the board (mode " .. tostring(cm) .. ")" end
-    elseif canStart and q(function() return inst.IsGrinding end, false) ~= true then
+    elseif canStart and (grind or q(function() return inst.IsGrinding end, false) ~= true) then
         want = (rb and 102) or (lb and 3) or nil
         -- (v191) too late in a no comply's air for a hand (it would arrive as it is let go: 22:12:28 on 6 Oct, pressed 0.25 s
         -- in, on at 0.5 s): no hand, the trick keeps its name, and the bumper has to be let go as after the let-go itself
@@ -5319,6 +5419,7 @@ NATIVE.groundGrab = function(cm, now)
                     now - (GG.t0 or now), tostring(why), GG.frames, tostring(cm), inNC and ", in a no comply" or "",
                     GG.gap and string.format("%.0f", GG.gap) or "?", GG.drop and string.format("%.0f", GG.drop) or "?", GG.lean and string.format("%.0f", GG.lean) or "?"))
             end
+            if GG.gStart then log(string.format("grind grab: ended (%s) after %.2f s", tostring(why), now - (GG.t0 or now))) GG.gStart = nil end   -- (271)
             GG.kind, GG.offSince, GG.flipAt, GG.liftAt = nil, nil, nil, nil
             if GG.muted then GG.muted = nil pcall(HJN_TrickMute, 0) end                   -- (v155) the flip tricks are back
             return
@@ -5329,6 +5430,8 @@ NATIVE.groundGrab = function(cm, now)
     if GG.kind ~= want then
         if inNC and NATIVE.noComplyCatchNow then pcall(NATIVE.noComplyCatchNow) end      -- (v191) a hand that goes on inside the trick: the game catches this one too
         GG.kind, GG.t0, GG.frames, GG.gap, GG.drop, GG.airTold = want, now, 0, nil, nil, nil
+        GG.gStart = grind or nil                                       -- (271) started in a grind (GrindGrabs)
+        if grind then log(string.format("grind grab: %s started in a %s (%s held)", (want == 102) and "Indy hand (back)" or "Mute hand (front)", NATIVE.grindName(), ((want == 102) ~= (GG.swap == true)) and "RB" or "LB")) end
         GG.lean, GG.flipAt, GG.liftAt, GG.rideOver = nil, nil, nil, nil
         pcall(HJN_Set, "bonehips", S.GroundGrabHips)                                   -- (v156) the squat's height over the deck
         pcall(HJN_Set, "boneback", S.GroundGrabBack) pcall(HJN_Set, "bonesplay", S.GroundGrabSplay) pcall(HJN_Set, "bonealongf", S.GroundGrabFrontAlong) pcall(HJN_Set, "bonealongb", S.GroundGrabBackAlong)   -- (v158)
@@ -6323,6 +6426,35 @@ NATIVE.altCfg = function(force)                       -- from NATIVE.sync: the s
             log(string.format("native: alt flips: the hospital flip's feet %s (AltHospitalFeet=%d, AltHospitalClear=%g cm); its off-axis bank %g deg, drift %g deg (AltHospitalWobble, AltHospitalDrift)", hfe == 1 and "stay sole down and out of the turning board" or "follow the board (build 254's)", hfe, hcl, hwb, hdr))
         end
     end
+    do   -- (274) AltCasperMatch on its own (HJN_Set("altcaspermatch", 0/1); an older native half ignores it): the auto casper made like a manual one
+        local cm = ((tonumber(S.AltCasperMatch) or 0) >= 0.5) and 1 or 0
+        if (force or A.altCm ~= cm) and type(HJN_Set) == "function" then
+            A.altCm = cm
+            pcall(HJN_Set, "altcaspermatch", cm)
+            log(string.format("native: alt flips: the auto casper's hospital %s (AltCasperMatch=%d)", cm == 1
+                and "made like a manual one: the board's feet-catch held at 0, the casper ratio 0 at the flick (casper match: lines in the native log)" or "as build 273", cm))
+        end
+    end
+    do   -- (272) AltCasperLand on its own (HJN_Set("altcasperland", 1..3); an older native half ignores it): the auto casper at the landing
+        local cl = math.floor((tonumber(S.AltCasperLand) or 1) + 0.5)
+        if cl < 1 then cl = 1 elseif cl > 3 then cl = 3 end
+        if (force or A.altCl ~= cl) and type(HJN_Set) == "function" then
+            A.altCl = cl
+            pcall(HJN_Set, "altcasperland", cl)
+            log(string.format("native: alt flips: the auto casper at the landing: %s (AltCasperLand=%d)", cl == 2
+                and "LANDS IN THE CASPER and rides on as the game's casper (until a trick out of it or a bail)" or cl == 3
+                and "BAILS at the touchdown (the game's Failed casper)" or "flips out by itself (build 271's)", cl))
+        end
+    end
+    do   -- (271) AltCasperCatch on its own (HJN_Set("altcaspercatch", 0/1); an older native half ignores it): the alt kickflip's auto casper
+        local cc = ((tonumber(S.AltCasperCatch) or 0) >= 0.5) and 1 or 0
+        if (force or A.altCc ~= cc) and type(HJN_Set) == "function" then
+            A.altCc = cc
+            pcall(HJN_Set, "altcaspercatch", cc)
+            log(string.format("native: alt flips: the auto casper %s (AltCasperCatch=%d)", cc == 1
+                and "ON: the alt crouch's kickflip locks into the game's casper at its 180 (the game's Caspers must be on); in it the front stick BACK = the hospital flip, a side flick = the underflip back, nothing = the game's casper" or "off: build 270's", cc))
+        end
+    end
     do   -- (263) AltHospitalZScoop / AltHospitalBankSide / AltHospitalFootGap on their own (an older native half ignores them): the hospital flip
         local hz = math.max(-60, math.min(60, tonumber(S.AltHospitalZScoop) or 35))
         local hs = ((tonumber(S.AltHospitalBankSide) or -1) < 0) and -1 or 1
@@ -6883,7 +7015,7 @@ NATIVE.wallTick = function()                          -- every frame of our skat
     if type(HJN_Wall) ~= "function" then
         if on and not W.said.old then
             W.said.old = true
-            log("wallride: the native half beside this file (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall: it is not the one made with this main.lua (v168, with wallrides) -- NOT TAKEN: no wallrides on this run")   -- (fixer, Lua review F7: by the function, not the number)
+            log("wallride: the native half beside this file (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall: it is not the one made with this main.lua (v172, with wallrides) -- NOT TAKEN: no wallrides on this run")   -- (fixer, Lua review F7: by the function, not the number)
         end
         return
     end
@@ -6975,7 +7107,7 @@ NATIVE.wallCfg = function(force)                      -- from NATIVE.sync: the s
         took = ok and tonumber(r) or 0
     end
     local tail = ""
-    if took == nil then tail = " -- NOT TAKEN: the native half (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall; these need the v168 made with this main.lua"   -- (fixer, Lua review F7)
+    if took == nil then tail = " -- NOT TAKEN: the native half (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall; these need the v172 made with this main.lua"   -- (fixer, Lua review F7)
     elseif took == -1 then tail = " -- stood down: not on this build of the game (ExpandedTricks.native.log says why)"
     elseif took > 0 and took < #n then tail = " -- an older native half took the first " .. tostring(took) .. " of " .. #n .. ": WallRideMaxApproach is its approach limit there, and the carve, the slam guard and the exit turn are not in it (copy the native half made with this main.lua)"
     elseif took ~= #n then tail = " -- REFUSED by the native half (" .. tostring(took) .. " of " .. #n .. " taken; ExpandedTricks.native.log says why)" end
@@ -7792,6 +7924,11 @@ local function onClick(which)
     if (NATIVE.dropBusy and NATIVE.dropBusy()) or now - lastClickAt[which] < 0.15 then NATIVE.gt(function() NATIVE.ckSay(which, false) end) return end
     lastClickAt[which] = now
     NATIVE.gt(function()
+        if S.GrindGrabs == 2 and NATIVE.grindClick then                  -- (273 grind3) in a grind the click is its exit (GrindGrabs=2 only)
+            local okx, used = pcall(NATIVE.grindClick, which)
+            if not okx then log("grind exit error: " .. tostring(used)) end
+            if okx and used then lastClickAt[which] = -1e9 NATIVE.ckSay(which, true) return end   -- (no mini hop with the next click)
+        end
         local was = active
         local okh, hopped, started = pcall(function() if NATIVE.hopTry then return NATIVE.hopTry(which) end end)   -- (v78: on foot by a loose board)
         if okh and hopped then NATIVE.ckSay(which, started == true) return end    -- (v225) only a board hop that started keeps the click
@@ -8085,6 +8222,7 @@ NATIVE.MENU = {
         { "toggle", "GrabTweakGate", "Tweak only when the stick moves", 1, 1, "On: a grab starts untweaked, and your legs and board twist only once you move the stick away from where it picked the grab. Off: the game's own behaviour, where the tweak can come in straight away." },
         { "toggle", "GrabKeepFirst", "Lock the grab until release", 1, 1, "On: the grab you took stays until you let go of the bumper, and moving the stick only tweaks it. Off: moving the stick just after grabbing can switch you to a different grab." },
         { "toggle", "GrabLetGo", "Let go on landing", 1, 1, "On: a grab you hold into the landing simply ends as the wheels touch down. Off: still holding the board when the wheels touch down makes you bail, so you have to let go in time." },
+        { "slider", "GrindGrabs", "Grabs in grinds", 1, 1, "0 = Off. 1 = On: hold LB or RB while grinding to put a hand on the board; the bumpers no longer lean you off a grind. 2 = On + stick-click exits: L3 leans you off to the left, R3 to the right.", 0, 2 },
         { "toggle", "GrabBlockFlips", "Block late flips while grabbing", 1, 1, "On: stick movements do not start a late flip while a bumper is held or a grab is on, so picking or tweaking a grab cannot flip the board by accident. Late flips work again 0.2 seconds after you let go." },
         { "slider", "GrabAllAlong", "All grabs: hand along the board", 1, 1, "Moves the grabbing hand along the board for every grab at once, on top of each grab's own setting, in centimetres (cm). + = toward the nose, - = toward the tail. 0 = no change.", -20, 20, unit = "cm" },
         { "slider", "GrabAllAcross", "All grabs: hand across the board", 1, 1, "Moves the grabbing hand across the board for every grab at once, on top of each grab's own setting, in centimetres (cm). + = toward your toes, - = toward your heels. 0 = no change.", -20, 20, unit = "cm" },
@@ -8125,8 +8263,11 @@ NATIVE.MENU = {
         { "slider", "AltNightmareSpeed", "Nightmare flip: flip speed", 100, 10, "How fast the nightmare and daydream flips flip, as a percentage (%) of the game's varial flip or varial heel. 200 = both turns in the time a varial flips once. Lower may not finish before you land.", 1.0, 3.0, unit = "%" },
         { "slider", "AltFlipPace", "Monster/dolphin: flip pace", 100, 5, "How fast the monster and dolphin flips turn, as a percentage (%) of your kickflip's speed for the same flick. Your flick and the game's flip speed setting still scale it.", 0.3, 1.5, unit = "%" },
         { "slider", "AltFlipPaceUp", "Monster/dolphin: extra pace", 100, 5, "The monster flip's (and the forward dolphin's) turn times this, as a percentage (%), on top of the flip pace. 120 brings your hardest flick round on flat ground. 100 = no extra.", 0.5, 2, unit = "%" },
+        { "toggle", "AltCasperCatch", "Auto casper (alt kickflip)", 1, 1, "Alt crouch + kickflip: the board locks into the game's casper when it is upside down. Then front stick BACK = hospital flip, a side flick = underflip. Needs the game's Caspers on." },
+        { "slider", "AltCasperLand", "Auto casper landing", 1, 1, "If you land still in the auto casper: 1 = Flip out (the board flips out by itself), 2 = Land in casper (ride on in it until a trick out of it), 3 = Bail.", 1, 3 },
         { "toggle", "AltHospital", "Hospital flip", 1, 1, "Turn on the game's Casper (experimental settings). In a casper in the air pull the front-foot stick BACK (AltHospitalFlick 0: up): the board turns 180 end over end and lands grip up, reversed." },
         { "slider", "AltHospitalSecs", "Hospital flip: time (higher = slower)", 1000, 10, "How long the hospital flip's 180 end over end takes from your flick, in milliseconds (ms). Slide it UP to SLOW the flip down. Too slow may not come round before you land.", unit = "ms" },
+        { "toggle", "AltCasperMatch", "Auto casper: hospital like manual", 1, 1, "The hospital flip out of the auto casper made like one out of your manual casper (the game's own catch held off, so the board does not roll on its side). Off = build 273's." },
     } },
     { "Wallrides", {
         -- (258 menupare) the core only: on/off, frontside, from the ground, when a ride starts, how long, gravity, the pop and the sound.
@@ -8701,7 +8842,7 @@ function NATIVE.sync()
         -- (v191, review) AN OLDER NATIVE HALF BESIDE THIS FILE (main.lua copied by hand, or main.dll not replaced because the
         -- game held it): everything runs, what needs the newer one is left out -- and nothing said so
         if (tonumber(NATIVE.v) or 0) < (NATIVE.WANT or 0) then
-            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then what needs the newer one is left out, each saying so in its own line (wallrides need v168: without it the log says NOT TAKEN)")
+            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then what needs the newer one is left out, each saying so in its own line (wallrides need v172: without it the log says NOT TAKEN)")
             NATIVE.upd = NATIVE.upd or {}
             if not NATIVE.upd.show then NATIVE.upd.show, NATIVE.upd.tries = "Expanded Tricks: native half is old - see the log", 0 end
         end
@@ -12002,8 +12143,8 @@ end
 -- latest release's update.txt: its version, build number, the game build it is for and the two files' SHA-256). With
 -- AutoUpdate=2 a newer build is downloaded, checked and put in place for the next start; with 1 you are only told.
 -- NATIVE.BUILD is this file's own build number: the release's update.txt carries the same number, and that is what is compared.
-NATIVE.BUILD = 270
-NATIVE.WANT = 168      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
+NATIVE.BUILD = 274
+NATIVE.WANT = 172      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
 NATIVE.updateTick = function(live)
     local U = NATIVE.upd or {}
     NATIVE.upd = U
@@ -12283,7 +12424,7 @@ LoopAsync(2000, function()
     return false
 end)
 
-log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v270 / native v168)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
+log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v274 / native v172)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
 
 -- the game's grabs need IsGrabsEnabled in its experimental save (the profile loads it at start-up). (v121) If it is off or
 -- missing, the save is PATCHED here: a BoolProperty tag put into FExperimentalSettings -- the bytes the game's own serializer

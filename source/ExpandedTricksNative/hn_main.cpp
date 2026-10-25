@@ -43,7 +43,7 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 168
+#define HJN_VERSION 172
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
@@ -20239,9 +20239,63 @@ void AltNight(AltT& A, const uint8_t* board, uint8_t* bm, const uint8_t* pc, dou
     }
     if (T.evFix && T.names) AltEventFix(T, pc);   // (review F6) TrickNames=0: the game's own "Double Varial Flip" stands
 }
+/* (271) THE AUTO CASPER (AltCasperCatch; track "casper", build 271). The user: "Autocatch for the casper, so when in alt crouch, kickflip,
+   then the game will lock in the casper catch when it goes 180. This will conflict with the kickflip underflip fyi (or maybe after catch,
+   down initiates the hospital, and left or right (depending on stance) initiates the underflip. Try that." With the key on (default 0):
+    - THE LOCK: the alt crouch's KICKFLIP (kind 8 by its definition, not a heelflip: either alt crouch, any stance; needs AltKickUnderflip=1)
+      reaching CAS_AT deg of its flip in the air is put into the game's own casper as its handler keeps one (exe, InAirHandler::CheckForCaspers
+      0x1045600, called every tick from CheckForCatchOrient): SetCaspers(true, false) (exe+0x1003fe0, the hospital's checked bytes), the
+      handler's "in a casper" byte [iah+0x75] = 1 (its clock / grace 0) and the board's catching bit (0x04 of +0x7e9: CatchBoard's own bit
+      for a flipping board). The game then holds it: in the air with no stick its handler keeps [iah+0x75] while the board IsFalling
+      (exe+0xfc3500: in the air = mode 3), and UpdateBoardTargetFlipAndScoop's catch branch with [sk+0xa0e] & 3 sets the target to +-180 and
+      the flip done to it (the casper's upside-down hold, HospHeld's shape). Not if the game's caspers are off (its experimental switch,
+      logged once), another exe (FeatSigOff / SetCaspers' bytes), a bail, a hospital running or the player's own casper already on.
+    - IN IT: the front-foot stick BACK (AltHospitalFlick) is the HOSPITAL FLIP as before (HospWatch's own flick and HospDriveStart: the
+      armed underflip is not busy), and a SIDE flick of either stick (the kickflip underflip's own read: kind 8 takes either side) is the
+      KICKFLIP UNDERFLIP from the casper: the casper ended the game's way (HospOff), the flip handed back uncaught (target 360, the lock's
+      rate, flipping on / catching off as FlipBoard leaves them) and AltUnder's turn back sends it the other way from 180, landing grip up.
+    - THE OLD WINDOW: with the key on (and the casper possible) the kickflip's mid-flip underflip window (ALT_UNDER_LO..HI) stays SHUT until
+      the casper locks, and is open only while it is held: the casper first. A lock not taken (st 3) gives the old window back.
+    - NOTHING PRESSED: the casper is the game's from the lock to the ground (its landing: held on the ground it rides; with its stick let
+      go the game bails it, "Failed casper", after its grace -- the game's own rule, unchanged). */
+volatile LONG g_casAuto = 0;   /* (271) AltCasperCatch: 1 = the alt crouch's kickflip locked into the game's casper at its 180 (the note above); 0 = build 270's */
+struct CasAuto { int st; LONG n; double t0; float at, rate, tgt; int catchWas; };   /* st: 0 waiting for the 180, 1 locked (ours), 2 out of it (a hospital, an underflip, landed, lost), 3 not taken (the old window) */
+CasAuto g_cas = {};
+/* (274) CasMatch: AltCasperMatch (track "hosp3", build 274; default 0 = build 273's). His 273 words: "it looks great in manual catch, but
+   just totally different in auto catch". MEASURED (his 273 log 20:50-20:57 and poses.bin; t/hsum.pl, t/hmet.pl, h/hworld.pl): of 11 hospitals
+   out of the auto casper, the 4 locked on a flip the game had NOT caught (#10, #12, #16, #17) drew the deck as both manual ones (#13, #19):
+   its face at most -21 deg, its long axis out -29, the heading -180 over 28-35 poses, the body (pelvis, head, hands, feet off the pelvis)
+   within a few cm of #19; the 7 locked on a flip the game had ALREADY CAUGHT (CatchBoard's bit 0x04 of +0x7e9 set before the lock: #1, #2,
+   #4, #8, #9, #21, #22) rolled the deck 38-89 deg on its side and swung it the other way first, with the SAME written pitch / yaw / roll
+   (the 'after the flick' lines pose for pose). What a game's catch leaves on the board that a lock does not: CatchBoard (exe 0xfb23c0)
+   sets only the bit and the target, but from it the board's feet-catch (UpdateFeetCatchInfo 0xfdee40: per foot a type +0x538 / +0x540
+   and a share +0x53c / +0x544 climbing to 1) runs, and UpdateBoardTargetFlipAndScoop's end (0xfde8xx) with either share >= 0.9 and no
+   casper bit slerps the board's ROLL +0x628 toward the catch's (the def's CatchRollAlignSmoothing): once the hospital clears the casper,
+   that writes over our roll every tick = the deck rolled on its side. A manual casper and an uncaught lock never got there. (The shares
+   are not in the 273 log: this key logs them at the lock, at CASPER ON and at the flick, manual and auto, for the next round.) And at the
+   flick a manual casper's ratio has dropped to 0 (the stick left it to flick), the auto one's was 272's forced 1.0 for that pose.
+   So with AltCasperMatch=1, while the auto casper is ours and through the hospital's turn out of it: both feet-catch shares held at 0 (an
+   uncaught flip's), and at the flick the casper ratio 0 (the manual one's). A manual casper: logged only. */
+volatile LONG g_casMatch = 0;   /* (274) AltCasperMatch: 1 = the auto casper's state made the manual one's (the note above); 0 = build 273's */
+LONG g_casMH = 0;   /* (274) the hospital flip started from an auto casper with AltCasperMatch=1 (its number; 0 none) */
+constexpr int CAS_BM_FCT0 = 0x538, CAS_BM_FCS0 = 0x53c, CAS_BM_FCT1 = 0x540, CAS_BM_FCS1 = 0x544;   /* (274) the board's feet-catch: type / share, foot 0 and 1 */
+void CasFeetText(const uint8_t* bm, char* o, size_t n) {   /* (274) the board's feet-catch and flags, for the log */
+    if (!bm || !PtrOk(bm, ALT_BM_FLAGS + 2)) { snprintf(o, n, "the board not read"); return; }
+    snprintf(o, n, "feet-catch %d / %.2f and %d / %.2f, flags 0x%02x 0x%02x", (int)(int8_t)bm[CAS_BM_FCT0], ReadF(bm, CAS_BM_FCS0), (int)(int8_t)bm[CAS_BM_FCT1], ReadF(bm, CAS_BM_FCS1), (unsigned)bm[ALT_BM_FLAGS], (unsigned)bm[ALT_BM_FLAGS + 1]);
+}
+void CasFeetClear(uint8_t* bm) {   /* (274) both feet-catch shares at 0 (an uncaught flip's): the catch's roll-align stays shut */
+    if (!bm || !PtrOk(bm, CAS_BM_FCS1 + 4)) return;
+    *(float*)(bm + CAS_BM_FCS0) = 0.0f; *(float*)(bm + CAS_BM_FCS1) = 0.0f;
+}
+LONG g_casOffTold = 0;   /* the refusal (caspers off / another exe) logged once until a lock is taken */
+constexpr float CAS_AT = 175.0f, CAS_PAST = 240.0f;   /* the lock from CAS_AT deg of the flip; past CAS_PAST unseen: not taken */
+constexpr int CAS_IAH_GRACE = 0x70;   /* the handler's grace clock (0 on every held pose, 0x10459c7) */
+bool CasAutoFor(const AltTrick& T) { return g_casAuto != 0 && T.phase == 2 && T.kind == 8 && !T.ufHeelB; }   /* the alt crouch's kickflip (kind 8, not a heelflip) */
+bool CasAutoHold(const AltTrick& T) { return CasAutoFor(T) && g_cas.n == T.n && g_cas.st != 3; }   /* the old mid-flip window shut: the casper first */
 // ---- (251) an underflip in the air (the note at AltUnderKindFor): the window its second flick is read in, and the flick applied
 bool AltUnderOpen(const AltTrick& T, const uint8_t* bm, double now) {
     if (T.uDone || bm[BM_MODE] != 3 || T.tAir <= 0.0) return false;
+    if (T.kind == 8 && CasAutoHold(T)) return g_cas.st == 1;   /* (271) AltCasperCatch: shut until the casper locks, open while it is held (the note at CasAutoFor) */
     if (T.kind == 8) { const float c = fabsf(ReadF(bm, ALT_BM_FLIPCUR)); return (bm[ALT_BM_FLAGS] & 0x08) && std::isfinite(c) && c >= ALT_UNDER_LO && c <= ALT_UNDER_HI; }
     const float tg = ReadF(bm, ALT_BM_FLIPTGT);
     return T.kind == 9 && now - T.tAir >= ALT_UNDER_SHUV_AFTER && (!(bm[ALT_BM_FLAGS] & 0x08) || (std::isfinite(tg) && fabsf(tg) < 1.0f));   /* no flip of the game's running (or one of 0: the shove-it's own) */
@@ -20703,6 +20757,7 @@ void HospDriveStep(uint8_t* pc, uint8_t* sk, uint8_t* bm, double now) {   /* (25
               else { D.zr = rl; D.zy = yr;
               AltRollHold(bm, rl); *(float*)(bm + ALT_BM_ROLL) = rl;     /* upside down held: the roll lerp at the casper's +-180 */
               if (D.wd != 0.0f) *(float*)(bm + ALT_BM_YAW) = D.y0 + yr; } }   /* (255) the heading drift (AltHospitalDrift) */   /* (257) its swell late */
+            if (g_casMH == D.n && g_casMatch) CasFeetClear(bm);   /* (274) the note at CasMatch */
             HospFeetStep(uw, now);                /* (255) the feet (the note at HospFeetStep) */   /* (257) by the turned pitch */
             const float y = AltCtrlYaw(bm); if (std::isfinite(y)) D.airYaw = y;
             D.poses++;
@@ -20727,6 +20782,19 @@ void HospDriveStep(uint8_t* pc, uint8_t* sk, uint8_t* bm, double now) {   /* (25
    the BOTTOM toward the toes (the front foot's push scooping the board out in front of him), AltHospitalToeScoop degrees more; the drift
    keeps the 257 pairing (it adds while the board stands on end). The front foot: of the casper's two recorded targets the one further
    along A (the nose's end) -- either stance, switch or after a board turned under him. Neither is set when the deck was not read. */
+/* (273) HospZGoofy: THE Z SCOOP GOOFY. His 272 words: "I think the issue with the hospital flip is that it's flipping the wrong way. Maybe
+   because I'm goofy ... It's only for the later half of the trick. I think it's just trying to rotate around the Z in the wrong direction."
+   His 272 recordings (goofy; toes -Y in the mesh, A = +X, so his toe side is -L): the WRITTEN turn sends the rising end toward -L (his toes,
+   263's design: out -31 deg at u 0.42, its heading 0 -> -180 through -L) and the drawn deck follows it on some (#3 15:22:37: out -25,
+   heading -139 at u 0.50) but on most (#1, #6 of 15:22, #11, #12 of 15:35, 271's #3) the drawn deck first swings the OTHER way -- heading
+   +24, out +12 toward his heels, its face rolled up to +80 (on its side) by u 0.37 -- and then, in the later half, sweeps 200 deg back
+   across through his toes to -177 (out -53 at u 0.62): the reversal about Z he saw (h/wvd.pl, h/hworld.pl). So for a goofy rider
+   (the anim's mirror flag at the flick) the scoop's side is reversed: its later half goes on the way the first half went. Regular is
+   build 272's (no regular hospital has been recorded). AltHospitalZScoop keeps its meaning for regular; its sign still turns both.
+   (274) REVERTED. His 273 words (goofy): "Negative worked better" -- AltHospitalZScoop -35 with this flip in = 272's direction. His 273
+   recordings: the swing to his heels with the face rolled up to +80 is not the scoop's side but the AUTO casper locked on a flip the
+   game had ALREADY CAUGHT (all 7 such hospitals: face 38-89 deg off; the 4 not caught and both manual ones: face -21, out -29, the
+   same deck pose for pose). The note at CasMatch. The scoop's sign is build 272's again for both stances. */
 void HospToeFront(const V3& hp) {
     HospD& D = g_hospD;
     if (g_hospToe > 0.0f) {
@@ -20739,7 +20807,7 @@ void HospToeFront(const V3& hp) {
     }
     {   /* (263) the Z scoop's sign and the guarded foot (the notes at HospZWrite / HospGuardStep) */
         const float lz = D.ax[0] * (g_alt.goofyNow ? -1.0f : 1.0f);
-        D.zs = (fabsf(lz) > 0.3f) ? -D.s * (lz > 0.0f ? 1.0f : -1.0f) * clampf(g_hospZScoop, -60.0f, 60.0f) : 0.0f;
+        D.zs = (fabsf(lz) > 0.3f) ? -D.s * (lz > 0.0f ? 1.0f : -1.0f) * clampf(g_hospZScoop, -60.0f, 60.0f) : 0.0f;   /* (274) 272's sign again (the note at HospZGoofy) */
         D.zf = -1; D.ztr = -1.0f;
         if (g_hospFootGap > 0.0f && D.feet && g_hfHoldOk[0] && g_hfHoldOk[1]) {
             const float b0 = ((g_hfHold[0][0] - hp.x) * D.ax[0] + (g_hfHold[0][1] - hp.y) * D.ax[1]) * D.s, b1 = ((g_hfHold[1][0] - hp.x) * D.ax[0] + (g_hfHold[1][1] - hp.y) * D.ax[1]) * D.s;
@@ -20776,6 +20844,13 @@ bool HospDriveStart(uint8_t* pc, uint8_t* sk, uint8_t* bm, LONG n, double now, c
     }
     D = HospD{}; D.phase = 1; D.n = n; D.t0 = now; D.p0 = p0; D.s = HospSense(p0); D.roll0 = copysignf(180.0f, roll); D.y0 = std::isfinite(y0) ? y0 : 0.0f; D.pW = p0;
     D.bm = bm; D.codb = db; D.thrWas = thr; D.airYaw = AltCtrlYaw(bm);
+    if (g_casMatch) {                              /* (274) the note at CasMatch: measured at the flick, manual or auto; the auto one made the manual's */
+        char ft[120]; CasFeetText(bm, ft, sizeof(ft)); const bool au = g_cas.st == 1;
+        g_casMH = au ? n : 0;
+        Log("casper match: hospital #%ld at the flick (%s): %s, ratio %.2f, catch state %d%s", (long)n, au ? "out of the AUTO casper" : "out of a casper of the game's", ft, ReadF(sk, HOSP_SK_RATIO), (int)sk[HOSP_SK_CATCH],
+            au ? " -- the ratio put to 0 (the manual one's at its flick), the feet-catch shares held at 0 through the turn (AltCasperMatch=1)" : "");
+        if (au) { *(float*)(sk + HOSP_SK_RATIO) = 0.0f; CasFeetClear(bm); }
+    } else g_casMH = 0;
     {   /* (255) the feet and the off-axis (the note at HospFeetStep) */
         D.feet = g_hospFeet ? 1 : 0;
         Q4 hq{}; V3 hp{};   /* (257 merge) the deck read here: g_deckOk is the pose pass's (off at the flick in 256: no push on either hospital) */
@@ -20859,6 +20934,164 @@ void HcStep(double now) {                         /* (259) the game thread (Hosp
     if (g_hcW <= 0.0f && !g_hcAlt) g_hcFoot = -1;
     g_hcWf = g_hcW;                                /* frozen here when the hospital's turn starts */
 }
+/* (272) THE AUTO CASPER, ROUND 2 (track "casper2", build 272). The user on 271: (A) "During the hospital flip [out of the auto casper] ... it
+   looks really goofy. The board almost does like a tornado move ... Maybe something is slightly different between this and how I normally
+   manual catch it." (B) "Once it auto caught the casper, if I went to land, it would also just flip the board out automatically" -- he
+   wants a 3-way setting for what an auto casper not flicked out of does at the landing.
+   (A) MEASURED (his 271 log 14:12-14:14 and poses.bin, against his manual hospitals of 24 Oct 11:59-12:01 / 23 Oct 18:48-18:59): the
+   hospital's own drive is the same (the drawn deck in the mesh's frame within 2-8 deg pose for pose: pitch to 60 / 62, the heading
+   swept ~270 deg by the bank and drift in both; pose 8 after the flick pitch 57-60 / 63-66, yaw -50..-53 / -62..-75). What differs is
+   the casper itself: a manual casper is caught with its stick held, CasperRatio [sk+0xa10] = 1.00 ("anim casper 1 / ratio 1.00", the
+   anim reads it into +0x338, NativeUpdateAnimation 0xf5eb0c); the auto casper had ratio 0.00 (no stick: the handler's
+   SetCasperRatio((stick - thr) / (1 - thr)) = 0), so the body never took the casper pose: the hips (the game's own pose, 'arrived')
+   swung 30-47 deg through the hospital (-30 -> -66 -> -19, -17 -> -58 -> -15, 61 -> 30 -> 76) where a manual one drifts 5-9 deg
+   (-25 -> -34, -33 -> -41) -- the body twisting under a turning board = the "tornado"; and the casper's pitch at the flick was 6-12 deg
+   (manual 20-30). And 5 of 10 auto locks held the flip at -540 of -180 (manual: mostly -180): the hospital refuses -540 ("not held
+   upside down the casper's way", #2 14:13:03: the flick did nothing, the casper went off 0.30 s after the lock).
+   So while the auto casper is ours (locked, on, no hospital / bail): the casper ratio a full stick gives (1.0, the game's SetCasperRatio
+   is a plain write of [sk+0xa10]; put back to 0 when the casper is off), and a flip held at +-540 of +-180 put to +-180 (the same drawn
+   board: 540 = 180 + a whole turn).
+   (B) WHY IT FLIPPED OUT (InAirHandler::CheckForCaspers 0x1045600): in a casper with BOTH sticks centred (|x|,|y| < 0.0001 on its input
+   history's last entry) it clears in-casper [iah+0x75] (in the air at once; on the ground once its grace clock [iah+0x70] reaches the
+   database's [cfg+0x44]), then counts [iah+0x70] up by dt and at [cfg+0x44] calls SetCaspers(false, false): 0.30 s after the lock, the
+   flip let go to its -360 = the auto flip-out. ("Failed casper", 0x1045c7d, needs in-casper still set at that moment: with centred sticks
+   the early clear comes first, so a casper with no stick is dropped, not bailed.) AltCasperLand (default 1):
+    1 = flip out: build 271's, nothing held (the game's 0.30 s).
+    2 = land in the casper: every pose while it is ours, in the air and from the touchdown on the ground, in-casper [iah+0x75] = 1 and the
+        grace clock [iah+0x70] = 0 (what one pose of a held stick leaves), the ratio 1: the handler never reaches its end, the game rides
+        it as its casper. RIDDEN UNTIL the game ends it itself (its own way out of a ridden casper: a flip trick from it, CheckForTrick's
+        CasperOverrides -> SetCaspers off; or anything else that turns the casper bits off), a bail, or the skater / handler gone. The
+        casper stick is not needed and letting it go does not bail (what a held stick does, for as long as it is held).
+    3 = bail: held through the air as 2, and at the touchdown the game's own Bail(skater, "Failed casper", true, true) -- the call its
+        handler makes (0x1045cd8, ASkaterCharacterBase::Bail exe+0xfeb310) -- made at the start of the next engine tick (hkEngineTick),
+        never from inside the pose (a bail ragdolls this very mesh), and only if the casper is still on and no bail is running.
+   Only with AltCasperCatch=1 (CasLandStep is called from CasAutoStep alone; the deferred bail is only ever asked by it). */
+volatile LONG g_casLand = 1;   /* (272) AltCasperLand: 1 flip out (build 271's), 2 land in the casper and ride it, 3 bail at the touchdown */
+struct CasLand { LONG n; int ratio, ride, norm, air; double tRide; int fc; };   /* the lock it belongs to; the ratio ours; riding it on the ground; the -540 put back; seen in the air while ours */
+CasLand g_casL = {};
+void* volatile g_casBailSk = nullptr;   /* (272) AltCasperLand=3: the skater whose touchdown asked the game's bail (made at the next engine tick) */
+LONG g_casBailN = 0;
+uintptr_t RVA_SK_BAIL = 0xfeb310;   /* ASkaterCharacterBase::Bail(const FString& reason, bool, bool): the handler's "Failed casper" call */
+typedef void (*SkBailFn)(void* sk, const void* reason, bool a, bool b);
+void CasLandStep(AltT& A, uint8_t* pc, uint8_t* sk, uint8_t* bm, double now) {   /* (272) every pose with AltCasperCatch=1, first thing in CasAutoStep (the note above) */
+    (void)A;
+    CasAuto& C = g_cas; CasLand& L = g_casL;
+    if (!sk || !bm || !PtrOk(sk, HOSP_SK_RATIO + 4) || !PtrOk(bm, ALT_BM_FLIPTGT + 4)) return;
+    const int bits = sk[HOSP_SK_CASPER] & 3;
+    uint8_t* iah = (pc && PtrOk(pc, ALT_PC_INAIR + 8)) ? *(uint8_t* const*)(pc + ALT_PC_INAIR) : nullptr;
+    if (iah && !PtrOk(iah, 0x80)) iah = nullptr;
+    const bool bail = (sk[ALT_SK_FLAGS] & 2) || g_bail;
+    const int land = (int)g_casLand;
+    if (C.st == 1 && L.n != C.n) { L = CasLand{}; L.n = C.n; }
+    const bool ours = C.st == 1 && L.n == C.n && (bits & 1) && g_hospD.phase == 0 && !bail;
+    if (L.ride) {                                  /* landed in it (2): ridden until the game ends it */
+        const char* end = bail ? "a bail" : !(bits & 1) ? "the game ended the casper (its own way out: a trick from it)" : !iah ? "the game's in-air handler could not be read" : (g_hospD.phase != 0) ? "a hospital flip" : nullptr;
+        if (end) { L.ride = 0; Log("casper land: #%ld the ridden auto casper ended %.2f s after the touchdown: %s", (long)L.n, now - L.tRide, end); }
+        else { iah[HOSP_IAH_IN] = 1; *(float*)(iah + CAS_IAH_GRACE) = 0.0f; *(float*)(sk + HOSP_SK_RATIO) = 1.0f; L.ratio = 1; return; }
+    }
+    if (ours) {
+        if (bm[BM_MODE] == 3) {                    /* in the air */
+            L.air = 1;
+            const float cur = ReadF(bm, ALT_BM_FLIPCUR), tg = ReadF(bm, ALT_BM_FLIPTGT);
+            if (std::isfinite(cur) && std::isfinite(tg) && fabsf(fabsf(tg) - 180.0f) <= 1.0f && fabsf(fabsf(cur) - 540.0f) <= 1.0f) {
+                *(float*)(bm + ALT_BM_FLIPCUR) = copysignf(180.0f, cur);   /* the same drawn board, the manual casper's value: the hospital takes the flick */
+                if (L.norm++ == 0) Log("casper catch: #%ld the casper held the flip at %.0f of %.0f (a manual casper's is %.0f): put to %.0f -- the same board, the hospital's flick now taken", (long)C.n, cur, tg, copysignf(180.0f, tg), copysignf(180.0f, cur));
+            }
+            if (land >= 2 && iah) { iah[HOSP_IAH_IN] = 1; *(float*)(iah + CAS_IAH_GRACE) = 0.0f; }   /* held: the handler's end never reached */
+        } else if (L.air) {                        /* the touchdown, still in the casper */
+            L.air = 0;
+            if (land == 2 && iah) {
+                L.ride = 1; L.tRide = now; iah[HOSP_IAH_IN] = 1; *(float*)(iah + CAS_IAH_GRACE) = 0.0f;
+                Log("casper land: #%ld landed IN the auto casper %.2f s after the lock (AltCasperLand=2): ridden as the game's casper -- until a trick out of it (the game's way out), a bail; no stick needed", (long)C.n, now - C.t0);
+            } else if (land == 3) {
+                if (FeatSigOff() || g_hospFnOk <= 0) Log("casper land: #%ld touched down in the auto casper (AltCasperLand=3) but the game's Bail is not the one this build was read off (another exe): not bailed -- the game's own end", (long)C.n);
+                else { g_casBailN = C.n; InterlockedExchangePointer((void* volatile*)&g_casBailSk, (void*)sk);
+                    Log("casper land: #%ld touched down in the auto casper %.2f s after the lock (AltCasperLand=3): the game's own bail asked (Bail \"Failed casper\", at the next engine tick)", (long)C.n, now - C.t0); }
+            }
+        }
+        if (g_casMatch) {                          /* (274) the note at CasMatch */
+            if (!L.fc) { L.fc = 1; char ft[120]; CasFeetText(bm, ft, sizeof(ft)); Log("casper match: #%ld at the lock (%s): %s -- the feet-catch shares held at 0 while the auto casper is ours (AltCasperMatch=1)", (long)C.n, C.catchWas ? "the flip ALREADY CAUGHT by the game" : "the flip not caught", ft); }
+            CasFeetClear(bm);
+        }
+        *(float*)(sk + HOSP_SK_RATIO) = 1.0f; L.ratio = 1;   /* the casper ratio a full stick gives (the anim's casper pose) */
+        return;
+    }
+    if (L.ratio && !(bits & 3)) { L.ratio = 0; *(float*)(sk + HOSP_SK_RATIO) = 0.0f; }   /* the casper off: the ratio a let-go stick leaves */
+    else if (L.ratio && !(C.st == 1 && L.n == C.n)) L.ratio = 0;   /* the game's from here (its handler sets the ratio from the stick) */
+}
+void CasBailRun() {   /* (272) AltCasperLand=3: the bail asked at the touchdown, made here at the start of an engine tick (hkEngineTick) */
+    uint8_t* sk = (uint8_t*)InterlockedExchangePointer((void* volatile*)&g_casBailSk, nullptr);
+    if (!sk) return;
+    __try {
+        if (!PtrOk(sk, HOSP_SK_RATIO + 4) || !(sk[HOSP_SK_CASPER] & 1) || (sk[ALT_SK_FLAGS] & 2) || g_bail) { Log("casper land: #%ld not bailed: by the next tick %s", (long)g_casBailN, (!PtrOk(sk, HOSP_SK_RATIO + 4)) ? "the skater could not be read" : !(sk[HOSP_SK_CASPER] & 1) ? "the casper was already off" : "a bail was running"); return; }
+        static wchar_t kFail[] = L"Failed casper";
+        struct { wchar_t* d; int32_t n, m; } why = { kFail, 14, 14 };   /* an FString the way the handler builds it (14 TCHARs with the 0) */
+        ((SkBailFn)(Exe() + RVA_SK_BAIL))(sk, &why, true, true);
+        Log("casper land: #%ld BAILED at the touchdown (AltCasperLand=3): the game's own Bail(\"Failed casper\"), as its casper handler makes it", (long)g_casBailN);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { InterlockedExchange(&g_casLand, 1); Log("casper land: #%ld the game's Bail faulted -- AltCasperLand set to 1 (flip out) for this run", (long)g_casBailN); }
+}
+void CasAutoStep(AltT& A, uint8_t* pc, uint8_t* sk, uint8_t* bm, double now) {   /* (271) every pose (AltTick, before HospWatch) with AltCasperCatch=1: the lock and its end (the note at CasAutoFor) */
+    CasLandStep(A, pc, sk, bm, now);   /* (272) the auto casper's ratio, its -540, AltCasperLand's hold / ride / bail (the note at CasLandStep) */
+    CasAuto& C = g_cas; const AltTrick& T = A.t;
+    const int bits = (sk && PtrOk(sk, HOSP_SK_CASPER + 1)) ? (sk[HOSP_SK_CASPER] & 3) : 0;
+    if (C.st == 1 && g_hospD.phase != 0) { C.st = 2; Log("casper catch: #%ld hospital from the auto casper %.2f s after it locked (hospital #%ld takes the board)", (long)C.n, now - C.t0, (long)g_hospD.n); return; }
+    if (C.st == 1 && !(CasAutoFor(T) && T.n == C.n)) { C.st = 2; Log("casper catch: #%ld the alt trick ended %.2f s after the casper locked (%s)", (long)C.n, now - C.t0, bits ? "the casper still on: the game's from here" : "the casper off"); }
+    if (!CasAutoFor(T)) return;
+    if (T.n != C.n) {                              /* a new alt kickflip: the casper possible? */
+        C = CasAuto{}; C.n = T.n;
+        const uint8_t* opt = (pc && PtrOk(pc, HOSP_PC_OPTS + 8)) ? *(const uint8_t* const*)(pc + HOSP_PC_OPTS) : nullptr;
+        const int gate = (opt && PtrOk(opt, HOSP_OPT_CASPERS + 8)) ? ((opt[HOSP_OPT_CASPERS] >> 4) & 1) : -1;
+        if (g_hospFnOk == 0) g_hospFnOk = HospFnBytesOk(Exe() + RVA_HOSP_SETCASPERS) ? 1 : -1;
+        const char* no = FeatSigOff() ? "not every feature address was found on this build of the game" : (g_hospFnOk < 0) ? "the game's SetCaspers is not the one this build was read off (another exe)"
+            : (gate == 0) ? "the game's Casper is OFF in its settings (turn on Caspers in its experimental settings)" : (gate != 1) ? "the game's casper switch could not be read" : nullptr;
+        if (no) { C.st = 3; if (InterlockedExchange(&g_casOffTold, 1) == 0) Log("casper catch: AltCasperCatch=1 but %s -- the auto casper does nothing (the kickflip underflip keeps its old window)", no); return; }
+    }
+    if (C.st == 1) {                               /* locked: how it ends */
+        if ((sk[ALT_SK_FLAGS] & 2) || g_bail) { C.st = 2; Log("casper catch: #%ld a bail %.2f s after the casper locked", (long)C.n, now - C.t0); }
+        else if (bm[BM_MODE] != 3) {
+            C.st = 2;
+            if (bits & 1) Log("casper catch: #%ld landed in the casper %.2f s after it locked: the game's from here -- held on the ground with its casper stick it rides; let go and the game bails it (Failed casper)", (long)C.n, now - C.t0);
+            else Log("casper catch: #%ld landed %.2f s after the lock, the casper already off (bits 0x%x)", (long)C.n, now - C.t0, (unsigned)bits);
+        }
+        else if (!(bits & 1)) { C.st = 2; Log("casper catch: #%ld the casper went off in the air %.2f s after it locked (bits 0x%x: the game's handler ended it)", (long)C.n, now - C.t0, (unsigned)bits); }
+        return;
+    }
+    if (C.st != 0 || bm[BM_MODE] != 3 || !(bm[ALT_BM_FLAGS] & 0x08) || T.uDone || T.uSide) return;
+    const float c = fabsf(ReadF(bm, ALT_BM_FLIPCUR));
+    if (!std::isfinite(c) || c < CAS_AT) return;
+    if (c > CAS_PAST) { C.st = 3; Log("casper catch: #%ld NOT locked: the flip was first seen at %.0f deg (past %.0f) -- the kickflip underflip's old window", (long)C.n, c, CAS_PAST); return; }
+    uint8_t* iah = (pc && PtrOk(pc, ALT_PC_INAIR + 8)) ? *(uint8_t* const*)(pc + ALT_PC_INAIR) : nullptr;
+    const char* no = ((sk[ALT_SK_FLAGS] & 2) || g_bail) ? "a bail is running" : (g_hospD.phase != 0) ? "a hospital flip is running" : (!iah || !PtrOk(iah, 0x80)) ? "the game's in-air handler could not be read"
+        : !PtrOk(sk, HOSP_SK_CASPER + 1) ? "the skater's casper byte could not be read" : bits ? "the game's own casper is already on (its stick held): left to the game" : nullptr;
+    if (no) { C.st = 3; Log("casper catch: #%ld NOT locked at %.0f deg: %s", (long)C.n, c, no); return; }
+    C.rate = ReadF(bm, ALT_BM_FLIPRATE); C.tgt = ReadF(bm, ALT_BM_FLIPTGT); C.at = c; C.t0 = now; C.catchWas = (bm[ALT_BM_FLAGS] & 0x04) ? 1 : 0;
+    ((HospSetCasFn)(Exe() + RVA_HOSP_SETCASPERS))(sk, true, false);   /* the game's own setter: the bits, the board's flag, the display */
+    iah[HOSP_IAH_IN] = 1; iah[HOSP_IAH_ANTI] = 0; *(float*)(iah + HOSP_IAH_CLOCK) = 0.0f; *(float*)(iah + CAS_IAH_GRACE) = 0.0f;   /* as its held casper leaves them */
+    _InterlockedOr8((char*)(bm + ALT_BM_FLAGS), 0x04);   /* caught (CatchBoard's bit): the catch branch holds it at 180 */
+    if (!(sk[HOSP_SK_CASPER] & 1)) {               /* the setter did not take: everything put back */
+        iah[HOSP_IAH_IN] = 0; if (!C.catchWas) _InterlockedAnd8((char*)(bm + ALT_BM_FLAGS), (char)0xfb);
+        C.st = 3; Log("casper catch: #%ld NOT locked at %.0f deg: SetCaspers did not set the casper bit (bits 0x%x) -- put back", (long)C.n, c, (unsigned)sk[HOSP_SK_CASPER]); return;
+    }
+    C.st = 1; InterlockedExchange(&g_casOffTold, 0);
+    char nm[100]; nm[0] = 0;
+    if (T.def && PtrOk((const void*)T.def, 0x40)) AltDefName(T.def, nm, sizeof(nm));
+    Log("casper catch: #%ld locked at %.0f deg (%s, the flip's target %.0f, rate %.0f%s): the game's casper on -- the front-foot stick %s = the hospital flip%s, a side flick = the underflip back, nothing = the game's casper to the ground",
+        (long)C.n, c, nm[0] ? nm : "the alt kickflip", C.tgt, C.rate, C.catchWas ? ", already caught" : "", g_hospFlick ? "BACK" : "UP", g_altHosp ? "" : " (AltHospital=0: NOT taken)");
+}
+void CasAutoUnder(AltT& A, uint8_t* pc, uint8_t* sk, uint8_t* bm, double now) {   /* (271) a side flick in the auto casper (the stick block, before AltUnder): the casper ended, the flip handed back uncaught */
+    CasAuto& C = g_cas; AltTrick& T = A.t;
+    uint8_t* iah = (pc && PtrOk(pc, ALT_PC_INAIR + 8)) ? *(uint8_t* const*)(pc + ALT_PC_INAIR) : nullptr;
+    C.st = 2;
+    if (!iah || !PtrOk(iah, 0x80) || g_hospFnOk < 0) { Log("casper catch: #%ld underflip from the auto casper NOT handed back: the game's in-air handler could not be read (the casper goes on)", (long)C.n); return; }
+    HospOff(sk, iah);                              /* the casper ended as the game ends one */
+    const float tg = ReadF(bm, ALT_BM_FLIPTGT), r = ReadF(bm, ALT_BM_FLIPRATE);
+    const float t2 = (std::isfinite(C.tgt) && fabsf(fabsf(C.tgt) - 360.0f) <= 10.0f) ? C.tgt : copysignf(360.0f, (std::isfinite(tg) && tg != 0.0f) ? tg : 1.0f);
+    *(float*)(bm + ALT_BM_FLIPTGT) = t2;           /* the whole turn again (the casper's catch had it at 180): AltUnderMirror's shape */
+    if (std::isfinite(C.rate) && fabsf(C.rate) >= 1.0f && !(std::isfinite(r) && fabsf(r) >= 1.0f && (r > 0.0f) == (C.rate > 0.0f))) *(float*)(bm + ALT_BM_FLIPRATE) = C.rate;
+    _InterlockedAnd8((char*)(bm + ALT_BM_FLAGS), (char)0xf9); _InterlockedOr8((char*)(bm + ALT_BM_FLAGS), 0x08);   /* FlipBoard's own bits: flipping on, catching off */
+    Log("casper catch: #%ld underflip from the auto casper %.2f s after it locked (the %s stick to the %s): the casper ended the game's way, the flip handed back uncaught (at %.0f, target %.0f, rate %.0f) for the turn back",
+        (long)C.n, now - C.t0, T.uStick == 1 ? "front" : "back", T.uSide > 0 ? "right" : "left", ReadF(bm, ALT_BM_FLIPCUR), t2, ReadF(bm, ALT_BM_FLIPRATE));
+}
 void HospWatch(uint8_t* pc, uint8_t* sk, const uint8_t* anim, uint8_t* bm, const float* fs, const float* bs, float downSign, bool busy, double now) {   /* (253) not const: the drive (HospDriveStart / HospDriveStep) writes */   /* fs the front-foot stick, bs the back-foot one (which one holds the casper is logged) */
     HospW& H = g_hosp;
     g_hfRec = (g_hospFeet && g_altHosp && g_hospD.phase == 0 && sk && PtrOk(sk, HOSP_SK_CASPER + 1) && (sk[HOSP_SK_CASPER] & 3)) ? 1 : 0;   /* (255) the casper's foot targets recorded (the note at HospFeetStep) */
@@ -20893,6 +21126,7 @@ void HospWatch(uint8_t* pc, uint8_t* sk, const uint8_t* anim, uint8_t* bm, const
         Log("hospital: #%ld CASPER ON (%s%s) %s: ratio %.2f, catch state %d, anim casper %d / anti %d / ratio %.2f; %s; the trick %s; the front stick (%.2f, %.2f), the back stick (%.2f, %.2f)%s",
             (long)H.n, (bits & 1) ? "casper" : "anti casper", (bits & 4) ? ", the board's flag" : "", air ? "IN THE AIR" : "ON THE GROUND", ratio, (int)sk[HOSP_SK_CATCH],
             (int)anim[HOSP_AI_CASPER], (int)anim[HOSP_AI_ANTI], ReadF(anim, HOSP_AI_RATIO), bd, nm[0] ? nm : "(none)", fx, fy, bs[0], bs[1], busy ? "; an alt trick of ours is running" : "");
+        if (g_casMatch) { char ft[120]; CasFeetText(bm, ft, sizeof(ft)); Log("casper match: #%ld at CASPER ON (%s): %s", (long)H.n, (g_cas.st == 1) ? "the auto casper" : "a casper of the game's", ft); }   /* (274) the note at CasMatch */
     }
     if (bits & 3) {
         if (std::isfinite(ratio) && ratio > H.rMax) H.rMax = ratio;
@@ -20987,6 +21221,7 @@ void AltTick(void* mesh) {
     const bool backLeft = modeOk && AltBackLeft(mode, sw, goofy);
     float* bxp = (float*)(pc + ALT_PC_STICKS) + (backLeft ? 0 : 2);
     float* byp = bxp + 1;
+    if (g_casAuto) CasAutoStep(A, pc, sk, bm, now);   /* (271) AltCasperCatch: the alt kickflip's auto casper (the note at CasAutoFor) */
     g_hcArmed = (HospUnderArmed(A.t) && A.t.kind == 8) ? 1 : 0;   /* (259) the alternate casper: a casper caught out of the alt crouch's kick/heel underflip (the note at HcStep) */
     HospWatch(pc, sk, anim, bm, (const float*)(pc + ALT_PC_STICKS) + (backLeft ? 2 : 0), (const float*)(pc + ALT_PC_STICKS) + (backLeft ? 0 : 2), A.downSign, HospAltBusy(A), now);   /* (251) the game's Casper watched (the note at HospWatch); (254) busy = an alt trick driving the board (an armed underflip is not: the note at HospAltBusy) */
     float bx = *bxp, by = *byp;
@@ -21114,6 +21349,7 @@ void AltTick(void* mesh) {
             T.uStick = (sF && T.uArmF) ? 1 : 2; T.uSide = (T.uStick == 1) ? sF : sB; T.uMag = (T.uStick == 1) ? fabsf(ux) : fabsf(bx); T.uHold = true;
             T.uHeel = AltPorHeelX(A.takeSet == 1 ? 1 : 0, mode, sw, goofy);   /* (252) the x toward the heelflip's flick (the toes' and heels' sides are one for both feet) */
             T.usGoofy = goofy ? 1 : 0; T.usMode = mode; T.usSw = sw ? 1 : 0;   /* (262) the table's rider, stick mode and switch (the note at UfsRuleFlip) */
+            if (CasAutoHold(T) && g_cas.st == 1) CasAutoUnder(A, pc, sk, bm, now);   /* (271) the underflip from the auto casper (the note at CasAutoFor) */
         }
         if (T.uHold && ((T.uStick == 1) ? sqrtf(ux * ux + uy * uy) : mag) < 0.2f) T.uHold = false;
         const bool zF = (open && AltUnderSideish(ux, uy)) || (T.uHold && T.uStick == 1), zB = (open && AltUnderSideish(bx, by)) || (T.uHold && T.uStick == 2);
@@ -23382,6 +23618,7 @@ void ForegroundLook() {
 // HJN_Foreground() -> 1 the game's window is in front, 0 it is not, -1 not known (the engine's tick is not hooked)
 int nForeground(const Lua& lua) { lua.set_integer((int)g_fgState); return 1; }
 void hkEngineTick(void* engine, float dt, bool idle) {
+    if (g_casBailSk) CasBailRun();   /* (272) AltCasperLand=3: the bail its touchdown asked (the note at CasLandStep) */
     InterlockedIncrement(&g_beat); g_gameTid = GetCurrentThreadId(); g_wdTick = 1;   // (v95) the watchdog's counter
     ForegroundLook();                                                                // (v107)
     CkPoll();                                                                        // (v123)
@@ -23910,6 +24147,79 @@ void StickBank(bool on) {
     g_bankPatched = wantPatched;
     Log("stick bank: the stick's bank is %s", on ? "ON again (the game's own: Skate_BankLeft/Right restored)" : "OFF (Skate_BankLeft/Right return at once; the triggers' lean is untouched)");
 }
+// (v169) GRABS IN A GRIND (the Lua's GrindGrabs, off by default). In a grind the game's bumpers are its LEAN-OUT: the actions
+// Skate_LeanLeft / Skate_LeanRight (DefaultInput.ini: LB / RB, the keys of Skate_GrabLeft / Right too) call
+// USkateboardExMovementComponent::LeanLeft / LeanRight -> CalculateLeanOutInfo(-1 / +1), and Skate_CanLean is true ONLY on a grind
+// (it ends in IsOnGrind). HJN_Set("grindgrabs", 1) makes the first byte of both a `ret` (their first six bytes checked first, as
+// the stick's bank does: push rbx / sub rsp, 0x20); 0 puts the bytes back. The grab actions on the same keys are untouched, so the
+// game's air grabs and the Lua's pad read are as they were. Only on the build the addresses were read from (another build, found
+// by signature, has its own: refused, and the Lua keeps the bumpers from the game by the key hook instead). -> 1 done, 0 refused
+uintptr_t RVA_LEAN_LEFT = 0xf9fe10, RVA_LEAN_RIGHT = 0xf9fe50;
+int g_leanPatched = 0; uint8_t g_leanSaved[2] = { 0x40, 0x40 };
+int GrindLean(bool off) {
+    const int wantPatched = off ? 1 : 0;
+    if (g_leanPatched == wantPatched) return 1;
+    if (!g_hooked || g_sigMode) {
+        Log("grind grabs: the game's bumper lean-out of a grind cannot be switched %s here (%s)", off ? "off" : "back on", g_sigMode ? "another build of the game: its addresses are not known" : "the hook is not in");
+        return 0;
+    }
+    uint8_t* exe = Exe();
+    const uintptr_t rvas[2] = { RVA_LEAN_LEFT, RVA_LEAN_RIGHT };
+    static const uint8_t expect[6] = { 0x40, 0x53, 0x48, 0x83, 0xec, 0x20 };
+    for (int i = 0; i < 2; i++) {
+        const uint8_t* p = exe + rvas[i];
+        if (wantPatched ? (memcmp(p, expect, 6) != 0) : (p[0] != 0xC3 || memcmp(p + 1, expect + 1, 5) != 0)) {
+            Log("grind grabs: Skate_Lean%s does not start as expected -- both left alone", i ? "Right" : "Left");
+            return 0;
+        }
+    }
+    for (int i = 0; i < 2; i++) {
+        uint8_t* p = exe + rvas[i];
+        DWORD old = 0;
+        if (!VirtualProtect(p, 16, PAGE_EXECUTE_READWRITE, &old)) { Log("grind grabs: VirtualProtect failed"); return 0; }
+        if (wantPatched) { g_leanSaved[i] = p[0]; p[0] = 0xC3; } else { p[0] = g_leanSaved[i]; }
+        VirtualProtect(p, 16, old, &old);
+        FlushInstructionCache(GetCurrentProcess(), p, 16);
+    }
+    g_leanPatched = wantPatched;
+    Log("grind grabs: the game's bumper lean-out of a grind is %s", off ? "OFF (Skate_LeanLeft/Right return at once: LB / RB in a grind are the hands')" : "back (Skate_LeanLeft/Right restored)");
+    return 1;
+}
+// (v171 grind3) GrindGrabs = 2: THE STICK CLICKS ARE THE GRIND'S EXITS. With GrindGrabs on the bumpers are the hands' (GrindLean: the
+// controller's Skate_LeanLeft / Skate_LeanRight return at once), so with 2 the Lua hands L3 / R3 in a grind to HJN_Set("grindexit",
+// -1 / +1), and this does what those two did, past the patched entries: the controller's own gate Skate_CanLean (@0xf9de50: a pawn,
+// the skater on the board, no pop pending, ... IsOnGrind; const, unpatched), then GetSkateboard's board (skater+0x568) ->
+// _skateboardMovement (board+0x298) -> USkateboardExMovementComponent::LeanLeft (@0xfc3df0) / LeanRight (@0xfc3e10), which
+// call CalculateLeanOutInfo(-1 / +1) unless a lean-out is already on ([mc+0x684]). -1 = LeanLeft = LB's, +1 = LeanRight = RB's:
+// the side is the game's own, worked out from the board's frame in CalculateLeanOutInfo, exactly as the bumpers had it.
+// Their first bytes are checked; another build (found by signature: these four are not in the feature table) is refused.
+// On the game thread only (the Lua's NATIVE.gt). -> 1 done, 0 the game's Skate_CanLean said no, -1 another build / no hook,
+// -2 no controller / skater / board, -3 the code is not as read, -4 a fault
+uintptr_t RVA_CAN_LEAN = 0xf9de50, RVA_MC_LEAN_LEFT = 0xfc3df0, RVA_MC_LEAN_RIGHT = 0xfc3e10;
+typedef bool (*GrindCanLeanFn)(void* pc);
+typedef void (*GrindLeanFn)(void* mc);
+int GrindExit(int side) {
+    if (!g_hooked || g_sigMode) return -1;
+    uint8_t* pc = (uint8_t*)g_pc;
+    if (!pc || !PtrOk(pc, PC_SKATER + 8)) return -2;
+    uint8_t* exe = Exe();
+    static const uint8_t canB[16] = { 0x40, 0x53, 0x48, 0x83, 0xec, 0x20, 0x48, 0x8b, 0xd9, 0x48, 0x8b, 0x89, 0x98, 0x06, 0x00, 0x00 };
+    static const uint8_t leanB[13] = { 0x80, 0xb9, 0x84, 0x06, 0x00, 0x00, 0x00, 0x75, 0x0d, 0xf3, 0x0f, 0x10, 0x0d };
+    const uintptr_t rva = side < 0 ? RVA_MC_LEAN_LEFT : RVA_MC_LEAN_RIGHT;
+    if (memcmp(exe + RVA_CAN_LEAN, canB, 16) != 0 || memcmp(exe + rva, leanB, 13) != 0) return -3;
+    __try {
+        if (!((GrindCanLeanFn)(exe + RVA_CAN_LEAN))(pc)) return 0;
+        uint8_t* sk = *(uint8_t**)(pc + PC_SKATER);
+        if (!sk || !PtrOk(sk, SK_BOARD + 8)) return -2;
+        uint8_t* bd = *(uint8_t**)(sk + SK_BOARD);
+        if (!bd || !PtrOk(bd, BD_MOVE + 8)) return -2;
+        uint8_t* mc = *(uint8_t**)(bd + BD_MOVE);
+        if (!mc || !PtrOk(mc, 0x690)) return -2;
+        ((GrindLeanFn)(exe + rva))(mc);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return -4; }
+    return 1;
+}
 int nSet(const Lua& lua) {
     std::string k; double v = 0;
     ArgStr(lua, k); ArgNum(lua, v);
@@ -23918,6 +24228,7 @@ int nSet(const Lua& lua) {
         lua.set_integer(1);
         return 1;
     }
+    if (k == "grindexit") { lua.set_integer(GrindExit(v < 0 ? -1 : 1)); return 1; }   /* (v171 grind3) GrindGrabs=2: L3 / R3 in a grind = the game's lean-out, -1 left (LB's) / +1 right (RB's) */
     if (k == "clickhold") {                                      // (v123) in front of the chain: the stick clicks wait for the Lua's answer (HJN_Click)
         g_clickHold = v != 0 ? 1 : 0;
         if (!g_clickHold) for (int i = 0; i < 2; i++) if (g_ck[i].st == 1) g_ck[i].verdict = 0;   // the next pose hands them on
@@ -24060,6 +24371,9 @@ int nSet(const Lua& lua) {
     else if (k == "althospdrift") g_hospDrift = clampf((float)v, 0.0f, 15.0f);   /* (255) AltHospitalDrift */   /* (253) AltHospitalSecs (the note at HospDriveStart) */
     else if (k == "althospdirt") g_hospDirt = clampf((float)v, 0.0f, 3.0f);   /* (257) AltHospitalDirt (the note at HospWobSk) */
     else if (k == "althospkickonly") InterlockedExchange(&g_hospKickOnly, (v >= 0.5) ? 1 : 0);   /* (262) AltHospitalKickOnly (the note at HospKickNm) */
+    else if (k == "altcaspercatch") InterlockedExchange(&g_casAuto, (v >= 0.5) ? 1 : 0);   /* (271) AltCasperCatch (the note at CasAutoFor) */
+    else if (k == "altcaspermatch") InterlockedExchange(&g_casMatch, (v >= 0.5) ? 1 : 0);   /* (274) AltCasperMatch (the note at CasMatch) */
+    else if (k == "altcasperland") { const int m = (int)floor(v + 0.5); InterlockedExchange(&g_casLand, m < 1 ? 1 : (m > 3 ? 3 : m)); }   /* (272) AltCasperLand 1..3 (the note at CasLandStep) */
     else if (k == "althospfootback") g_hospFootBack = clampf((float)v, 0.0f, 25.0f);   /* (262) AltHospitalFootBack (the note at HospToeFront) */
     else if (k == "althosptoescoop") g_hospToe = clampf((float)v, 0.0f, 20.0f);   /* (262) AltHospitalToeScoop (the note at HospToeFront) */
     else if (k == "althospzscoop") g_hospZScoop = clampf((float)v, -60.0f, 60.0f);   /* (263) AltHospitalZScoop (the note at HospZWrite) */
@@ -24214,6 +24528,7 @@ int nSet(const Lua& lua) {
     else if (k == "offboard") g_offBoard = v != 0 ? 1 : 0;       // (v84)
     else if (k == "bail") g_bail = v != 0 ? 1 : 0;               // (v63)
     else if (k == "posedump") PdSwitch(v != 0);                    // (v94) 1 = every trick's poses to ExpandedTricks.poses.bin (the default), 0 = off
+    else if (k == "grindgrabs") { lua.set_integer(GrindLean(v != 0)); return 1; }   /* (v169) GrindGrabs: 1 = the game's bumper lean-out of a grind off, 0 = back */
     else if (k == "stickbank") StickBank(v != 0);                  // (v64) 1 = the game's own, 0 = the stick's bank off
     else if (k == "handaim") g_handAim = (int)v;
     else if (k == "fingercurl") g_fingerCurl = (float)v;

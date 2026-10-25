@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased (in the repository, not yet in a release)
+- **Grabs in grinds** (Grabs page, `GrindGrabs`, off by default): 1 = LB / RB grabs start and hold in a grind or slide, and the bumpers no longer lean you out of it; 2 = the same, and in a grind L3 / R3 lean you off to the left / right instead.
+- **Auto casper** (Flip Tricks page, `AltCasperCatch`, off by default): the alt crouch's kickflip locks into the game's casper at 180; then the front-foot stick back = hospital flip, a side flick = kickflip underflip. *Auto casper landing* (`AltCasperLand`): 1 flip out, 2 land in the casper, 3 bail.
+
+### Build by build
+- Build 274, native v172: build 273's goofy Z-scoop flip undone (the shipped 35 is the direction that looked right); the auto casper's hospital made like a manual one when the game had already caught the kickflip (`AltCasperMatch`, on).
+- Build 273, native v171: the hospital flip's Z scoop goes the other way round for goofy (its second half no longer doubles back); *Grabs in grinds* (`GrindGrabs`) is now 0 off / 1 on / 2 on + stick-click exits (in a grind L3 leans you off to the left, R3 to the right, as LB / RB did).
+- Build 272, native v170: the auto casper (still off unless you turn it on) is held like a caught one (the game's casper ratio at 1, a flip held at 540 put to 180), so a hospital flip out of it looks like one out of your own casper; new *Auto casper landing* (`AltCasperLand`: 1 flip out, 2 land in the casper, 3 bail).
+- Build 271, native v169: two options, both OFF unless you turn them on: *Auto casper (alt kickflip)* on the Flip Tricks page (`AltCasperCatch`: the alt crouch's kickflip locks into the game's casper at 180; then front-foot stick back = hospital flip, a side flick = kickflip underflip) and *Allow grabs in grinds* on the Grabs page (`GrindGrabs`: grabs start and hold in a grind; the bumpers no longer lean you out of it).
+
 ## 1.1.2 -- the trick guide pictures come with the automatic update
 Lua build 270, native v168. The in-game updater now fetches the release's other files too (the four trick guide pictures):
 an install that updated itself to 1.1.1 got only the two program files, and gets the pictures at its next start after this.
