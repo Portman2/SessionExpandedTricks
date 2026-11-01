@@ -1,8 +1,9 @@
 # Changelog
 
 ## 1.2.1 -- the trick guide pictures redrawn
-Lua build 310, native v208. A 1.0.0 or 1.1.x / 1.2.0 install with *Automatic updates* at 2 installs it by itself at its next start, pictures included.
+Lua build 311, native v209. A 1.0.0 or 1.1.x / 1.2.0 install with *Automatic updates* at 2 installs it by itself at its next start, pictures included.
 
+- **Alt flips out of grinds** is now one switch on the Flip Tricks page (`AltGrinds`): get into a grind as normal, push the back-foot stick up, flick out as from the alt crouch on the ground. The two other grind rows (*Alt crouch only once in a grind*, *Alt flips out of grinds* on the Grabs page) are gone; that one switch does what all three on did.
 - **Trick Guide pictures** (Pause menu, Expanded Tricks, Trick Guide): *Other tricks* adds the **tail stop** and the **grind flip-outs** (monster and dolphin flips out of an alt crouch grind); *Flip tricks* adds the **auto casper** (and the hospital flip and underflip out of it); *Grabs* adds **grabs in grinds** and leaning off a grind with the stick clicks.
 
 ## 1.2.0 -- the tail stop, the big drop landing, alt crouch grinds

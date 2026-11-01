@@ -187,17 +187,13 @@ seconds; the game's own unused tail brake would be 22). How quickly the tail goe
 you left the ground and the landing is the game's unused big sketchy landing, for
 regular and switch landings. `BigDropHeight` in the ini sets the height in metres.
 
-## Alt crouch grinds
+## Alt flips out of grinds
 
-*Alt crouch grinds* on the Grabs page (off as the mod ships); needs the alternate flip set.
+*Alt flips out of grinds* on the Flip Tricks page (off as the mod ships); needs the alternate flip set.
 
-- With *Alt crouch only once in a grind* on: grind with your normal sticks; once in the grind, push the **back stick
-  up** for the grind crouch, then flick the **front stick down** for a monster flip out or **up** for a dolphin flip
-  out, as from the alternate crouch on the ground.
-- Without it: an alternate crouch in the air or in a grind turns your sticks upside down for the game, so the front
-  stick down lands a nosegrind.
-- *Alt flips out of grinds*: in a grind you got into with the alternate crouch, your flick out is an alternate flip
-  (monster, dolphin, nightmare, underflip...).
+Get into a grind as normal, with your normal sticks. In the grind, push the **back stick up** (the alternate crouch;
+the game keeps its grind crouch), then flick out as from the alternate crouch on the ground: **front stick down** for a
+**Monster Flip**, **up** for a **Dolphin Flip**, and the varial scoops and underflips the same way.
 
 ## Other things it changes
 

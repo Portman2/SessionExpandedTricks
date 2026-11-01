@@ -59,9 +59,9 @@ The full list of tricks with their inputs is in [docs/TRICKS.md](docs/TRICKS.md)
   slows you.
 - **Big drop landing.** Land 2.5 m or more below where you left the ground and the trick lands with the game's unused
   big sketchy landing instead of its usual one. The game had the animations but never used them.
-- **Alt crouch grinds** (Grabs page, off as the mod ships). With the alternate flip set on, in a grind push the
-  back-foot stick up for the grind crouch, then flick the front-foot stick down or up for a monster or dolphin flip out
-  of it, as on the ground. *Alt flips out of grinds* turns any flick out of such a grind into its alternate flip.
+- **Alt flips out of grinds** (Flip Tricks page, off as the mod ships). With the alternate flip set on, get into a grind
+  as normal, push the back-foot stick up (the alternate crouch), then flick out as on the ground: the front-foot stick
+  down for a monster flip, up for a dolphin flip, and the varials and underflips.
 - **Throwdown speed.** A slider on the General gameplay settings page. The game's own throwdown plays faster and you
   roll away faster, as a percentage of the speed you were moving at. 100 % (as it ships) = unchanged.
 - **Jumping onto the board.** On foot next to your board lying on the ground, click a stick. Run at it and your speed
@@ -236,11 +236,11 @@ The pages:
   board, and the caveman.
 - **Drop-ins:** the drop-in, its launch speed, the arms and crouch on the way down, and vert walls.
 - **Grabs:** air grabs, two-hand grabs, tweaking and boning, the head, letting go on landing, and moving every grab's
-  hand at once. The alt crouch grinds (off as the mod ships) are here too.
+  hand at once.
 - **No Comply and Boneless:** the no comply, the boneless and the bean plant: the planted foot, the pop and the scoop.
 - **Rolling Grabs and Finger Flips:** the rolling grab's squat and hands, and finger flips.
 - **Flip Tricks:** the alternate flip set and its nollie set on or off, how far the stick goes, the flip speeds, the
-  porpoise's lean, and the hospital flip with its time.
+  porpoise's lean, the hospital flip with its time, and the alt flips out of grinds.
   Also: the underflip's turn-back following the speed of your second flick, the alt shove-it's spin following your
   scoop, and Nightmare / Daydream names for the game's own double varial flips (all off as the mod ships).
 - **Wallrides:** on or off, frontside walls, wallrides from the ground, when a ride starts, how long it lasts, gravity
