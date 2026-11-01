@@ -805,7 +805,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "CavemanTime", "num", 100, 217, "ms from the Y press for the caveman's board to come from your hand to under your feet (the game puts you on it 217 ms after the press)" },
     { "CavemanOut", "num", 0, 60, "cm in front of you the caveman's board swings out on its way down (it comes in under your feet from there)" },
     { "CavemanLift", "num", 0, 40, "cm over the spot under your feet the caveman's board is when it is that far out" },
-    { "CavemanTurn", "num", 0, 1, "how far round the caveman turns your body toward your stance in the air, as the board comes under your feet (feet and body together, before the game puts you on):\n; 1 = all the way (20 deg short of the feet's line, as the game's own pose stands), 0.75 = three quarters (the game turns the rest after it puts you on), 0 = not at all\n; (the feet are put on the board turned as they ride against your hips). Takes the native half v209" },
+    { "CavemanTurn", "num", 0, 1, "how far round the caveman turns your body toward your stance in the air, as the board comes under your feet (feet and body together, before the game puts you on):\n; 1 = all the way (20 deg short of the feet's line, as the game's own pose stands), 0.75 = three quarters (the game turns the rest after it puts you on), 0 = not at all\n; (the feet are put on the board turned as they ride against your hips). Takes the native half v210" },
     { "CavemanKeepFall", "num", 0, 1, "1 = after the caveman's mount the board is given back the speed you were falling (or rising) at: the game's mount sets it to 0\n; and you hang for a moment; 0 = the game's own" },
     { "CavemanHold", "num", 0, 1.5, "seconds at most the caveman's hand holds the board (a Melon with the front hand, an Indy with the back hand: the hand that carried it) once you are on the board in the air, with the knees\n; up and the hips down as in a rolling grab; it lets go CavemanLetGo before touchdown in any case. 0 = no grab" },
     { "CavemanSquat", "num", 0, 55, "cm at most the hips come down toward the board in the caveman's grab (no leg is folded under 35 % of its length for it: the back leans on)" },
@@ -839,7 +839,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "CavemanHandReach", "num", 0, 1, "1 = the caveman's holding arm reaches for the board again once his crouch is drawn deeper: the elbow straightens as far as it needs and the hand comes down onto the board with the shoulder; 0 = build 247's (the hand kept where the arm reached before the crouch: elbow bent, hand over the board)" },
     { "CavemanHandLean", "num", 0, 45, "deg at most the caveman's upper body leans from the waist toward the board while his hand holds it, when the straight arm is still short of its spot: down, forward and toward that side, eased in over the hold and let go with the grab -- the resting grip on the board, not over it;\n; 0 = build 248's (the hand 13-20 cm over the board)" },
     { "CavemanHeadEase", "num", 0, 30, "poses the caveman's head is handed back to the game over once the hand lets go (his look ahead held whole while the hand holds): no snap;\n; 0 = build 248's (let go with the feet's hold)" },
-    { "WallRide", "num", 0, 1, "WALLRIDES. 1 = fly into a wall at a shallow angle in any air on the board (an ollie; a flip once its spin is over) and you ride along it for a moment,\n; the board on the wall: automatic, no button. A head-on hit is left to the game (it bails you). 0 = off, the game's own. Takes the native half v209" },
+    { "WallRide", "num", 0, 1, "WALLRIDES. 1 = fly into a wall at a shallow angle in any air on the board (an ollie; a flip once its spin is over) and you ride along it for a moment,\n; the board on the wall: automatic, no button. A head-on hit is left to the game (it bails you). 0 = off, the game's own. Takes the native half v210" },
     { "WallRideMaxAngle", "num", 5, 60, "no longer used since build 233 (WallRideMaxApproach replaced it: an ini keeps a key's old value for ever, and build 232's 35 refused 24 of 35 tries)" },
     { "WallRideMinSpeed", "num", 100, 1500, "cm/s along the ground you need to start a wallride" },
     { "WallRideMinHeight", "num", 10, 200, "cm the board must be over the ground to start a wallride (lower leaves no time to get on and off the wall)" },
@@ -906,7 +906,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "WallRideGroundWallieRate", "num", 100, 1500, "degrees a second that nose pitch (WallRideGroundWallie) comes at as a wallride from the ground takes off: 600 is up 45 in about 0.08 s. New in build 253" },
     { "WallRideGroundWallieBody", "num", 0, 45, "degrees your body leans back toward the tail while the board's nose is pitched up (WallRideGroundWallie) as a wallride\n; from the ground takes off: your weight over the tail, your feet on the pitched board, your knees bent, back to the ride's line as the\n; board flattens on the wall. 0 = the feet on the board only. New in build 253" },
     { "StickClickPass", "num", 0, 1, "1 = a stick click the mod does not use goes on to the game (L3 opens the missions); one it uses (a hippie jump, a mini hop, a board hop, a click grab) does not;\n; 0 = every stick click goes to the game as well (as before build 225: the mission viewer came up with every hippie jump)" },
-    { "AltFlips", "num", 0, 1, "ALT FLIP SET. 1 = push the back-foot stick UP to crouch for a second set of flip tricks (front/back-foot or left/right-foot stick mode; not in Legacy):\n; front stick pulled DOWN = Monster Flip, pushed UP = Dolphin Flip (AltFrontSwap); the varial flip's scoop, swept from up toward the SAME side as your varial's, and its flick = Nightmare Flip;\n; the varial heel's, the same way, = Daydream Flip; every other trick from that crouch is the game's own. 0 = off (up does nothing, as in the game). Takes the native half v209" },
+    { "AltFlips", "num", 0, 1, "ALT FLIP SET. 1 = push the back-foot stick UP to crouch for a second set of flip tricks (front/back-foot or left/right-foot stick mode; not in Legacy):\n; front stick pulled DOWN = Monster Flip, pushed UP = Dolphin Flip (AltFrontSwap); the varial flip's scoop, swept from up toward the SAME side as your varial's, and its flick = Nightmare Flip;\n; the varial heel's, the same way, = Daydream Flip; every other trick from that crouch is the game's own. 0 = off (up does nothing, as in the game). Takes the native half v210" },
     { "AltFlipEngage", "num", 0.25, 0.95, "how far UP the back-foot stick must go (0..1 of its throw past the game's dead zone) to crouch for the alt set; it must point within 40 deg of straight up (sideways is the game's pressure tricks)" },
     { "AltFlipRelease", "num", 0.1, 0.6, "the back-foot stick let back inside this (0..1) ends the alt crouch; after an alt trick it must come back inside it once before the next alt crouch (kept under AltFlipEngage)" },
     { "AltMonster", "num", 0, 1, "MONSTER FLIP: alt crouch + front stick pulled DOWN (AltFrontSwap; handed to the game as its ollie) and the board turns end over end (about its short axis) in the air: one full turn,\n; or in manual catch until you catch it (AltMonsterCatch); 0 = the alt ollie stays an ollie" },
@@ -6543,7 +6543,7 @@ NATIVE.altCfg = function(force)                       -- from NATIVE.sync: the s
         end
     end
     do   -- (grindfix5 286) AltDoubleVarialName (HJN_Set("altdoublevarialname", 0/1); an older native half ignores it): a double varial named the nightmare
-        local dv = ((tonumber(S.AltDoubleVarialName) or 0) >= 0.5) and 1 or 0
+        local dv = 0   -- (tidy 312) the game's own names always (no row; AltDoubleVarialName no longer read)
         if ((force and dv == 1) or (A.altDvn or 0) ~= dv) and type(HJN_Set) == "function" then
             A.altDvn = dv
             pcall(HJN_Set, "altdoublevarialname", dv)
@@ -6739,7 +6739,7 @@ NATIVE.altCfg = function(force)                       -- from NATIVE.sync: the s
         end
     end
     do   -- (279) AltUnderOwnSpeed on its own (HJN_Set("altunderownspeed", 0/1); an older native half ignores it): the underflip's reversal at the second flick's speed relative to the first's (native UfRelRate)
-        local uo = ((tonumber(S.AltUnderOwnSpeed) or 0) >= 0.5) and 1 or 0
+        local uo = 1   -- (tidy 312) always on, for everyone (no row; AltUnderOwnSpeed no longer read)
         if tostring(uo) ~= A.altUos or force then
             A.altUos = tostring(uo)
             if type(HJN_Set) == "function" then pcall(HJN_Set, "altunderownspeed", uo) end
@@ -6756,7 +6756,7 @@ NATIVE.altCfg = function(force)                       -- from NATIVE.sync: the s
         end
     end
     do   -- (285) AltShuvScoopSpeed on its own (HJN_Set("altshuvscoopspeed", 0/1); an older native half ignores it): the alt shove-it's spin x the scoop's own speed (native UfsScoopPace)
-        local ss = ((tonumber(S.AltShuvScoopSpeed) or 0) >= 0.5) and 1 or 0
+        local ss = 0   -- (tidy 312) the game's own spin always (no row; AltShuvScoopSpeed no longer read)
         if tostring(ss) ~= A.altSss or force then
             A.altSss = tostring(ss)
             if type(HJN_Set) == "function" then pcall(HJN_Set, "altshuvscoopspeed", ss) end
@@ -7205,7 +7205,7 @@ NATIVE.wallTick = function()                          -- every frame of our skat
     if type(HJN_Wall) ~= "function" then
         if on and not W.said.old then
             W.said.old = true
-            log("wallride: the native half beside this file (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall: it is not the one made with this main.lua (v209, with wallrides) -- NOT TAKEN: no wallrides on this run")   -- (fixer, Lua review F7: by the function, not the number)
+            log("wallride: the native half beside this file (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall: it is not the one made with this main.lua (v210, with wallrides) -- NOT TAKEN: no wallrides on this run")   -- (fixer, Lua review F7: by the function, not the number)
         end
         return
     end
@@ -7297,7 +7297,7 @@ NATIVE.wallCfg = function(force)                      -- from NATIVE.sync: the s
         took = ok and tonumber(r) or 0
     end
     local tail = ""
-    if took == nil then tail = " -- NOT TAKEN: the native half (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall; these need the v209 made with this main.lua"   -- (fixer, Lua review F7)
+    if took == nil then tail = " -- NOT TAKEN: the native half (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall; these need the v210 made with this main.lua"   -- (fixer, Lua review F7)
     elseif took == -1 then tail = " -- stood down: not on this build of the game (ExpandedTricks.native.log says why)"
     elseif took > 0 and took < #n then tail = " -- an older native half took the first " .. tostring(took) .. " of " .. #n .. ": WallRideMaxApproach is its approach limit there, and the carve, the slam guard and the exit turn are not in it (copy the native half made with this main.lua)"
     elseif took ~= #n then tail = " -- REFUSED by the native half (" .. tostring(took) .. " of " .. #n .. " taken; ExpandedTricks.native.log says why)" end
@@ -8461,15 +8461,12 @@ NATIVE.MENU = {
         { "slider", "AltNightmareSpeed", "Nightmare flip: flip speed", 100, 10, "How fast the nightmare and daydream flips flip, as a percentage (%) of the game's varial flip or varial heel. 200 = both turns in the time a varial flips once. Lower may not finish before you land.", 1.0, 3.0, unit = "%" },
         { "slider", "AltFlipPace", "Monster/dolphin: flip pace", 100, 5, "How fast the monster and dolphin flips turn, as a percentage (%) of your kickflip's speed for the same flick. Your flick and the game's flip speed setting still scale it.", 0.3, 1.5, unit = "%" },
         { "slider", "AltFlipPaceUp", "Monster/dolphin: extra pace", 100, 5, "The monster flip's (and the forward dolphin's) turn times this, as a percentage (%), on top of the flip pace. 120 brings your hardest flick round on flat ground. 100 = no extra.", 0.5, 2, unit = "%" },
-        { "toggle", "AltUnderOwnSpeed", "Underflip: speed of 2nd flick", 1, 1, "Kick/heel underflip: turns back at the first flip's speed x how much faster (or slower) your SECOND side flick was than your first (0.35x to 2.5x). Shuv-it underflip too: its usual spin x late flick vs scoop. Off: fixed." },
-        { "slider", "AltUnderFlickRef", "Underflip: 2nd flick reference", 1, 1, "Above 0 (with Underflip: speed of 2nd flick on): the underflip turns back at its usual speed x your 2nd side flick's speed / this (0.5x to 1.6x). 30 = a hard flick about x1.4. 0 = off.", 0, 80, unit = "/s" },
-        { "toggle", "AltShuvScoopSpeed", "Shuv-it: spin with scoop speed", 1, 1, "Alt shove-it: its spin follows how fast you scooped (0.6x to 1.6x of the game's; 8/s = 1x), the same 180 or 360. Needs Underflip: speed of 2nd flick on (it times the scoop). Off: the game's." },
-        { "toggle", "AltDoubleVarialName", "Double varial = Nightmare name", 1, 1, "Any Double Varial Flip the game would show (its own doubles too) reads Nightmare Flip, a Double Varial Heel Daydream Flip, with Switch / Nollie / Fakie and body varial names. Off: the game's names." },
-        { "toggle", "AltCasperCatch", "Auto casper (alt kickflip)", 1, 1, "Alt crouch + kickflip: the board locks into the game's casper when it is upside down. Then front stick BACK = hospital flip, a side flick = underflip. Needs the game's Caspers on." },
-        { "slider", "AltCasperLand", "Auto casper landing", 1, 1, "If you land still in the auto casper: 1 = Flip out (the board flips out by itself), 2 = Land in casper (ride on in it until a trick out of it), 3 = Bail.", 1, 3 },
+        -- (tidy 312) out of the menu: the underflip's 2nd-flick speed (always on), its reference, the shove-it's scoop speed and the double varial name (both off)
+        { "toggle", "AltCasperCatch", "Automatic casper catch", 1, 1, "Alt crouch + kickflip: the board locks into the game's casper when it is upside down. Then front stick BACK = hospital flip, a side flick = underflip. Needs the game's Caspers on." },
+        { "slider", "AltCasperLand", "Automatic casper catch: landing", 1, 1, "If you land still in the caught casper: 1 = Flip out (the board flips out by itself), 2 = Land in casper (ride on in it until a trick out of it), 3 = Bail.", 1, 3 },
         { "toggle", "AltHospital", "Hospital flip", 1, 1, "Turn on the game's Casper (experimental settings). In a casper in the air pull the front-foot stick BACK (AltHospitalFlick 0: up): the board turns 180 end over end and lands grip up, reversed." },
         { "slider", "AltHospitalSecs", "Hospital flip: time (higher = slower)", 1000, 10, "How long the hospital flip's 180 end over end takes from your flick, in milliseconds (ms). Slide it UP to SLOW the flip down. Too slow may not come round before you land.", unit = "ms" },
-        { "toggle", "AltCasperMatch", "Auto casper: hospital like manual", 1, 1, "The hospital flip out of the auto casper made like one out of your manual casper (the game's own catch held off, so the board does not roll on its side). Off = build 273's." },
+        -- (tidy 312) AltCasperMatch's row is gone (it keeps its shipped 1)
     } },
     { "Wallrides", {
         -- (258 menupare) the core only: on/off, frontside, from the ground, when a ride starts, how long, gravity, the pop and the sound.
@@ -8584,9 +8581,9 @@ end
 -- FONT; ours are pictures drawn in its style from the README's Controls table: guide.html in the release's source tools.)
 -- The rows, in the order of the pictures (NATIVE.GI.pages) and of the native keys TrickGuideImg1..4:
 NATIVE.GI_ROWS = {
-    { "Flip tricks", "Press A to see the alternate flip set, the hospital flip and the auto casper as a picture: both stick modes. B takes it away." },
+    { "Flip tricks", "Press A to see the alternate flip set, the hospital flip, the alt grind flip-out and the caught casper as a picture: both stick modes. B takes it away." },
     { "Nollie flip tricks", "Press A to see the alternate nollie set as a picture: both stick modes. B takes it away." },
-    { "Other tricks", "Press A to see the hippie jumps, the plants, the wallrides, the caveman, the drop-in, the tail stop and the grind flip-outs as a picture. B takes it away." },
+    { "Other tricks", "Press A to see the hippie jumps, the plants, the wallrides, the caveman, the drop-ins and the tail stop as a picture. B takes it away." },
     { "Grabs", "Press A to see the grabs, the tweaks, the two-hand grabs, the rolling grab, the finger flip and grabs in grinds as a picture. B takes it away." },
 }
 NATIVE.trickGuideRows = function()                    -- fills the Trick Guide page's rows: { "info", key, label, 1, 0, description }
@@ -8700,7 +8697,12 @@ end
 NATIVE.guideWatch = function()                         -- (game thread, after NATIVE.menuWatch) the pause menu gone two looks running: the picture too
     local GI = NATIVE.GI
     if GI.shown == 0 then return end
-    if NATIVE.mg and NATIVE.mg.a then GI.gone = 0 return end
+    if NATIVE.mg and NATIVE.mg.a then   -- (tidy 312) the host widget re-brushes its own key icon (a giant A) when the input device changes: ours back
+        GI.gone = 0
+        local tex = GI.pages[GI.shown] and NATIVE.guideTex(GI.pages[GI.shown])
+        if tex and GI.img then pcall(function() GI.img:SetBrushFromTexture(tex, false) end) end
+        return
+    end
     GI.gone = GI.gone + 1
     if GI.gone >= 2 then
         NATIVE.guideShow(0)
@@ -9045,7 +9047,7 @@ function NATIVE.sync()
         -- (v191, review) AN OLDER NATIVE HALF BESIDE THIS FILE (main.lua copied by hand, or main.dll not replaced because the
         -- game held it): everything runs, what needs the newer one is left out -- and nothing said so
         if (tonumber(NATIVE.v) or 0) < (NATIVE.WANT or 0) then
-            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then what needs the newer one is left out, each saying so in its own line (wallrides need v209: without it the log says NOT TAKEN)")
+            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then what needs the newer one is left out, each saying so in its own line (wallrides need v210: without it the log says NOT TAKEN)")
             NATIVE.upd = NATIVE.upd or {}
             if not NATIVE.upd.show then NATIVE.upd.show, NATIVE.upd.tries = "Expanded Tricks: native half is old - see the log", 0 end
         end
@@ -12618,8 +12620,8 @@ end
 -- latest release's update.txt: its version, build number, the game build it is for and the two files' SHA-256). With
 -- AutoUpdate=2 a newer build is downloaded, checked and put in place for the next start; with 1 you are only told.
 -- NATIVE.BUILD is this file's own build number: the release's update.txt carries the same number, and that is what is compared.
-NATIVE.BUILD = 311
-NATIVE.WANT = 209      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
+NATIVE.BUILD = 312
+NATIVE.WANT = 210      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
 NATIVE.updateTick = function(live)
     local U = NATIVE.upd or {}
     NATIVE.upd = U
@@ -12900,7 +12902,7 @@ LoopAsync(2000, function()
     return false
 end)
 
-log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v311 / native v209)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
+log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v312 / native v210)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
 
 -- the game's grabs need IsGrabsEnabled in its experimental save (the profile loads it at start-up). (v121) If it is off or
 -- missing, the save is PATCHED here: a BoolProperty tag put into FExperimentalSettings -- the bytes the game's own serializer

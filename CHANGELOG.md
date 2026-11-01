@@ -1,10 +1,12 @@
 # Changelog
 
-## 1.2.1 -- the trick guide pictures redrawn
-Lua build 311, native v209. A 1.0.0 or 1.1.x / 1.2.0 install with *Automatic updates* at 2 installs it by itself at its next start, pictures included.
+## 1.2.1 -- one switch for the grind flip-outs, a tidier Flip Tricks page, the trick guide pictures redrawn
+Lua build 312, native v210. A 1.0.0, 1.1.x or 1.2.0 install with *Automatic updates* at 2 installs it by itself at its next start, pictures included.
 
-- **Alt flips out of grinds** is now one switch on the Flip Tricks page (`AltGrinds`): get into a grind as normal, push the back-foot stick up, flick out as from the alt crouch on the ground. The two other grind rows (*Alt crouch only once in a grind*, *Alt flips out of grinds* on the Grabs page) are gone; that one switch does what all three on did.
-- **Trick Guide pictures** (Pause menu, Expanded Tricks, Trick Guide): *Other tricks* adds the **tail stop** and the **grind flip-outs** (monster and dolphin flips out of an alt crouch grind); *Flip tricks* adds the **auto casper** (and the hospital flip and underflip out of it); *Grabs* adds **grabs in grinds** and leaning off a grind with the stick clicks.
+- **Alt flips out of grinds** is one switch on the Flip Tricks page (`AltGrinds`): get into a grind as normal, push the back-foot stick up, then flick out with any alt flip as from the alt crouch on the ground. The *Alt crouch only once in a grind* and Grabs-page rows are gone.
+- **Flip Tricks page tidied:** the underflip turns back at the speed of your second flick for everyone now (no row); the alt shove-it spins at the game's own speed; the game's own double varial names are kept. *Auto casper* is now **Automatic casper catch** (and *Automatic casper catch: landing*); the *hospital like manual* row is gone (it stays on).
+- **Trick Guide pictures** (Pause menu, Expanded Tricks, Trick Guide): *Flip tricks* adds the **alt grind flip-out** and the **caught casper** (the hospital flip and underflip out of it); *Other tricks* adds the **switch drop-in** and the **tail stop**; *Grabs* adds **grabs in grinds** and leaning off a grind with the stick clicks.
+- Fixed: pressing a keyboard key (the Windows key, for example) with a trick guide picture up covered the screen with a giant A button.
 
 ## 1.2.0 -- the tail stop, the big drop landing, alt crouch grinds
 Lua build 309, native v207. A 1.0.0 or 1.1.x install with *Automatic updates* at 2 installs it by itself at its next start.

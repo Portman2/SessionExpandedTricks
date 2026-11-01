@@ -28,6 +28,9 @@ The full list of tricks with their inputs is in [docs/TRICKS.md](docs/TRICKS.md)
 - **Hospital Flip.** Switch on *Caspers* in the game's experimental settings. Catch a kickflip in a casper, then, still
   in the air, pull the front-foot stick **back**. The board turns 180 end over end on your front foot and lands grip up,
   reversed. *Hospital flip: time* on the Flip Tricks page sets how slow it turns.
+- **Automatic casper catch** (Flip Tricks page, off as the mod ships). The alternate crouch's kickflip locks into the
+  game's casper by itself once the board is upside down. Then pull the front-foot stick back for a hospital flip, or
+  flick it sideways for a kickflip underflip. *Automatic casper catch: landing* picks what happens if you land in it.
 - **Wallrides.** Fly into a wall at a shallow angle in any air on the board and you ride along it for a moment. There is
   no button. It works frontside and backside, and on curved walls too. Push a stick up on the wall to pop off it.
   With *Wallride from the ground* switched on (Wallrides page; on by default) you can also ride straight up onto a wall
@@ -241,8 +244,7 @@ The pages:
 - **Rolling Grabs and Finger Flips:** the rolling grab's squat and hands, and finger flips.
 - **Flip Tricks:** the alternate flip set and its nollie set on or off, how far the stick goes, the flip speeds, the
   porpoise's lean, the hospital flip with its time, and the alt flips out of grinds.
-  Also: the underflip's turn-back following the speed of your second flick, the alt shove-it's spin following your
-  scoop, and Nightmare / Daydream names for the game's own double varial flips (all off as the mod ships).
+  Also: the automatic casper catch and what happens if you land in it.
 - **Wallrides:** on or off, frontside walls, wallrides from the ground, when a ride starts, how long it lasts, gravity
   on the wall, popping off and the wheels' sound.
 

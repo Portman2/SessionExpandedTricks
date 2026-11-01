@@ -76,6 +76,16 @@ casper stays. *Hospital flip: time* on the Flip Tricks page sets how long the 18
 switch, nollie or fakie it is the Switch, Nollie or Fakie Hospital Flip. It is part of the alternate flip set: it
 needs *Alt flip set* on, Epic's exe, and the front foot / back foot or left foot / right foot stick mode.
 
+## Caught casper
+
+*Automatic casper catch* on the Flip Tricks page (off as the mod ships); needs Caspers on (the game's experimental
+settings) and the alternate flip set.
+
+Do the **kickflip from the alternate crouch** (back stick up, held; then front stick left). Once the board is upside
+down it locks into the game's casper by itself. Out of it: pull the **front stick back** for a **Hospital Flip**, or
+flick it **sideways** for a **Kickflip Underflip**. *Automatic casper catch: landing* sets what happens if you land
+still in it: 1 the board flips out by itself, 2 you ride on in the casper, 3 you bail.
+
 ## Wallrides
 
 Needs Epic's exe. The Wallrides page has the settings.
