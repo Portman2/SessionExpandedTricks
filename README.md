@@ -1,4 +1,4 @@
-# Expanded Tricks 1.1.3 for Session: Skate Sim
+# Expanded Tricks 1.2.3 for Session: Skate Sim
 
 New flip tricks (monster, dolphin, porpoise, nightmare, daydream, underflips, the hospital flip), wallrides, the caveman,
 hippie jumps, grabs, no complies, bonelesses, finger flips and drop-ins for Session, with its own settings pages in the
@@ -59,7 +59,7 @@ The full list of tricks with their inputs is in [docs/TRICKS.md](docs/TRICKS.md)
   the tail drops onto the ground in the game's one-foot powerslide pose and drags, with the game's tail-slide sound,
   until you stop or ease off (ease off and you ride on in the manual). It drags whichever end is behind you, so it
   works riding switch, fakie and nollie too. *Tail stop: friction* on the General gameplay page sets how hard it
-  slows you.
+  slows you; the board stays on its line, even with the friction turned right up.
 - **Big drop landing.** Land 2.5 m or more below where you left the ground and the trick lands with the game's unused
   big sketchy landing instead of its usual one. The game had the animations but never used them.
 - **Alt flips out of grinds** (Flip Tricks page, off as the mod ships). With the alternate flip set on, get into a grind
@@ -230,6 +230,8 @@ both stick clicks to itself while you are on the board, so with it on, L3 opens 
 ## Settings
 
 Pause the game and open **Expanded Tricks**. Every row says what it does and in what unit, and ends with its default.
+On every page a feature's own switch comes first, with its settings indented under it. While a switch is off, the
+rows under it are greyed out and cannot be changed (turn the switch back on and they come back as you left them).
 The pages:
 
 - **General gameplay settings:** max speed, push strength, throwdown speed, left-stick steering, trick names and

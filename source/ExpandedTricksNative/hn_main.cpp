@@ -43,7 +43,7 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 211
+#define HJN_VERSION 219
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
@@ -20502,6 +20502,81 @@ float UfRelRate(float rate2, float ratio) {   /* (280) THE CURVE: the turned rat
 // needs AltUnderOwnSpeed=1 (the sampler and the pose ring run with it). The target is not touched: the same 180 / 360, sooner or later
 // (a friction-stopped short spin goes further when faster); UfsSpinStart then reads the paced rate as the scoop's own. Not found within
 // UFS_SCOOP_WAIT of the trick's start: the game's rate, said so ("shuv-it scoop speed" lines).
+// (gs314) THE GAME'S OWN FLICK SPEEDS. The user (1 Nov): "the initial flip and then the under flip ... both should be independent speeds
+// ... based on the stick flick speed, but also tied to whatever settings the user is using in their game for flick speeds." The game
+// (FlipTricksHandler::GetBoardFlipSpeedMultiplier 0x1024670, GetBoardRotationSpeedMultiplier 0x1024bb0) paces a flip / a shove only in
+// its Speed mode (the skater's +0x64f flip / +0x650 rotation speed mode = 2): x lo + curve(x) x (hi - lo), lo = the tricks database's
+// Min multiplier, hi = the player's own Flip / Scoop speed multiplier (skater +0x9d0 / +0x9d8) x its Max; the flip's x = the flick's
+// strength (FlipSpeedCurveSpeed), the rotation's 1 - t, t = the input's time between RotationSpeedMin/MaxMultiplierInputTime
+// (RotationSpeedCurve). Any other mode: x1, one speed whatever the flick. AltGameSpeeds (HJN_Set "altgamespeed", 1):
+//  - the underflips (kinds 8, 9): the database's DefaultFlipSpeedRate x the flip multiplier from the SECOND flick alone, x = its
+//    speed over GS_FULL (the first flip is the game's, so the two are independent; the roll's way kept);
+//  - the alt shove-it: when the game is NOT in its Speed mode, its spin x the rotation multiplier from the scoop's own time (UfsScoopPace,
+//    which the Lua now runs with this key); in Speed mode the game paced it already and nothing is touched.
+// The curves are UCurveFloat (FRichCurve at +0x30, its Eval at vtable slot 17); unreadable = linear. The modes and multipliers are
+// logged once ("game speeds:").
+volatile LONG g_altGameSpeed = 1; const uint8_t* g_gsFth = nullptr; int g_gspTold = 0;
+constexpr int GS_FTH_SK = 0x8, GS_FTH_DB = 0x28, GS_SK_FMODE = 0x64f, GS_SK_RMODE = 0x650, GS_SK_UFLIP = 0x9d0, GS_SK_USCOOP = 0x9d8;
+constexpr int GS_DB_FRATE = 0x16c, GS_DB_FMIN = 0x170, GS_DB_FMAX = 0x174, GS_DB_FCURVE = 0x188, GS_DB_RMIN = 0x1a8, GS_DB_RMAX = 0x1ac, GS_DB_RTMIN = 0x1b0, GS_DB_RTMAX = 0x1b4, GS_DB_RCURVE = 0x1c8;
+constexpr float GS_FULL = 80.0f;   /* a second flick this fast (/s, 0.2 -> 0.85 of the stick) = the curve's top (314's log: 18-87 /s; 50 put every kick / heel one on the top) (gs315) */
+struct GsRd { bool ok; int fMode, rMode; float uFlip, uScoop, fRate, fMin, fMax, rMin, rMax, rtMin, rtMax, r180, r360; uintptr_t fCurve, rCurve; };
+float GsCurve(uintptr_t cf, float x, int* how) {   /* (gs314) UCurveFloat::GetFloatValue's work: its FRichCurve's Eval (vtable slot 17); *how 1 = the curve, 0 = linear */
+    *how = 0;
+    __try {
+        if (cf && PtrOk((const void*)cf, 0x40)) {
+            const uint8_t* rc = (const uint8_t*)cf + 0x30; void* const* vt = *(void* const* const*)rc;
+            if (vt && PtrOk(vt, 0x90)) { typedef float (*GsEvalFn)(const void*, float, float); const float v = ((GsEvalFn)vt[17])(rc, x, x); if (std::isfinite(v)) { *how = 1; return v; } }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { *how = 0; }
+    return x;
+}
+GsRd GsRead() {   /* (gs314) the game's speed modes, the player's multipliers and the tricks database's numbers, through the flip tricks handler */
+    GsRd g = {}; const uint8_t* fth = g_gsFth;
+    __try {
+        if (!fth || !PtrOk(fth, 0x30)) return g;
+        const uint8_t* sk = *(const uint8_t* const*)(fth + GS_FTH_SK); const uint8_t* db = *(const uint8_t* const*)(fth + GS_FTH_DB);
+        if (!sk || !db || !PtrOk(sk, 0x9e0) || !PtrOk(db, 0x1d0)) return g;
+        g.fMode = sk[GS_SK_FMODE]; g.rMode = sk[GS_SK_RMODE]; g.uFlip = ReadF(sk, GS_SK_UFLIP); g.uScoop = ReadF(sk, GS_SK_USCOOP);
+        g.fRate = ReadF(db, GS_DB_FRATE); g.fMin = ReadF(db, GS_DB_FMIN); g.fMax = ReadF(db, GS_DB_FMAX); g.fCurve = *(const uintptr_t*)(db + GS_DB_FCURVE);
+        g.rMin = ReadF(db, GS_DB_RMIN); g.rMax = ReadF(db, GS_DB_RMAX); g.rtMin = ReadF(db, GS_DB_RTMIN); g.rtMax = ReadF(db, GS_DB_RTMAX); g.rCurve = *(const uintptr_t*)(db + GS_DB_RCURVE);
+        g.r180 = ReadF(db, 0x19c); g.r360 = ReadF(db, 0x1a0);   /* (gs315) DefaultBoard180 / 360RotationSpeedRate */
+        g.ok = std::isfinite(g.uFlip) && std::isfinite(g.uScoop) && std::isfinite(g.fRate) && std::isfinite(g.fMin) && std::isfinite(g.fMax) && std::isfinite(g.rMin) && std::isfinite(g.rMax) && std::isfinite(g.rtMin) && std::isfinite(g.rtMax);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { g.ok = false; }
+    if (g.ok && g_gspTold < 1) { g_gspTold = 1;
+        Log("game speeds: your game's FLIP speed mode %d and ROTATION (shove / scoop) speed mode %d (2 = Speed: the game sets the speed from the flick; anything else: one speed whatever the flick); your Flip speed multiplier x%.2f, Scoop speed multiplier x%.2f; the tricks database: DefaultFlipSpeedRate %.2f, flip multiplier x%.2f..x%.2f (curve %p), rotation x%.2f..x%.2f at input times %.3f..%.3f s (curve %p), the 180 / 360 rates %.0f / %.0f deg/s",
+            g.fMode, g.rMode, g.uFlip, g.uScoop, g.fRate, g.fMin, g.fMax, (void*)g.fCurve, g.rMin, g.rMax, g.rtMin, g.rtMax, (void*)g.rCurve, g.r180, g.r360); }
+    return g;
+}
+void GsUnderApply(AltTrick& T) {   /* (gs314) AltGameSpeeds: an underflip's spin from the game's flip rate x its flip multiplier from the second flick alone (the note above) */
+    if (!g_altGameSpeed || T.uOs != 1 || !std::isfinite(T.uF2sp) || T.uF2sp <= 0.0f) return;
+    const GsRd g = GsRead();
+    if (!g.ok) { Log("alt flips: %sunderflip #%ld game speed: the game's numbers not readable -- the spin above kept (AltGameSpeeds=1)", T.kind == 9 ? "shuv-it " : "", (long)T.n); return; }
+    float base = g.fRate; const bool turns = base > 0.2f && base < 20.0f;
+    if (turns) base *= 360.0f;
+    if (!(base >= 100.0f && base <= 4000.0f)) { Log("alt flips: underflip #%ld game speed: DefaultFlipSpeedRate %.2f is no usable rate -- the spin above kept (AltGameSpeeds=1)", (long)T.n, g.fRate); return; }
+    const float x = clampf(T.uF2sp / GS_FULL, 0.0f, 1.0f); int how = 0; const float c = GsCurve(g.fCurve, x, &how);
+    const float lo = g.fMin, hi = g.uFlip * g.fMax, k = lo + c * (hi - lo);
+    if (!std::isfinite(k) || k < 0.05f) return;
+    const float was = T.uRate2, sgn = (T.uOsRate0 != 0.0f) ? T.uOsRate0 : T.uRate2;
+    T.uRate2 = copysignf(clampf(base * k, UF_SPIN_LO, UF_SPIN_HI), sgn);
+    Log("alt flips: %sunderflip #%ld GAME SPEED: the second flick %.1f/s -> x = %.2f of %.0f/s -> the game's flip curve %.2f (%s) -> x%.2f (the game's x%.2f..x%.2f, your Flip speed x%.2f in the top) of the game's flip rate %.0f deg/s%s -> spin %+.0f deg/s (instead of %+.0f; AltGameSpeeds=1)",
+        T.kind == 9 ? "shuv-it " : "", (long)T.n, T.uF2sp, x, GS_FULL, c, how ? "its curve" : "linear: the curve not read", k, lo, hi, g.uFlip, base, turns ? " (DefaultFlipSpeedRate in turns a second)" : "", T.uRate2, was);
+}
+float GsScoopK(const UfFl& f, bool* gameDid) {   /* (gs314) AltGameSpeeds: the alt shove-it's multiplier from the scoop's time; NaN = not used (*gameDid: the game's own Speed mode paces it) */
+    *gameDid = false;
+    if (!g_altGameSpeed) return NAN;
+    const GsRd g = GsRead();
+    if (!g.ok) return NAN;
+    /* (gs315) the game's Speed mode is NOT left alone any more: 314's log, both modes 2, the alt shove-it at -593 deg/s in 11 of 13 whatever the scoop */
+    const float a = fminf(g.rtMin, g.rtMax), b = fmaxf(g.rtMin, g.rtMax);
+    const float tt = (b - a > 1e-4f) ? clampf((f.dt - a) / (b - a), 0.0f, 1.0f) : 0.5f;
+    int how = 0; const float c = GsCurve(g.rCurve, 1.0f - tt, &how);
+    const float lo = g.rMin, hi = g.uScoop * g.rMax, k = lo + c * (hi - lo);
+    if (!std::isfinite(k) || k < 0.05f) return NAN;
+    Log("alt flips: shuv-it GAME SPEED: the scoop %.3f s -> t = %.2f between the game's %.3f..%.3f s -> its rotation curve at 1 - t = %.2f (%s) -> x%.2f (the game's x%.2f..x%.2f, your Scoop speed x%.2f in the top) (AltGameSpeeds=1)",
+        f.dt, tt, a, b, c, how ? "its curve" : "linear", k, lo, hi, g.uScoop);
+    return k;
+}
 void UfRefApply(AltTrick& T) {   /* (285) AltUnderFlickRef (its callers gate it): the reversal from the second flick's own speed (the note above) */
     const float ref = g_altUnderFlickRef, base = T.uOsRate0, s2 = T.uF2sp;
     if (!(ref > 0.0f)) return;
@@ -20538,7 +20613,13 @@ void UfsScoopPace(AltTrick& T, uint8_t* bm, double now) {   /* (285) AltShuvScoo
     UfFl f = {}; int st = 0, src = 0;
     if (ready) f = UfsScoopFlick(T.tStart, now, &st, &src);
     if (ready && f.ok && f.spd > 0.0f) {
-        T.ssSpd = f.spd; T.ssStick = st; T.ssSrc = src; T.ssK = clampf(f.spd / UFS_SCOOP_REF, UFS_SCOOP_LO, UFS_SCOOP_HI); T.ssR0 = r; T.ssR1 = r * T.ssK; T.ssSt = 1;
+        bool gameDid = false; const float gk = GsScoopK(f, &gameDid);   /* (gs314) AltGameSpeeds: the game's own rotation multiplier from the scoop's time */
+        if (gameDid) { T.ssSt = 2; Log("alt flips: #%ld shuv-it scoop speed: your game's rotation speed mode is Speed: the game paced this shove-it from your flick already -- left as the game's (%+.0f deg/s; AltGameSpeeds=1)", (long)T.n, r); return; }
+        T.ssSpd = f.spd; T.ssStick = st; T.ssSrc = src; T.ssK = std::isfinite(gk) ? gk : clampf(f.spd / UFS_SCOOP_REF, UFS_SCOOP_LO, UFS_SCOOP_HI); T.ssR0 = r; T.ssR1 = r * T.ssK; T.ssSt = 1;
+        if (std::isfinite(gk)) {   /* (gs315) the game's own 180 / 360 rate x the multiplier, whatever the game set (its Speed mode never saw this shove's flick) */
+            const GsRd g = GsRead(); const float R = (std::isfinite(tg) && fabsf(tg) > 270.0f) ? g.r360 : g.r180;
+            if (g.ok && std::isfinite(R) && R >= 100.0f && R <= 4000.0f) { T.ssR1 = copysignf(R * gk, r); Log("alt flips: #%ld shuv-it GAME SPEED: the game's %s rate %.0f deg/s x%.2f = %+.0f deg/s (the game had set %+.0f)", (long)T.n, fabsf(tg) > 270.0f ? "360" : "180", R, gk, T.ssR1, r); }
+        }
         *(float*)(bm + ALT_BM_SCOOPRATE) = T.ssR1;
         Log("alt flips: #%ld shuv-it scoop speed (%s): the scoop (%s stick) %.3f s from 0.2 to %.2f, peak %.2f = %.1f/s -> x clamp(%.1f / %.0f, %.2f, %.2f) = x%.2f of the game's scoop rate %+.0f deg/s -> %+.0f deg/s, %.2f s after the trick began (its target %+.0f kept, %.0f deg done; AltShuvScoopSpeed=1)",
             (long)T.n, (src == 1) ? "XInput, 1 ms" : "pose-rate", st ? "right" : "left", f.dt, f.lvl, f.peak, f.spd, f.spd, UFS_SCOOP_REF, UFS_SCOOP_LO, UFS_SCOOP_HI, T.ssK, r, T.ssR1, now - T.tStart, tg, d);
@@ -20608,6 +20689,7 @@ void UfsSpinHold(AltTrick& T, uint8_t* bm, double now) {   /* every air pose fro
 }
 void AltUnder(AltT& A, uint8_t* bm, uint8_t* fth, double now) {   // every pose of its air: the flick (read by the stick block, earlier this pose) applied once
     AltTrick& T = A.t;
+    g_gsFth = fth;   /* (gs314) GsRead's way to the skater and the tricks database */
     if (T.kind == 9 && T.uDone && !T.uWhy && T.usOn) UfsSpinHold(T, bm, now);   /* (255) the shove's spin held to its definition (the note at UfsSpinStart) */
     if (g_altShuvScoopSpeed != 0 && T.kind == 9 && T.ssSt == 0) UfsScoopPace(T, bm, now);   /* (285) AltShuvScoopSpeed: the shove's spin rate x the scoop's own speed, once (the note at UfRefApply) */
     if (T.uDone || !T.uSide) return;
@@ -20628,6 +20710,7 @@ void AltUnder(AltT& A, uint8_t* bm, uint8_t* fth, double now) {   // every pose 
             else Log("alt flips: underflip #%ld own speed: NOT measured (the 1 ms ring %s; the poses %s; the last tried: first flick %s, second flick %s) -> spin %+.0f deg/s UNCHANGED: build 278's mirror (AltUnderOwnSpeed=1)",
                 (long)T.n, (T.uSrcMiss & 1) ? "did not hold both flicks / no pad" : "not tried", (T.uSrcMiss & 2) ? "did not hold both flicks" : "not tried", (T.uF1dt > 0.0f) ? "found" : "NOT found", (T.uF2dt > 0.0f) ? "found" : "NOT found", T.uRate2);
         }
+        if (g_altUnderOwnSpeed != 0) GsUnderApply(T);   /* (gs314) AltGameSpeeds: the game's flip rate x its multiplier from the second flick */
         *(float*)(bm + ALT_BM_FLIPCUR) = T.uCur2; *(float*)(bm + ALT_BM_FLIPRATE) = T.uRate2;
     }
     else {
@@ -20636,7 +20719,7 @@ void AltUnder(AltT& A, uint8_t* bm, uint8_t* fth, double now) {   // every pose 
         T.usFlip = UfsPairFlip((g_altUnderShuvShove != 0) ? T.usShove : 0, T.ufLead, T.usPair, T.uSide, T.uHeel); T.usWant = UfsRuleWant(T.usFlip, T.uHeel, T.usPair);   /* (262) the one rule (the note at UfsRuleFlip) */
         if (T.usWant != 0 && T.uSide != T.usWant) { T.uWhy = 3; return; }   /* (256) the flick the other way: not this shuv-it's underflip, the game's own goes on */
         T.uCur2 = 0.0f; T.uTgt2 = 360.0f; T.uRate2 = UfsGameRoll(T.usFlip, T.usGoofy);   /* (262) the game's own sign for that flip and rider (the note at UfsRuleFlip) */   /* (256) the pairing (UfsPairWant) */   /* (255) by the shove (the note at UfsSpinStart) */   /* (252) its way by the rate */
-        if (g_altUnderOwnSpeed != 0 && T.uOs != 0) UfsOwnSpeed(T);   /* (283) AltUnderOwnSpeed: the shuv-it underflip's whole flip at its fixed rate x the late flick's speed over the scoop's (the note at UfsOwnSpeed) */
+        if (g_altUnderOwnSpeed != 0 && T.uOs != 0) { UfsOwnSpeed(T); GsUnderApply(T); }   /* (gs314) GsUnderApply: AltGameSpeeds */   /* (283) AltUnderOwnSpeed: the shuv-it underflip's whole flip at its fixed rate x the late flick's speed over the scoop's (the note at UfsOwnSpeed) */
         *(float*)(bm + ALT_BM_FLIPRATE) = T.uRate2; *(float*)(bm + ALT_BM_FLIPTGT) = T.uTgt2; *(float*)(bm + ALT_BM_FLIPCUR) = 0.0f;
         _InterlockedAnd8((char*)(bm + ALT_BM_FLAGS), (char)0xf9); _InterlockedOr8((char*)(bm + ALT_BM_FLAGS), 0x08);   /* FlipBoard's own bits: flipping on, catching off */
         if (g_altUnderShuvShove != 0) UfsSpinStart(T, bm);   /* (255) the shove's spin held to its definition */
@@ -25826,6 +25909,7 @@ const TArrayHdr* HostChoose(uint8_t* page, const TArrayHdr* items, TArrayHdr* ou
     ours->data = g_rowBuf; ours->num = n; ours->max = n;
     return ours;
 }
+void SafeMenuGrey(void* page);   /* (grey 322) defined with HostValue */
 void hkCreateItems(void* page, void* itemsArray, bool flag) {
     const TArrayHdr* use = (const TArrayHdr*)itemsArray;
     TArrayHdr ours{};
@@ -25845,6 +25929,7 @@ void hkCreateItems(void* page, void* itemsArray, bool flag) {
     // go on down the chain
     ((use == &ours && g_hpage >= 0 && g_createOrig) ? g_createOrig : o_CreateItems)(page, use, flag);
     if (bumped) { __try { *(int32_t*)(p + PG_MAXVISIBLE) = saved; } __except (EXCEPTION_EXECUTE_HANDLER) { HostDie("faulted restoring the row window"); } }
+    if (use == &ours && g_hpage >= 0) SafeMenuGrey(p);   /* (grey 322) our page built: the rows under an off switch greyed */
 }
 void StampValues(uint8_t* page) {
     if (g_valPage < 0) return;
@@ -26012,6 +26097,58 @@ void hkPageBack(void* container, void* pageDef) {
     }
     if (!handled) o_Back(container, pageDef);
 }
+// (grey 322) ROWS UNDER AN OFF SWITCH, GREYED AND READ-ONLY -- the game's own way (the note in v144/w83/hs/mk_grey322.pl)
+constexpr int ITW_ENABLED = 0x3c0;   // UMenuPageItem: bIsEnabled (CheckItemsEnabledStatus writes it; NativeOnKeyDown / OnConfirmAction read it)
+typedef void (*MenuCheckFn)(void* page);
+MenuCheckFn g_menuCheck = nullptr; bool g_greyLooked = false; int g_greyTold = 0, g_greyRefused = 0;
+MenuCheckFn MenuCheckFind() {   /* UMenuPage::CheckItemsEnabledStatus: OnMultiOptionItemSelectionChanged's tail jump at +0x30 */
+    if (g_greyLooked) return g_menuCheck;
+    g_greyLooked = true;
+    static const uint8_t pro[] = { 0x4c, 0x8b, 0xdc, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x48, 0x81, 0xec, 0xf0, 0x00, 0x00, 0x00 };
+    __try {
+        const uint8_t* j = Exe() + RVA_MENU_MULTICHG + 0x30;
+        if (PtrOk(j, 5) && j[0] == 0xe9) { const uint8_t* c = j + 5 + *(const int32_t*)(j + 1); if (PtrOk(c, sizeof(pro)) && memcmp(c, pro, sizeof(pro)) == 0) g_menuCheck = (MenuCheckFn)c; }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { g_menuCheck = nullptr; }
+    Log("menu host: (grey 322) UMenuPage::CheckItemsEnabledStatus %s", g_menuCheck ? "found (the game's own greying: rows under a switch that is off are dimmed and cannot be changed)" : "NOT found -- rows under an off switch stay as they are");
+    return g_menuCheck;
+}
+int RowLevel(const char* s) { int n = 0; while (s && s[n] == ' ') n++; return n / 2; }   /* 2 spaces a level (menu 321) */
+bool RowOn(int p, int r) {   /* every row above it at a smaller indent (its switch, that switch's switch...) is on */
+    if (p < 0 || p >= g_mpageN) return true;
+    const MenuPage& pg = g_mpage[p];
+    if (r < 0 || r >= pg.n) return true;
+    int lvl = RowLevel(pg.row[r].label);
+    for (int a = r - 1; a >= 0 && lvl > 0; a--) {
+        const int la = RowLevel(pg.row[a].label);
+        if (la >= lvl) continue;
+        lvl = la;
+        const MenuRow& w = pg.row[a];
+        if (w.kind != MENU_TOGGLE && w.kind != MENU_SLIDER) continue;
+        const MenuVal* m = MenuFind(w.key);
+        if (m && std::isfinite(m->v) && fabsf(m->v) < 0.5f) return false;
+    }
+    return true;
+}
+void MenuGrey(uint8_t* page) {
+    if (g_hpage < 0 || g_hpage >= g_mpageN || !page) return;
+    const MenuCheckFn chk = MenuCheckFind();
+    if (!chk || !*(void**)(page + PG_ACTIVEDEF)) return;
+    const TArrayHdr* w = (const TArrayHdr*)(page + PG_WIDGETS);
+    if (!w->data || w->num <= 0) return;
+    const MenuPage& pg = g_mpage[g_hpage];
+    int off = 0;
+    for (int r = 0; r < pg.n && r < w->num; r++) {
+        uint8_t* it = ((uint8_t**)w->data)[r];
+        if (!it || !PtrOk(it, ITW_ENABLED + 1)) continue;
+        const bool on = RowOn(g_hpage, r);
+        it[ITW_ENABLED] = on ? 1 : 0; if (!on) off++;
+    }
+    chk(page);   /* the game's own pass: it keeps what we wrote (no handler of the pause page knows our keys) and sets each row's opacity */
+    int still = 0;
+    for (int r = 0; r < pg.n && r < w->num; r++) { const uint8_t* it = ((uint8_t**)w->data)[r]; if (it && PtrOk(it, ITW_ENABLED + 1) && !it[ITW_ENABLED]) still++; }
+    if (g_greyTold++ < 30) Log("menu host: (grey 322) page \"%s\": %d of %d rows under a switch that is off -- greyed%s", pg.title, off, pg.n, still == off ? "" : " (the game's own check changed some back)");
+}
+void SafeMenuGrey(void* page) { __try { MenuGrey((uint8_t*)page); } __except (EXCEPTION_EXECUTE_HANDLER) { g_menuCheck = nullptr; Log("menu host: (grey 322) fault greying the rows -- left as they are from now on"); } }
 void HostValue(const uint8_t* params, bool isSlider) {
     if (g_rebuilding || g_hpage < 0 || !params) return;           // a rebuild restoring a row is not the player
     const uint64_t key = *(const uint64_t*)(params + PRM_ITEM + IT_KEY);
@@ -26019,6 +26156,7 @@ void HostValue(const uint8_t* params, bool isSlider) {
     for (int r = 0; r < pg.n; r++) {
         if (key != g_hkeys[g_hpage][r]) continue;
         const MenuRow& w = pg.row[r];
+        if (!RowOn(g_hpage, r)) { if (g_greyRefused++ < 10) Log("menu: %s not changed -- the switch it belongs to is off (grey 322)", w.key); return; }   /* (grey 322) read-only */
         float v;
         if (isSlider) { const float pct = *(const float*)(params + PRM_NEW); v = w.lo + pct * (w.hi - w.lo); }
         else v = (float)*(const int32_t*)(params + PRM_NEW);
@@ -26029,12 +26167,14 @@ void HostValue(const uint8_t* params, bool isSlider) {
 void hkMultiChg(void* page, void* params) {
     if (g_host == 2) { __try { HostValue((const uint8_t*)params, false); } __except (EXCEPTION_EXECUTE_HANDLER) { HostDie("faulted on a toggle"); } }
     o_MultiChg(page, params);
+    if (g_host == 2 && g_hpage >= 0) SafeMenuGrey(page);   /* (grey 322) a switch turned: the rows under it follow */
 }
 // UMenuPage::OnProgressBarValueChanged, re-implemented (the same 32-byte shape as the confirm funnel)
 void hkProgChg(uint8_t* page, uint8_t* params) {
     if (g_host == 2) { __try { HostValue(params, true); } __except (EXCEPTION_EXECUTE_HANDLER) { HostDie("faulted on a slider"); } }
-    if (n_ProgChg) { n_ProgChg(page, params); return; }              // (v66) chained
-    if (!(page[PG_FLAGS] & 1)) { *(void**)params = *(void**)(page + PG_ACTIVEDEF); ((BroadcastFn)(Exe() + RVA_DELEGATE_BCAST))(page + PG_DLG_PROGRESS, params); }
+    if (n_ProgChg) n_ProgChg(page, params);              // (v66) chained
+    else if (!(page[PG_FLAGS] & 1)) { *(void**)params = *(void**)(page + PG_ACTIVEDEF); ((BroadcastFn)(Exe() + RVA_DELEGATE_BCAST))(page + PG_DLG_PROGRESS, params); }
+    if (g_host == 2 && g_hpage >= 0) SafeMenuGrey(page);   /* (grey 322) a slider at 0 is off for the rows under it */
 }
 void HostInstall() {
     uint8_t* exe = Exe();
@@ -26632,9 +26772,11 @@ float g_heelSnap = 4.0f;
 struct HsPidT { float* s; float p0, d0; bool lent; };
 HsPidT g_hsPid[2] = {};
 int g_hsPidTold = 0;
-struct HsTdT { float pp; double pt; bool armed; float rs, pk; double tf, ptr; int n, hn; bool tr; };   /* (settle 305) the touch-down watch: the pitch a pose ago, its time; on while the stiff PID is lent. (touch 306) the rate smoothed, its peak, the easing's start, the trace's last pose, heel stops watched, the one traced, traced */
+struct HsTdT { float pp; double pt; bool armed; float rs, pk; double tf, ptr; int n, hn; bool tr; float r0; bool r0ok; int gTold; };   /* (settle 305) the touch-down watch: the pitch a pose ago, its time; on while the stiff PID is lent. (touch 306) the rate smoothed, its peak, the easing's start, the trace's last pose, heel stops watched, the one traced, traced */
 constexpr double HS_TD_EASE = 0.1, HS_TD_MAX = 0.3;   /* (touch 306) the stiff PID eased back to the game's own over 0.1 s from the touch; the watch's time limit */
 constexpr double HS_TD_RAMP = 0.08;   /* (ramp 308) the stiff PID eased in over 0.08 s from the heel stop's first pose (no snap of the manual's leftover roll / yaw) */
+constexpr float HS_BR_PRE = 0.25f, HS_BR_RAMP = 0.35f, HS_BR_NOWATCH = 0.3f;   /* (brake 318) the tail brake's share until the tail is down, its ease to full after (s), the touch time when nothing watched it */
+float g_hsBrK = 1.0f;   /* (brake 318) the brake's share now (the trace) */
 float g_hsKNow = 1.0f;   /* (ramp 308) the lent PID's quickness now (the trace) */
 float HsSmooth(float u) { u = clampf(u, 0.0f, 1.0f); return u * u * (3.0f - 2.0f * u); }
 void HsDeckRH(const uint8_t* board, float& roll, float& head) {   /* (ramp 308) the deck's roll (its side axis up) and heading, deg */
@@ -26660,7 +26802,9 @@ void HsPidLend(uint8_t* bm) {
         s[0] = L.p0 * k * k; s[2] = L.d0 * k;
     }
     g_hsTd.armed = g_hsPid[0].lent || g_hsPid[1].lent; g_hsTd.pp = 0.0f; g_hsTd.pt = 0.0;   /* (settle 305) */
-    g_hsTd.rs = g_hsTd.pk = 0.0f; g_hsTd.tf = g_hsTd.ptr = 0.0; g_hsTd.tr = g_hsTd.armed && ++g_hsTd.n <= 3; g_hsTd.hn = g_hs.n + 1;   /* (touch 306) the first 3 traced pose by pose (H.n is counted after) */
+    g_hsTd.rs = g_hsTd.pk = 0.0f; g_hsTd.tf = g_hsTd.ptr = 0.0; g_hsTd.r0ok = false;   /* (guard 316) */
+    g_hsTd.tr = g_hsTd.armed && ++g_hsTd.n <= 40;   /* (slip 317) every heel stop traced (40 a run) */
+    g_hsTd.hn = g_hs.n + 1;   /* (touch 306) the first 3 traced pose by pose (H.n is counted after) */
     if (g_hsPidTold++ < 6) Log("heelstop: (pidsnap 304) the board's PID lent x%.1f quicker: manual P %.0f -> %.0f, D %.2f -> %.2f; powerslide P %.0f -> %.0f, D %.2f -> %.2f (HeelStopSnap)",
         k, g_hsPid[0].p0, g_hsPid[0].lent ? g_hsPid[0].s[0] : -1.0f, g_hsPid[0].d0, g_hsPid[0].lent ? g_hsPid[0].s[2] : -1.0f, g_hsPid[1].p0, g_hsPid[1].lent ? g_hsPid[1].s[0] : -1.0f, g_hsPid[1].d0, g_hsPid[1].lent ? g_hsPid[1].s[2] : -1.0f);
 }
@@ -26912,7 +27056,12 @@ void HsTick(void* mesh) {
         const float mult = *(const float*)(sk + HS_SK_BRKMULT);
         const float want_ = g_heelDecel / fmaxf(std::isfinite(mult) ? mult : 1.0f, 0.05f);
         if (!H.lent) { H.cfg = cfg; H.cfg0 = *(const float*)(cfg + HS_CFG_TAILDEC); H.lent = true; }
-        if (H.cfg == cfg) *(float*)(cfg + HS_CFG_TAILDEC) = want_;
+        {   /* (brake 318) light until the tail is down, then eased to the full friction: the full brake as the tail landed swung the travel 12-22 deg off the deck (the side shove) */
+            const double el = now - H.t0;
+            const double tt = (g_hsTd.tf > 0.0 && g_hsTd.hn == H.n) ? g_hsTd.tf - H.t0 : ((g_hsTd.armed && g_hsTd.hn == H.n && el < HS_TD_MAX + 0.05) ? 1e9 : (double)HS_BR_NOWATCH);
+            g_hsBrK = (el < tt) ? HS_BR_PRE : HS_BR_PRE + (1.0f - HS_BR_PRE) * HsSmooth((float)((el - tt) / HS_BR_RAMP));
+        }
+        if (H.cfg == cfg) *(float*)(cfg + HS_CFG_TAILDEC) = want_ * g_hsBrK;
     }
     if (g_heelAnim == 1) { sk[HS_SK_TAILBRK] = 1; H.flag = true; }
     else if (H.flag) { sk[HS_SK_TAILBRK] = 0; H.flag = false; }
@@ -26922,6 +27071,19 @@ void HsTick(void* mesh) {
     const uint8_t* board = *(const uint8_t* const*)(sk + SK_BOARD);
     const float p = (board && PtrOk(board, 0x530)) ? AsFgLeadPitch(board, 1) : -999.0f;
     if (p > -900.0f) { if (p < H.pMin) H.pMin = p; if (p > H.pMax) H.pMax = p; }
+    if (g_hsTd.armed) {   /* (guard 316) the board thrown while the stiff PID is lent (a Steam player's log: the deck rolled onto an edge, +40-60 % speed, the manual ended -- the sideways slide): the game's own PID back at once */
+        float rl = 0.0f, hd = 0.0f; HsDeckRH(board, rl, hd);
+        if (!g_hsTd.r0ok) { g_hsTd.r0 = rl; g_hsTd.r0ok = true; }
+        const float dr = fabsf(rl - g_hsTd.r0);
+        const bool fast = H.v0 > 50.0f && v > H.v0 * 1.10f + 20.0f;
+        float gs = 0.0f;   /* (touch 319) the travel's slip off the deck (as slip 317) */
+        if ((now - g_spDirT < 0.25) && finite3(g_spDir) && len(g_spDir) > 0.2f) { gs = atan2f(g_spDir.y, g_spDir.x) * 57.2957795f - hd; while (gs > 180.0f) gs -= 360.0f; while (gs < -180.0f) gs += 360.0f; if (gs > 90.0f) gs -= 180.0f; else if (gs < -90.0f) gs += 180.0f; }
+        const bool slips = fabsf(gs) > 2.5f;   /* (guard 320) 2.5 deg (319: 4 -- caught at 10) */
+        if (dr > 1.5f || fast || slips) {   /* (guard 320) a roll of 1.5 deg (316: 8): the roll comes first, the wander after it */
+            if (g_hsTd.gTold++ < 40) Log("heelstop: #%d (guard 316) at %.3f s the board %s (the deck's roll %+.1f -> %+.1f deg, speed %.0f -> %.0f cm/s; the PID %s x%.2f): the game's own PID back at once", H.n, now - H.t0, slips ? "slipped sideways (touch 319)" : fast ? "sped up" : "rolled (guard 320)", g_hsTd.r0, rl, H.v0, v, g_hsTd.tf > 0.0 ? "easing" : "stiff", g_hsKNow);
+            HsPidBack();
+        }
+    }
     if (g_hsTd.armed) {   /* (settle 305) the tail down: the game's own (soft) PID back, so the stiff one does not drive the tail into the ground (the shake) */
         const double el = now - H.t0;
         const float ap = p > -900.0f ? fabsf(p) : 0.0f;
@@ -26939,15 +27101,21 @@ void HsTick(void* mesh) {
             const bool hit = el >= 0.05 && ap > 12.0f && g_hsTd.pk >= 40.0f && (r < -10.0f || g_hsTd.rs < 0.4f * g_hsTd.pk);   /* the board stopped rising (the tail on the ground) or bounced back */
             if (hit || el >= HS_TD_MAX) {
                 g_hsTd.tf = now;
-                Log("heelstop: #%d (touch 306) the tail down at %.3f s (the board's pitch %+.1f, rising %.0f deg/s, %.0f smoothed, %.0f at most; the pose's target %+.1f)%s: the stiff PID eased back to the game's own over %.2f s", H.n, el, p, r, g_hsTd.rs, g_hsTd.pk, *(const float*)(bm + 0x620), hit ? "" : " -- not seen in time, the limit", HS_TD_EASE);
+                Log("heelstop: #%d (touch 306) the tail down at %.3f s (the board's pitch %+.1f, rising %.0f deg/s, %.0f smoothed, %.0f at most; the pose's target %+.1f)%s: (touch 319) the game's own PID back at once (306 eased it over %.2f s: the side shove)", H.n, el, p, r, g_hsTd.rs, g_hsTd.pk, *(const float*)(bm + 0x620), hit ? "" : " -- not seen in time, the limit", HS_TD_EASE);
+                HsPidBack();   /* (touch 319) */
             }
             g_hsTd.pp = ap; g_hsTd.pt = now;
         }
     }
-    if (g_hsTd.tr && g_hsTd.hn == H.n && now - H.t0 < 0.6 && now - g_hsTd.ptr >= 0.004) {   /* (touch 306) the first 3 heel stops pose by pose */
+    if (g_hsTd.tr && g_hsTd.hn == H.n && now - H.t0 < 1.5 && now - g_hsTd.ptr >= (now - H.t0 < 0.6 ? 0.004 : 0.05)) {   /* (slip 317) 1.5 s, every 0.05 s after 0.6 */   /* (touch 306) the first 3 heel stops pose by pose */
         g_hsTd.ptr = now;
         float rl = 0.0f, hd = 0.0f; HsDeckRH(board, rl, hd);   /* (ramp 308) */
-        Log("heelstop: #%d (touch 306) pose %.3f s: the board's pitch %+.2f, the target %+.1f, the PID %s; (ramp 308) x%.2f, the deck's roll %+.2f heading %+.2f, the targets' yaw %+.1f roll %+.1f", H.n, now - H.t0, p, *(const float*)(bm + 0x620), !g_hsTd.armed ? "the game's own" : g_hsTd.tf > 0.0 ? "easing" : "stiff", g_hsTd.armed ? g_hsKNow : 1.0f, rl, hd, *(const float*)(bm + 0x624), *(const float*)(bm + 0x628));
+        const bool tvOk = (now - g_spDirT < 0.25) && finite3(g_spDir) && len(g_spDir) > 0.2f;   /* (slip 317) which way the skater travels, against the deck */
+        const float tvh = tvOk ? atan2f(g_spDir.y, g_spDir.x) * 57.2957795f : 0.0f;
+        float slip = tvOk ? tvh - hd : 0.0f; while (slip > 180.0f) slip -= 360.0f; while (slip < -180.0f) slip += 360.0f;
+        if (slip > 90.0f) slip -= 180.0f; else if (slip < -90.0f) slip += 180.0f;   /* either end leading: 0 = along the deck, +-90 = straight sideways */
+        Log("heelstop: #%d (touch 306) pose %.3f s: the board's pitch %+.2f, the target %+.1f, the PID %s; (ramp 308) x%.2f, the deck's roll %+.2f heading %+.2f, the targets' yaw %+.1f roll %+.1f; (slip 317) travel %+.1f -> slip %+.1f deg at %.0f cm/s, the stick read %+.2f %+.2f written %+.2f %+.2f; (brake 318) the brake x%.2f", H.n, now - H.t0, p, *(const float*)(bm + 0x620), !g_hsTd.armed ? "the game's own" : g_hsTd.tf > 0.0 ? "easing" : "stiff", g_hsTd.armed ? g_hsKNow : 1.0f, rl, hd, *(const float*)(bm + 0x624), *(const float*)(bm + 0x628),
+            tvh, slip, v, H.px, H.py, H.wx, H.wy, g_hsBrK);
     }
     HsSwTick(sk, pc, bm, p, now - H.t0, H.n);   /* (switchstop 307) */
     if (now - H.tLog >= (now - H.t0 < 0.5 ? 0.05 : now - H.t0 < 0.8 ? 0.1 : 0.25)) {   /* (pidsnap 304) every 0.05 s for 0.5 s */   /* (snap 303) every 0.1 s at first: how quickly the board gets down */
@@ -27010,6 +27178,14 @@ int BsStage(int which, double v) {   /* HJN_Set("bsbs" 0 the blend space, "bsidx
 // under it every sample gets its sketch (written only over the game's own), and the game's own go back after the landing.
 struct BdEnt { uintptr_t bs; int i; uintptr_t orig, sk; };
 BdEnt g_bdE[256]; volatile LONG g_bdN = 0, g_bigDrop = 0; float g_bigDropCm = 250.0f;
+// (gs314) BigDropSoundEarly (HJN_Set "bigdropearly", s; 0.9): the user (1 Nov) "the big drop landing seems to have a unique sound but it's
+// playing like a second too late". The sketch landing (AMXX_*_Ollie_Hi_Land_Sketch_*, 2.5 s) carries its own sound notifies at 0.34 squeak,
+// 0.44 scratch, 0.80 foot, 1.22 squeak, 1.29 push, 2.05 scratch. Each sketch animation's notifies (UAnimSequenceBase::Notifies +0x80,
+// FAnimNotifyEvent 0xb8 each (gs315; 314 said 0xa8 -- wrong): LinkValue +0x24 = its time, DisplayTime +0x30) are moved this much earlier (not before 0.02 s), the
+// originals kept (a new value re-times from them). Only the sketch animations are touched: the game never plays them itself.
+constexpr int GS_NT_SZ = 0xb8;   /* (gs315) sizeof(FAnimNotifyEvent) in this exe (GetAnimNotifiesFromDeltaPositions: imul 0xb8); 314 stepped 0xa8 and wrote over the next entries' pointers (the GC crash) */
+struct BdNt { uintptr_t anim; int n; float orig[16]; float applied; };
+BdNt g_bdNt[16]; int g_bdNtN = 0; float g_bdEarly = 0.9f;
 struct BdT { bool air = false, armed = false; float z0 = 0.0f, top = 0.0f; double tAir = 0.0, tLand = 0.0; int n = 0, logs = 0, written = 0; } g_bd;
 uintptr_t g_bdB = 0, g_bdO = 0, g_bdSk = 0; int g_bdI = -1;   /* (dropfix 303) g_bdSk: the sketch for "bdall" */
 typedef bool (*BdFallFn)(void*);
@@ -27030,6 +27206,34 @@ int BdSlot(const BdEnt& e, bool sketch) {   /* 1 the one wanted is there now, 0 
         *slot = want;
         return 1;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; }
+}
+void BdRetime(uintptr_t anim) {   /* (gs314) one sketch animation's sound notifies BigDropSoundEarly earlier (the note at g_bdNt) */
+    if (!anim) return;
+    BdNt* e = nullptr;
+    for (int i = 0; i < g_bdNtN; i++) if (g_bdNt[i].anim == anim) { e = &g_bdNt[i]; break; }
+    __try {
+        if (!PtrOk((const void*)anim, 0x90)) return;
+        uint8_t* arr = *(uint8_t**)(anim + 0x80); const int n = *(const int*)(anim + 0x88);
+        if (!arr || n <= 0 || n > 16 || !PtrOk(arr, GS_NT_SZ * n)) return;
+        const float len = *(const float*)(anim + 0x90);   /* (gs315) UAnimSequenceBase::SequenceLength: every time must read inside it, or nothing is written */
+        if (!std::isfinite(len) || len <= 0.0f || len > 30.0f) return;
+        for (int i = 0; i < n; i++) { const float o = (e && e->n == n) ? e->orig[i] : *(const float*)(arr + GS_NT_SZ * i + 0x24); if (!std::isfinite(o) || o < 0.0f || o > len + 0.01f) { Log("bigdrop: the sketch landing %p's sound %d reads %.3f s (its length %.2f s) -- its sounds NOT re-timed", (void*)anim, i, o, len); return; } }
+        if (!e) {
+            if (g_bdNtN >= 16) return;
+            e = &g_bdNt[g_bdNtN++]; e->anim = anim; e->n = n; e->applied = 0.0f;
+            for (int i = 0; i < n; i++) e->orig[i] = *(const float*)(arr + GS_NT_SZ * i + 0x24);
+        }
+        if (e->n != n || e->applied == g_bdEarly) return;
+        char buf[160]; size_t w = 0; buf[0] = 0;
+        for (int i = 0; i < n; i++) {
+            const float o = e->orig[i], v = (g_bdEarly > 0.0f) ? fmaxf(o - g_bdEarly, 0.02f) : o;
+            if (!std::isfinite(o)) continue;
+            *(float*)(arr + GS_NT_SZ * i + 0x24) = v; *(float*)(arr + GS_NT_SZ * i + 0x30) = v;
+            if (w + 20 < sizeof(buf)) w += (size_t)_snprintf_s(buf + w, sizeof(buf) - w, _TRUNCATE, "%s%.2f->%.2f", i ? " " : "", o, v);
+        }
+        e->applied = g_bdEarly;
+        Log("bigdrop: the sketch landing %p's %d sounds %.2f s earlier (BigDropSoundEarly): %s", (void*)anim, n, g_bdEarly, buf);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("bigdrop: fault re-timing a sketch landing's sounds -- left as they are"); }
 }
 int BdAll(bool sketch) { int ok = 0; const LONG n = g_bdN; for (LONG k = 0; k < n; k++) if (BdSlot(g_bdE[k], sketch) == 1) ok++; return ok; }
 void BdDisarm(const char* why) {
@@ -27053,7 +27257,8 @@ void BdTick(void* mesh) {
         if (!B.air) { if (B.armed) BdDisarm("a new take-off"); B.air = true; B.z0 = B.top = z; B.tAir = now; }
         if (z > B.top) B.top = z;
         if (!B.armed && B.z0 - z >= g_bigDropCm) {
-            B.armed = true; B.n++; B.written = BdAll(true);
+            B.armed = true; B.n++; { const LONG nn = g_bdN; uintptr_t done[8] = {}; int nd = 0; for (LONG k = 0; k < nn && nd < 8; k++) { bool seen = false; for (int q = 0; q < nd; q++) seen = seen || done[q] == g_bdE[k].sk; if (!seen) { done[nd++] = g_bdE[k].sk; BdRetime(g_bdE[k].sk); } } }   /* (gs314) the sounds earlier */
+            B.written = BdAll(true);
             Log("bigdrop: #%d %.2f m under the take-off (%.2f s in the air, %.2f m over it at the top): the sketchy landing put in (%d of %ld landing samples)", B.n, (B.z0 - z) / 100.0f, now - B.tAir, (B.top - B.z0) / 100.0f, B.written, (long)g_bdN);
         }
     }
@@ -27137,6 +27342,8 @@ int nSet(const Lua& lua) {
         lua.set_integer(1);
         return 1;
     }
+    if (k == "bigdropearly") { const float e = std::isfinite(v) ? clampf((float)v, 0.0f, 2.0f) : 0.9f; if (e != g_bdEarly) Log("big drop landing: its sounds %.2f s earlier than the animation's own (BigDropSoundEarly; gs314)", e); g_bdEarly = e; lua.set_integer(1); return 1; }   /* (gs314) in front of the chain */
+    if (k == "altgamespeed") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_altGameSpeed, o) != o) Log("alt flips: %s (AltGameSpeeds=%ld; gs314)", o ? "the underflips and the alt shove-it at the GAME'S OWN speeds: its flip / rotation multipliers with your Flip / Scoop speed settings, from your flicks" : "the game's own speeds off: build 313's formulas", (long)o); lua.set_integer(1); return 1; }   /* (gs314) */
     if (k == "bdsk" || k == "bdall") { lua.set_integer(BdSet(k == "bdsk" ? 6 : 7, v)); return 1; }   /* (dropfix 303) in front of the chain */
     if (k == "heelsnap") { const float s = std::isfinite(v) ? clampf((float)v, 1.0f, 8.0f) : 4.0f; if (s != g_heelSnap) Log("heel stop: the board's PID x%.1f quicker while the tail drags (HeelStopSnap; pidsnap 304)", s); g_heelSnap = s; lua.set_integer(1); return 1; }   /* (pidsnap 304) in front of the chain */
     if (k == "hsbs") { lua.set_integer(HsBsAdd(v)); return 1; }   /* (snap 303) in front of the chain */

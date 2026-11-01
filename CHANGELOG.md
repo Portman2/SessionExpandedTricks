@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.3 -- a steadier tail stop, greyed-out settings, the underflips at the game's own speed
+Lua build 323, native v219. A 1.0.0, 1.1.x or 1.2.x install with *Automatic updates* at 2 installs it by itself at its next start.
+
+- **Tail stop:** no more sideways shove when the tail hits the ground. With a high *Tail stop: friction* (or a high frame rate), the board could roll onto an edge as the tail went down and slide or kick you off to the side, sometimes faster than you were going. The board now stays on its line: the quick tail-down lets go as soon as the tail touches or the board starts to roll, and the braking comes in once the tail is down.
+- **Settings pages reorganised:** on every page a feature's switch comes first, with its own settings indented under it, and the labels are shorter (the indent says what they belong to). Things that work on their own sit at the left edge: for example *Grabs in grinds* works with grabs off, and *Finger flips* also come out of a boneless.
+- **Greyed-out settings:** while a switch is off, the rows under it are dimmed and cannot be changed, the way the game's own Video menu does it. A slider at 0 counts as off (for example *Hippie jumps* at 0 greys its *Height*). Turn the switch back on and they come back as you left them.
+- **Underflips at the game's own speed:** the underflip's turn back (kickflip underflip, heelflip cancel flip, shuv-it underflips) spins at the game's flip speed, faster or slower with how quickly you flick the second time, the way your Flip speed setting and the game's speed mode work for its own flips (`AltGameSpeeds`, on).
+- **Big drop landing:** its own sounds play earlier, nearer the moment you land (`BigDropSoundEarly`, 0.9 s).
+
+### Build by build
+- Builds 314-323, native v212-v219: the underflips at the game's speeds; the big drop landing's sounds re-timed; the tail stop's sideways shove traced and fixed (316-320: a guard on the deck's roll, slip and speed while the tail goes down, the stiff tail-down handed back at the touch, the brake eased in after it); the menu reorganised (321) and greyed under an off switch (322). The alt shove-it paced by the scoop (314-315) is held back for a later release.
+
 ## 1.2.2 -- fix: Steam crash on spawning
 Lua build 313, native v211. A 1.0.0, 1.1.x or 1.2.x install with *Automatic updates* at 2 installs it by itself at its next start.
 
