@@ -167,6 +167,38 @@ The caveman's settings are on the Hippie Jumps page.
   (**L3** or **R3**). You jump onto it and ride away the way you face. Run at it and your speed is carried onto the
   board.
 
+## Heel stop
+
+*Heel stop* on the General gameplay settings page (on as the mod ships).
+
+In a **manual** (not a nose manual), push the **back-foot stick all the way down**. The game would crouch out of the
+manual there; with the heel stop on, the tail drops onto the ground in the one-foot powerslide pose, drags with the
+game's tail-slide sound, and slows you down. Hold it to come to a stop. Ease the stick off and you ride on in the
+manual; turn it away from straight down and the heel stop ends.
+
+It always drags the end of the board that is **behind you**, so it works the same riding switch, fakie and nollie.
+*Heel stop: friction* sets how hard it slows you, in km/h lost per second (10 = a fast roll to a stop in about two
+seconds; the game's own unused tail brake would be 22). How quickly the tail goes down is `HeelStopSnap` in the ini
+(4 = about a fifth of a second; 1 = the game's own slow ease).
+
+## Big drop landing
+
+*Big drop landing* on the General gameplay settings page (on as the mod ships). Land **2.5 m or more** below where
+you left the ground and the landing is the game's unused big sketchy landing, for
+regular and switch landings. `BigDropHeight` in the ini sets the height in metres.
+
+## Alt crouch grinds
+
+*Alt crouch grinds* on the Grabs page (off as the mod ships); needs the alternate flip set.
+
+- With *Alt crouch only once in a grind* on: grind with your normal sticks; once in the grind, push the **back stick
+  up** for the grind crouch, then flick the **front stick down** for a monster flip out or **up** for a dolphin flip
+  out, as from the alternate crouch on the ground.
+- Without it: an alternate crouch in the air or in a grind turns your sticks upside down for the game, so the front
+  stick down lands a nosegrind.
+- *Alt flips out of grinds*: in a grind you got into with the alternate crouch, your flick out is an alternate flip
+  (monster, dolphin, nightmare, underflip...).
+
 ## Other things it changes
 
 - **Left stick steers the board** (General page): on = the game's own steering. Off = only the triggers turn you, so a

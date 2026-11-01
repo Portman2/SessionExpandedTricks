@@ -51,7 +51,7 @@
 -- ============================================================================
 
 ------------------------------------------------------------------- settings
-local MOD_VERSION = "1.1.3"               -- (v121) the release version (the Lua and native halves keep their own build numbers)
+local MOD_VERSION = "1.2.0"               -- (v121) the release version (the Lua and native halves keep their own build numbers)
 local S = {
     Height = 60.0,
     GameGravity   = 1,
@@ -427,6 +427,26 @@ local S = {
     AltHospitalCasperFoot = 1,             -- (259) 1 = THE ALTERNATE CASPER: a casper caught from the alt crouch's kickflip / heelflip keeps the back foot OFF the board (lifted over the tail) into the hospital flip; 0 = build 258's (native)
     AltCasperLand = 1,                     -- (272) the auto casper not flicked out of by the landing: 1 = it flips out by itself (build 271's), 2 = it lands in the casper and rides on as the game's casper, 3 = it bails (native)
     AltCasperMatch = 1,                    -- (274) 1 = the auto casper made like a manual one at the hospital's flick: the board's feet-catch held at 0 (a flip the game had already caught rolled the hospital's deck on its side) and the casper ratio 0 at the flick (native; logs both)
+    AltStall = 0,                          -- (276) the alt crouch stalls at a lip: 0 off, 1 no stall, 2 blunt stall; (stall3 278) 0 off, 1 (or 2) on: the ALT crouch = no stall, the ALT NOLLIE crouch = blunt; (277) AltStall: held until a crouch is pressed and let go (alt = the alt pop, normal = the game's pop); (blunt 281) SWAPPED: the ALT NOLLIE crouch = no stall, the ALT crouch = blunt (the game's own blunt grind)
+    AltNoStallDropIn = 0,                  -- (nostall 281; nostall2 283) 1 = the no stall is the drop-in played backwards: the board tips UP about the wheels on the coping into the drop-in's stance, the stick UP drops him back in; 0 = build 280's hold
+    AltNoStallReverse = 0,                 -- (revnostall 286) 1 = with AltNoStallDropIn: the no stall's tip carries HIM too -- the drop-in's GO played backwards on his body (from the wall, crouched, arms out, up to the drop-in's spot, upright), in step with the board; 0 = build 285 (the board alone tips)
+    AltBluntGame = 0,                      -- (bsblunt 286) 1 = the ALT crouch blunt (AltStall on) is forced into the game's own blunt grind (its side; BS on a straight approach), its speed along the coping zeroed: he sits still in it, the game's pop / flip-out; 0 = build 285
+    AltNoStallSlide = 0,                   -- (forcegrind 287) 1 = the no stall caught at the lip goes into the game's own nose slide (GRIND_FS_Noseslide; its picker's side when asked): caught by the stall's hold (no turn: lockgrind3 290), its leading wheels on the coping top, the game's grind begun there and set to it; before AltNoStallDropIn; 0 = build 286
+    HeelStop = 1,                          -- (heelstop 299) 1 = THE HEEL STOP: in a manual (not a nose manual) the back-foot stick pushed all the way down drags the tail and slows you (the game's own unused tail brake, BREAK_Tail) instead of the crouch; ease back into the manual's range to go on (native; ON for testing)
+    HeelStopDecel = 250,                   -- (heelstop 299) how hard the heel stop slows you, cm/s2 (250 = 9 km/h lost a second)
+    HeelStopTailAnim = 1,                  -- (heelstop 299; heelanim 300) the heel stop's pose: 1 = the game's own tail brake (IsBrakingTail, the manual let go for the graph's BreakTail state), 2 = the one-foot powerslide's (learned from your own tail-down powerslide), 0 = the manual's
+    HeelStopSound = 1,                     -- (heelanim 300) the heel stop's sound: the game's tail-slide loop (the one-foot powerslide's) x this, on the game's powerslide curve over the speed; 0 = silent
+    HeelStopFriction = 10,                 -- (heelfix 301) how hard the heel stop's dragged tail slows you, in km/h lost a second (sent as cm/s2 to the game's tail brake; the game's own is 22). HeelStopDecel / HeelStopTailAnim / HeelStopSound are no longer read
+    SketchLanding = 3,                     -- (sketch 301) the ollie lands with one of the game's unused sketchy landings: 1 small left, 2 small right, 3 big left, 4 big right; 0 = the game's own (testing: on for a look)
+    BigDropLanding = 1,                    -- (bigdrop 302) 1 = THE BIG DROP LANDING: BigDropHeight or more under where you left the ground, the trick lands with the game's unused big sketchy landing (AMXX_RGS / SWS_Ollie_Hi_Land_Sketch_Max_Right); 0 = the game's own (native; ON for testing). SketchLanding is no longer read
+    BigDropHeight = 2.5,                   -- (bigdrop 302) a big drop, in metres under the take-off (an air that lands where it left is no drop)
+    HeelStopSnap = 4,                      -- (pidsnap 304) how quickly the heel stop gets the tail down: the board's PID made this many times quicker while the tail drags (1 = the game's manual softness; ini only)
+    StallLog = 0,                          -- (275) 1 = the stall log: riding up a transition to a lip, "stall:" lines (speed, ramp, pitch, the trucks and tips from the lip, wheels, the pad, every crouch) and a "stall sum:" per attempt in ExpandedTricks.native.log; "stall ref:" at a drop-in. Read only
+    GrindLog = 0,                          -- (279) 1 = the grind log: "grind:" lines in ExpandedTricks.native.log at a grind's entry (the grind the game chose, angles, speed, every crouch, the sticks), 4 a second in it, its exit (how) and an alt crouch pressed in it. Read only
+    AltGrindFlipOut = 0,                   -- (grindalt3 283) 1 = with AltGrinds' mirror on in a grind (the alt crouch's grind), the flip-out is taken by the alt flip set as an alt pop: monster / dolphin / nightmare / daydream / the underflips by the ground's rules (native; needs AltGrinds and AltFlips)
+    AltDoubleVarialName = 0,               -- (grindfix5 286) 1 = a "Double Varial Flip" / "Double Varial Heel" the game would show (its own doubles too, switch / nollie / fakie and body varials) reads as the Nightmare / Daydream Flip (native v183+ merge)
+    AltGrindsInGrind = 0,                  -- (grindalt4 285) 1 = the alt crouch ONLY once the game is in a grind (replaces AltGrinds' air / grind mirror): nothing in the air; in a grind the back stick UP is handed to the game as DOWN, the front stick DOWN as UP, and the flip-out is the ground's alt set (native; needs AltGrinds, AltGrindFlipOut, AltFlips)
+    AltGrinds = 0,                         -- (280) 1 = THE ALT CROUCH'S GRINDS; (grindmirror 282) in the air and in a grind an alt crouch (back stick UP / front stick DOWN) hands the game BOTH sticks upside down (y mirrored, x kept): its own nosegrind, its crouch and its flip-out (native; needs AltFlips)
     AltCasperCatch = 0,                    -- (271) 1 = AUTO CASPER: the alt crouch's kickflip locks into the game's casper when the board is upside down (180); then front stick BACK = hospital flip, a side flick = the underflip back, nothing = the game's casper (native; needs the game's Caspers on)
     AltHospitalKickOnly = 1,               -- (262) 1 = the hospital flip only out of a casper caught from a KICKFLIP (out of a heelflip the game's casper goes on); 0 = build 261's (native)
     AltHospitalFootBack = 12,              -- (262) cm the front foot is drawn back toward the back foot as it lifts in the hospital's turn (0..25; 0 = build 261's) (native)
@@ -444,6 +464,9 @@ local S = {
     AltUnderShuvHalf = 135,                -- (258) the HALF SCOOP from the alt crouch read by us: the back stick swept this many deg round from the alt crouch's UP (100..175) = the half scoop, whatever shove-it the game took: its spin held to 360 and named the Shuv-it Under Varial Flip; the game's stick held where it was at this angle so the sweep on round to straight down stays the alt crouch (native AltSweepStep); 0 = off (build 257's)
     AltUnderShuvShove = 1,                 -- (255) 1 = a SHUV-IT underflip is two tricks: its roll is the SHOVE's (the pairing and the flick that takes it: AltUnderShuvPair; 255's was BS: the heelflip's roll, FS: the kickflip's, on any flick); and the shove's spin is held to its scoop from the flick: a quarter scoop 180 (no extra varial), a half scoop (the game's 360 shove-it) 360 = the Shuv-it Under Varial Flip (native); 0 = build 254's (the roll by the flick's side, the game's spin)
     AltUnderTouch = 1,                     -- (261) 1 = with AltUnderFeet: at the second flick the kick / heel underflip's foot MEETS the board -- the kickflip's front foot's instep and toes under the edge it lifts, the heelflip's back foot's sole on the edge it pushes -- for the strike, never into it (native UfShoe / UfTouchAt); 0 = build 260's
+    AltUnderOwnSpeed = 0,                  -- (280) 1 = the kickflip underflip / heelflip cancel flip's reversal spins RELATIVE to your two flicks: both are timed off the pad (every 1 ms; one sample a pose without an XInput pad) and the turn back = the first flip's speed x (second flick's speed / first's), 0.35x..2.5x; 0 = build 278's (it turns back at the first flick's speed) (native UfRelRate); (283) and the shuv-it underflip: its whole flip at its fixed 800 deg/s x (the late flick's speed / the scoop's) (native UfsOwnSpeed)
+    AltUnderFlickRef = 0,                  -- (285) above 0 (per second; 30 suggested), with AltUnderOwnSpeed=1: the kick / heel and shuv-it underflips turn back at their base (the first flip's speed turned / the shuv-it underflip's 800 deg/s) x clamp(the SECOND side flick's OWN speed / this, 0.5, 1.6) -- 30: a 42 /s flick x1.4, 20 /s x0.67, 6.5 /s x0.5; 0 = build 284's (the second flick over the first, 0.35x..2.5x) (native UfRefApply)
+    AltShuvScoopSpeed = 0,                 -- (285) 1 = the alt shove-it's spin (the one the shuv-it underflip arms on) turns at the game's rate x clamp(the scoop's own speed / 8 per second, 0.6, 1.6): a quick scoop spins faster, a slow sweep slower, the same 180 / 360; needs AltUnderOwnSpeed=1 (the sampler that times the scoop); 0 = build 284's (the game's rate) (native UfsScoopPace)
     AltUnderFeetBig = 1,                   -- (255) 1 = with AltUnderFeet: the heelflip cancel flip's BACK foot hovers over the board (knee up) from 90 deg of the flip, then at the second flick stomps down onto the edge and rides it down; the kickflip underflip's front foot drops 15 % further out and down (native); 0 = build 254's
     AltUnderFeet = 1,                      -- (254) 1 = the kick / heel underflip's FEET: the kickflip underflip's front foot goes down past the board's edge from its flick and lifts into the edge at the second flick; the heelflip cancel flip uses the BACK foot, pushing the edge down from on top (native); 0 = build 253's legs
     AltFlipPaceUp = 1.2,                   -- (246) the monster's (and the forward dolphin's) turn x this on top of AltFlipPace: "I'm flicking it as hard as I can, and I get about ... 285, 290, maybe 300. So I guess divide that by 360" (21 Oct) (native)
@@ -518,6 +541,7 @@ local S = {
     BoardHopFeet = 1,
     BoardHopHead = 1,
     DropInSetFly = 1,
+    DropInSetSmooth = 1,
     DropInSetSwitch = 1,
     DropInPlain = 1,
     DropInArms = 40,
@@ -781,7 +805,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "CavemanTime", "num", 100, 217, "ms from the Y press for the caveman's board to come from your hand to under your feet (the game puts you on it 217 ms after the press)" },
     { "CavemanOut", "num", 0, 60, "cm in front of you the caveman's board swings out on its way down (it comes in under your feet from there)" },
     { "CavemanLift", "num", 0, 40, "cm over the spot under your feet the caveman's board is when it is that far out" },
-    { "CavemanTurn", "num", 0, 1, "how far round the caveman turns your body toward your stance in the air, as the board comes under your feet (feet and body together, before the game puts you on):\n; 1 = all the way (20 deg short of the feet's line, as the game's own pose stands), 0.75 = three quarters (the game turns the rest after it puts you on), 0 = not at all\n; (the feet are put on the board turned as they ride against your hips). Takes the native half v172" },
+    { "CavemanTurn", "num", 0, 1, "how far round the caveman turns your body toward your stance in the air, as the board comes under your feet (feet and body together, before the game puts you on):\n; 1 = all the way (20 deg short of the feet's line, as the game's own pose stands), 0.75 = three quarters (the game turns the rest after it puts you on), 0 = not at all\n; (the feet are put on the board turned as they ride against your hips). Takes the native half v207" },
     { "CavemanKeepFall", "num", 0, 1, "1 = after the caveman's mount the board is given back the speed you were falling (or rising) at: the game's mount sets it to 0\n; and you hang for a moment; 0 = the game's own" },
     { "CavemanHold", "num", 0, 1.5, "seconds at most the caveman's hand holds the board (a Melon with the front hand, an Indy with the back hand: the hand that carried it) once you are on the board in the air, with the knees\n; up and the hips down as in a rolling grab; it lets go CavemanLetGo before touchdown in any case. 0 = no grab" },
     { "CavemanSquat", "num", 0, 55, "cm at most the hips come down toward the board in the caveman's grab (no leg is folded under 35 % of its length for it: the back leans on)" },
@@ -815,7 +839,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "CavemanHandReach", "num", 0, 1, "1 = the caveman's holding arm reaches for the board again once his crouch is drawn deeper: the elbow straightens as far as it needs and the hand comes down onto the board with the shoulder; 0 = build 247's (the hand kept where the arm reached before the crouch: elbow bent, hand over the board)" },
     { "CavemanHandLean", "num", 0, 45, "deg at most the caveman's upper body leans from the waist toward the board while his hand holds it, when the straight arm is still short of its spot: down, forward and toward that side, eased in over the hold and let go with the grab -- the resting grip on the board, not over it;\n; 0 = build 248's (the hand 13-20 cm over the board)" },
     { "CavemanHeadEase", "num", 0, 30, "poses the caveman's head is handed back to the game over once the hand lets go (his look ahead held whole while the hand holds): no snap;\n; 0 = build 248's (let go with the feet's hold)" },
-    { "WallRide", "num", 0, 1, "WALLRIDES. 1 = fly into a wall at a shallow angle in any air on the board (an ollie; a flip once its spin is over) and you ride along it for a moment,\n; the board on the wall: automatic, no button. A head-on hit is left to the game (it bails you). 0 = off, the game's own. Takes the native half v172" },
+    { "WallRide", "num", 0, 1, "WALLRIDES. 1 = fly into a wall at a shallow angle in any air on the board (an ollie; a flip once its spin is over) and you ride along it for a moment,\n; the board on the wall: automatic, no button. A head-on hit is left to the game (it bails you). 0 = off, the game's own. Takes the native half v207" },
     { "WallRideMaxAngle", "num", 5, 60, "no longer used since build 233 (WallRideMaxApproach replaced it: an ini keeps a key's old value for ever, and build 232's 35 refused 24 of 35 tries)" },
     { "WallRideMinSpeed", "num", 100, 1500, "cm/s along the ground you need to start a wallride" },
     { "WallRideMinHeight", "num", 10, 200, "cm the board must be over the ground to start a wallride (lower leaves no time to get on and off the wall)" },
@@ -882,7 +906,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "WallRideGroundWallieRate", "num", 100, 1500, "degrees a second that nose pitch (WallRideGroundWallie) comes at as a wallride from the ground takes off: 600 is up 45 in about 0.08 s. New in build 253" },
     { "WallRideGroundWallieBody", "num", 0, 45, "degrees your body leans back toward the tail while the board's nose is pitched up (WallRideGroundWallie) as a wallride\n; from the ground takes off: your weight over the tail, your feet on the pitched board, your knees bent, back to the ride's line as the\n; board flattens on the wall. 0 = the feet on the board only. New in build 253" },
     { "StickClickPass", "num", 0, 1, "1 = a stick click the mod does not use goes on to the game (L3 opens the missions); one it uses (a hippie jump, a mini hop, a board hop, a click grab) does not;\n; 0 = every stick click goes to the game as well (as before build 225: the mission viewer came up with every hippie jump)" },
-    { "AltFlips", "num", 0, 1, "ALT FLIP SET. 1 = push the back-foot stick UP to crouch for a second set of flip tricks (front/back-foot or left/right-foot stick mode; not in Legacy):\n; front stick pulled DOWN = Monster Flip, pushed UP = Dolphin Flip (AltFrontSwap); the varial flip's scoop, swept from up toward the SAME side as your varial's, and its flick = Nightmare Flip;\n; the varial heel's, the same way, = Daydream Flip; every other trick from that crouch is the game's own. 0 = off (up does nothing, as in the game). Takes the native half v172" },
+    { "AltFlips", "num", 0, 1, "ALT FLIP SET. 1 = push the back-foot stick UP to crouch for a second set of flip tricks (front/back-foot or left/right-foot stick mode; not in Legacy):\n; front stick pulled DOWN = Monster Flip, pushed UP = Dolphin Flip (AltFrontSwap); the varial flip's scoop, swept from up toward the SAME side as your varial's, and its flick = Nightmare Flip;\n; the varial heel's, the same way, = Daydream Flip; every other trick from that crouch is the game's own. 0 = off (up does nothing, as in the game). Takes the native half v207" },
     { "AltFlipEngage", "num", 0.25, 0.95, "how far UP the back-foot stick must go (0..1 of its throw past the game's dead zone) to crouch for the alt set; it must point within 40 deg of straight up (sideways is the game's pressure tricks)" },
     { "AltFlipRelease", "num", 0.1, 0.6, "the back-foot stick let back inside this (0..1) ends the alt crouch; after an alt trick it must come back inside it once before the next alt crouch (kept under AltFlipEngage)" },
     { "AltMonster", "num", 0, 1, "MONSTER FLIP: alt crouch + front stick pulled DOWN (AltFrontSwap; handed to the game as its ollie) and the board turns end over end (about its short axis) in the air: one full turn,\n; or in manual catch until you catch it (AltMonsterCatch); 0 = the alt ollie stays an ollie" },
@@ -933,6 +957,26 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "AltHospitalKickOnly", "num", 0, 1, "1 = the hospital flip only out of a casper caught from a KICKFLIP (any stance, the alt crouch's kick underflip too);\n; out of a heelflip the flick is not taken and the game's casper goes on. Default 1; 0 = build 261's (out of any flip)" },
     { "AltCasperCatch", "num", 0, 1, "1 = AUTO CASPER: in the alt crouch (the back-foot stick UP) your KICKFLIP locks into the game's casper by itself when the board is upside down (180),\n; no casper stick needed (turn on Caspers in the game's experimental settings). In it: the front-foot stick BACK = the hospital flip, a side flick\n; of either stick = the kickflip underflip (the board goes back the other way), nothing = the game's casper to the ground (hold its stick to ride it).\n; While on, the kickflip underflip waits for the casper. Default 0 = off (build 270's)" },
     { "AltCasperMatch", "num", 0, 1, "with AltCasperCatch=1: 1 = the hospital flip out of the AUTO casper made like one out of your manual casper: when the game had already\n; caught the kickflip before the auto casper locked, its catch kept rolling the board on its side through the hospital (the 'tornado').\n; 1 holds that catch off while the auto casper is ours and through the hospital's turn, and drops the casper ratio at the flick as\n; your stick does. Also logs both (casper match: lines). Default 0 = off (build 273's)" },
+    { "AltStall", "num", 0, 2, "the alt crouch stalls (testing; stall3 278): 1 = on, 0 = off (2, from an older build, counts as on). Ride up a quarter pipe or a bank to its lip with an alt crouch held: THE CROUCH CHOOSES.\n; the ALT NOLLIE crouch (the front foot) = a NO STALL: the leading wheels caught on top of the coping, the nose down on the deck past it (the drop-in's lie, DropInPitch), the tail up over the ramp.\n; the ALT crouch (the back foot) = a BLUNT (blunt 281): the trailing wheels caught on the coping and the GAME'S OWN blunt grind started there\n; (GRIND_FS_Blunt / GRIND_BS_Blunt): once the game takes it, it is its grind (pop out, flip out as from any grind); if not, held as before.\n; Caught, the stall HOLDS. Let the sticks come to the middle, then press and let go a crouch to come out: the alt crouch = the alt pop (alt flips can come out), the normal crouch = the game's own pop; a flick that makes the game pop also lets it go. 20 s at the most.\n; Too slow, too fast or in the air: nothing. 'altstall:' lines in ExpandedTricks.native.log. Default 0 = off" },
+    { "AltNoStallDropIn", "num", 0, 1, "the no stall as the reverse of the drop-in (testing; nostall2 283; with AltStall on): 1 = as the leading truck reaches the lip the board tips UP\n; about the wheels on the coping (~0.35 s: the drop-in's GO played backwards; no turn, no carrying) into the drop-in's stance: those wheels hung on\n; the coping, the end behind them down on the deck, the other end up over the ramp; he rides it, facing the way he rode (nose first: fakey). He stays there; the drop-in's own input then: the sticks to the middle, then a stick UP = drop back in,\n; LB/RB = back onto the deck. 'altstall: ... no stall' lines in both logs. 0 = build 280's no stall (held on the coping). Default 0 = off" },
+    { "AltNoStallReverse", "num", 0, 1, "the no stall's body in reverse (testing; revnostall 286; needs AltStall and AltNoStallDropIn on): 1 = as the board tips UP about the wheels on the coping\n; he goes with it: the drop-in's own motion stepped BACKWARDS with the board, frame by frame (~0.35 s) -- from where he rides up the wall (pitched with it,\n; crouched and arms out by how far below the drop-in's spot he is, as the drop-in has them on the way down) up over the edge to the drop-in's spot\n; (upright, DropInBack behind the edge, squared to it, facing the way he rode; arms in, no crouch), where the drop-in's GO takes him back in.\n; 'altstall: ... no stall ... REVERSE' lines in ExpandedTricks.log. 0 = build 285 (the board alone tips, he is not moved). Default 0 = off" },
+    { "AltBluntGame", "num", 0, 1, "the blunt forced into the game's own blunt grind (testing; bsblunt 286; with AltStall on): 1 = the ALT crouch blunt held at the coping opens the game's own\n; grind check, its pick is answered Blunt (the game's own side: BS on a straight approach) and the board's speed ALONG the coping is zeroed at the entry and\n; all through the grind, so he sits still in it like a stall; the game owns the pop / flip-out. 'altstall: ... bluntgame' lines in the native log. Default 0 = off (build 285)" },
+    { "AltNoStallSlide", "num", 0, 1, "the no stall into the game's own nose slide (testing; forcegrind 287; with AltStall on): 1 = the ALT NOLLIE crouch no stall caught at the lip\n; is held by the stall's own hold (no turn, lockgrind3 290: its leading wheels on the coping top) and the game's own grind check is opened there; the grind\n; it begins is made a grind (not a lip trick) and set to GRIND_FS_Noseslide (the side of the game's own pick when its picker is asked). Then the game\n; owns the slide, its pop and flip-out. It goes BEFORE AltNoStallDropIn (that hand-over is passed over while this is on). 'altstall: ... forcegrind' and\n; 'no stall -> NOSESLIDE' lines in the native log. Default 0 = off" },
+    { "HeelStop", "num", 0, 1, "1 = THE HEEL STOP (testing; heelstop 299): in a manual (not a nose manual) push the back-foot stick ALL the way down -- where the game would\n; leave the manual for its crouch -- and the tail drags instead: the game is handed the stick just inside the manual's range (its deepest\n; manual), the board's brake is the game's own tail brake (HeelStopDecel) and its tail-stop animation flag is set (HeelStopTailAnim).\n; Ease the stick back into the manual's range to ride on in the manual. 'heelstop:' lines in ExpandedTricks.native.log. 0 = the game's crouch" },
+    { "HeelStopDecel", "num", 0, 2000, "how hard the heel stop slows you, in cm/s2 (lent to the game's tail brake, BrakingDecelerationTail, while the tail drags; the game's\n; brake multiplier still applies). 250 = 9 km/h lost a second: from a fast roll to a stop in about 2 seconds. 0 = the manual held, no braking" },
+    { "HeelStopTailAnim", "num", 0, 2, "the heel stop's pose (heelanim 300): 1 = the game's own TAIL BRAKE (its BreakTail animation: IsBrakingTail set and the manual let go\n; for it after the game's animation update; switch has none: the manual's pose there); 2 = the ONE-FOOT POWERSLIDE's pose (the animation's\n; powerslide flags and ratios, from your own last tail-down powerslide, defaults until you have done one); 0 = the deepest manual pose" },
+    { "HeelStopSound", "num", 0, 2, "the heel stop's sound (heelanim 300): the game's own tail-slide loop (the one-foot powerslide's scrape) on its own audio component on the\n; deck, its volume and pitch on the game's powerslide curve over your speed, times this; it fades out as you stop. 0 = silent" },
+    { "HeelStopFriction", "num", 0, 72, "how hard the heel stop's dragged tail slows you (heelfix 301), in km/h lost a second: 10 = from a fast roll to a stop in about\n; 2 seconds; the game's own tail brake is 22; 0 = the manual held, no slowing. (HeelStopDecel, HeelStopTailAnim and HeelStopSound are no longer read:\n; the pose is always the game's tail brake, the scrape always on)" },
+    { "SketchLanding", "num", 0, 4, "(testing; sketch 301) the game ships four SKETCHY ollie landings it never uses (off balance, thrown to one side; regular and\n; switch): this puts one of them in the ollie's landing (the regular ollie, the late flips, switch ollies). 1 = small, to the left;\n; 2 = small, to the right; 3 = big, to the left; 4 = big, to the right; 0 = the game's own landing. 'sketch landing:' lines in ExpandedTricks.log" },
+    { "BigDropLanding", "num", 0, 1, "1 = THE BIG DROP LANDING (bigdrop 302): land BigDropHeight or more under where you left the ground and the trick lands with the\n; game's unused big sketchy landing (regular and switch; Sketch_Max_Right). 0 = the game's own landings. 'bigdrop:' lines in ExpandedTricks.native.log" },
+    { "BigDropHeight", "num", 0.5, 20, "how far under the take-off a landing must be to count as a big drop, in metres (bigdrop 302)" },
+    { "HeelStopSnap", "num", 1, 8, "how quickly the heel stop gets the tail down (pidsnap 304): the board's own PID (the game's manual setting, P 700) made this many\n; times quicker while the tail drags (P x it squared, D x it: the same damping). 1 = the game's manual softness; 4 = a quarter of the time" },
+    { "StallLog", "num", 0, 1, "1 = log riding up a quarter pipe or a bank to its lip, for the stalls to come (no stall, tail stall, blunt stall):\n; 12 'stall:' lines a second while you ride up within 150 cm of a lip (speed, ramp angle, deck pitch, both trucks, the tail and the nose\n; from the lip, the wheels on the floor, manual / grind / casper, the sticks, triggers, bumpers and every crouch), one 'stall sum:' line\n; when the attempt ends (how high, how far past, how long still at the top, how it ended), in ExpandedTricks.native.log; and\n; 'stall ref:' lines at a drop-in. Nothing in the game changes. Default 0 = off" },
+    { "GrindLog", "num", 0, 1, "1 = log grinds, for the alt crouch's grinds to come (flip out with the alt crouch, the grind chosen by the crouch):\n; a 'grind: ENTER' line when a grind or a lip trick begins (the grind the game chose, its type and approach, the deck's pitch and yaw to the rail,\n; speed, the game's crouch, the alt crouch, the alt nollie crouch, the sticks), 4 'grind:' lines a second during it, a 'grind: EXIT' line (how it ended:\n; ollie out, flip out and the flip, fell off, rolled off, bail) and a line for an alt crouch pressed during it, in ExpandedTricks.native.log. Nothing in the game changes. Default 0 = off" },
+    { "AltGrindFlipOut", "num", 0, 1, "1 = THE ALT FLIP OUT OF A GRIND (needs AltGrinds and AltFlips): in a grind you got into with the alt crouch (the mirror on), the flick\n; out of it is an ALT flip, as from the alt crouch on the ground: the game decides its flip-out and the alt set takes it\n; (the back stick UP held: the alt crouch's set; the front stick DOWN held: the alt nollie crouch's) -- monster, dolphin,\n; nightmare, daydream, the kickflip / shuv-it underflips. The normal crouch in a grind keeps the game's own flip-out.\n; 'altgrind:' ARMED / CLAIMED / NOT claimed lines in ExpandedTricks.native.log. 0 = build 282's (the game's flip-out only)" },
+    { "AltDoubleVarialName", "num", 0, 1, "1 = DOUBLE VARIAL = NIGHTMARE: any line the game would show as a Double Varial Flip (its own doubles too, not only the alt set's)\n; reads Nightmare Flip, a Double Varial Heel Daydream Flip, with their Switch / Nollie / Fakie and body varial names (needs AltFlips and TrickNames). 0 = the game's names" },
+    { "AltGrindsInGrind", "num", 0, 1, "1 = THE ALT CROUCH ONLY ONCE IN A GRIND (needs AltGrinds; the alt flip-out needs AltGrindFlipOut): nothing of AltGrinds in the air.\n; Get into the grind with the game's own sticks (back stick DOWN = 5-0 ...); in the grind the back stick UP (the alt crouch) is handed to\n; the game as DOWN (it keeps its grind crouch) and the front stick DOWN as UP; the game's own ways stay raw. The flick out of the alt crouch\n; is the ground's alt set: front DOWN = Monster, UP = Dolphin (AltFrontSwap), the varial scoops, the underflips. 'altgrind:' lines. 0 = build 284's mirror" },
+    { "AltGrinds", "num", 0, 1, "1 = THE ALT CROUCH'S GRINDS (needs AltFlips): hold the ALT crouch (the back-foot stick UP) or the ALT NOLLIE crouch (the front-foot stick DOWN)\n; in the air or in a grind and the game is handed BOTH sticks upside down (up and down swapped, left and right kept; grindmirror 282): the front-foot\n; stick DOWN is the game's front stick UP, its NOSEGRIND; in the grind you are in the game's own crouch, so a flick is the game's own flip-out.\n; Back to normal when you push a stick the game's way or ride on the ground. 'altgrind:' lines in ExpandedTricks.native.log. Default 0 = off" },
     { "AltCasperLand", "num", 1, 3, "with AltCasperCatch=1: what the auto casper does if you have not flicked out of it by the landing.\n; 1 = it flips out by itself (the game lets a casper with no stick go after 0.3 s; build 271's).\n; 2 = it lands in the casper and you ride on in it as the game's casper, no stick needed, until a trick out of it (or a bail).\n; 3 = it bails at the touchdown (the game's own 'Failed casper' bail). Default 1" },
     { "AltHospitalFootBack", "num", 0, 25, "Centimetres the front foot is drawn back along the board, toward the back foot, as it lifts in the hospital flip's turn\n; (most a third of the way in, gone by the catch). Default 12; 0 = build 261's" },
     { "AltHospitalToeScoop", "num", 0, 20, "Degrees more bank in the hospital flip's return flip, always toward the rider's TOE side (the board's bottom turned to his toes),\n; not a random side. Still grip up and reversed at the catch. Default 8; 0 = build 261's (a random side)" },
@@ -950,6 +994,9 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "AltUnderShuvHalf", "num", 0, 175, "degrees (100..175) your back stick goes round from the alt crouch's up for the HALF scoop: then the shove-it is\n; the 360 one (its spin held to 360, named Shuv-it Under Varial Flip) and the late flick makes it the under varial flip. 0 = off (build 257's)" },
     { "AltUnderFeetBig", "num", 0, 1, "1 = (AltUnderFeet on) the heelflip cancel flip's BACK foot hovers over the board, knee up, then at the second flick stomps\n; down onto the edge and rides it down; the kickflip underflip's front foot drops a little further out and down. 0 = build 254's" },
     { "AltUnderTouch", "num", 0, 1, "1 = (AltUnderFeet on) at the second flick the kick / heel underflip's foot meets the board: the kickflip's front foot\n; under the edge it lifts, the heelflip's back foot's sole on the edge it pushes, never into it. 0 = build 260's" },
+    { "AltUnderOwnSpeed", "num", 0, 1, "1 = the kickflip underflip / heelflip cancel flip turns back at the first flip's speed times how much faster (or slower)\n; your SECOND side flick was than your first (both timed off the pad; 0.35x..2.5x, 250..2000 deg/s): twice as fast a flick\n; turns back twice as fast. The SHUV-IT UNDERFLIP too: its flip spins at its usual speed times how much faster (or slower) the late\n; side flick was than the scoop. 0 = it turns back at the first flick's speed (build 278's), the shuv-it underflip at its usual speed. Default 0" },
+    { "AltUnderFlickRef", "num", 0, 80, "0 = off (the underflip turns back by your 2nd flick over your 1st, AltUnderOwnSpeed). Above 0 (per second; 30 suggested),\n; with AltUnderOwnSpeed=1: the kick / heel / shuv-it underflip turns back at its usual speed x (your 2nd side flick's own speed / this),\n; 0.5x..1.6x: a flick faster than this turns back faster, a slower one slower. The log's 'own speed' lines show each flick's speed. Default 0" },
+    { "AltShuvScoopSpeed", "num", 0, 1, "1 = the alt shove-it's spin (the one the shuv-it underflip starts from) turns at the game's speed x how fast your scoop was\n; (its own speed over 8 a second, 0.6x..1.6x): a quick scoop spins faster, a slow sweep slower, the same 180 / 360. Needs\n; AltUnderOwnSpeed=1 (it times the scoop). 0 = the game's speed (build 284's). Default 0" },
     { "AltUnderFeet", "num", 0, 1, "1 = the kick / heel underflip's FEET (AltUnderLeg on): the kickflip underflip's front foot flicks down past the board's edge\n; from the start and waits under it, then lifts into it at the second flick; the heelflip cancel flip's BACK foot pushes the edge down from on top. 0 = build 253's" },
     { "AltFlipPaceUp", "num", 0.5, 2, "the monster flip's (and the forward dolphin's, AltDolphinStyle=2) turn times this, on top of AltFlipPace: 1.2 (build 246) brings your\n; hardest flick round on flat ground (it came down at 305-317 of 360 on build 245); every flick scaled the same, so the slower ones stay as much slower. 1 = build 245's" },
     { "AltDolphinStyle", "num", 0, 2, "which DOLPHIN FLIP: 2 = the forward dolphin (build 246): you stay in your stance and flick forward with your kickflip's animation, the board\n; flips end over end first (its nose diving) and its half flip about its long axis catches up later (AltDolphinPitchEnd, AltDolphinRollStart), landing reversed;\n; 1 = build 245's: the game's own varial flip turned the nollie way (AltDolphinVarial=1's); 0 = build 244's (end over end with a 180). AltDolphinVarial is not used since" },
@@ -994,6 +1041,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "DropInSetFeet", "num", 0, 1, "set-down on the coping: how much a foot that is on the animation's board is carried onto the real one (0 = the animation's feet as they are)" },
     { "DropInSetOver", "num", 0, 1, "set-down on the coping: 1 = you are moved out over the edge as the animation drags its board under you (held back by itself where the game is seen to lower you); 0 = your middle stays on the ledge until just before the mount, your feet are carried to the board from there" },
     { "DropInSetFly", "num", 0, 1, "set-down on the coping: 1 = your middle stays 2 cm short of the edge until the last 0.15 s before the mount, and for those you are taken over the edge in the engine's flying mode, at your height (on foot the engine set you lower every frame once your middle was past the edge and the mod set you back: the stutter; over a real drop you fell 14 cm before the mount); 0 = as build 215" },
+    { "DropInSetSmooth", "num", 0, 1, "set-down on the coping (build 276): 1 = the walk onto the set-down board steps once per pose the game draws, by the time since the last (0.3 of the gap per 60th of a second, 180 cm/s at most), so it is as smooth at any frame rate; 0 = build 275's walk, stepped on every tick of the mod's loop, twice on one pose when two ticks fell in one frame and not at all when none did (the jitter)" },
     { "DropInSetSwitch", "num", 0, 1, "set-down on the coping: 1 = Y tapped twice (switch) is set ON the coping as well: you stand and face the drop as for a regular one, the switch stance's own animation sets the board down, and the game's switch mount turns you half a turn -- you face away from the drop, the nose points at it, your other foot on the tail; 0 = as build 222: a switch drop-in is build 211's set-down (the board set down behind the edge and slid out)" },
     { "DropInPlain", "num", 0, 1, "1 = off a plain ledge or a plain wall (the same level ground just past the edge and further out, or flat floor right under the hung board) the drop-in is a straight drop: tipped DropInTilt and launched straight out, as it was to build 211; 0 = as build 216, which looked further out for a ramp and took the floor, a step's riser or the wall itself for one" },
     { "DropInArms", "num", 0, 80, "drop-ins: degrees your arms are raised out to your sides for balance from the moment you drop in (GO: not while you stand on the board at the edge), through the tip-in, until you ride or land (they come down over 0.7 s); each upper arm is turned about its shoulder toward a pose 18 to 24 degrees under level, never past it and not where the game already has it higher, so about 60 is all the way (native v118). 0 = the arms as the game has them" },
@@ -6426,6 +6474,123 @@ NATIVE.altCfg = function(force)                       -- from NATIVE.sync: the s
             log(string.format("native: alt flips: the hospital flip's feet %s (AltHospitalFeet=%d, AltHospitalClear=%g cm); its off-axis bank %g deg, drift %g deg (AltHospitalWobble, AltHospitalDrift)", hfe == 1 and "stay sole down and out of the turning board" or "follow the board (build 254's)", hfe, hcl, hwb, hdr))
         end
     end
+    do   -- (275) StallLog (HJN_Set("stalllog", 0/1); an older native half ignores it): the stall log, read only
+        local sl = NATIVE.STALLS_SHELVED and 0 or (((tonumber(S.StallLog) or 0) >= 0.5) and 1 or 0)   -- (shelf 299) off while shelved
+        if ((force and sl == 1) or (A.stallLog or 0) ~= sl) and type(HJN_Set) == "function" then
+            A.stallLog = sl
+            pcall(HJN_Set, "stalllog", sl)
+            log(string.format("native: the stall log is %s (StallLog=%d)", sl == 1 and "ON: stall: / stall sum: / stall ref: lines in ExpandedTricks.native.log" or "off", sl))
+        end
+    end
+    do   -- (heelstop 299) HeelStop / HeelStopDecel / HeelStopTailAnim (HJN_Set("heelstop" / "heeldecel" / "heelanim"); an older native half ignores them): the heel stop
+        local hs = ((tonumber(S.HeelStop) or 0) >= 0.5) and 1 or 0
+        local hd = math.max(0, math.min(72, tonumber(S.HeelStopFriction) or 10)) / 0.036   -- (heelfix 301) km/h a second -> cm/s2
+        local ha = 2   -- (bigdrop 302) always the one-foot powerslide's pose (the one he chose in 300: "the break stop one"; 301's tail brake showed none)
+        local hsn = 1   -- (heelfix 301) the scrape always on
+        if (force or A.heelStop ~= hs or A.heelDecel ~= hd or A.heelAnim ~= ha or A.heelSound ~= hsn) and type(HJN_Set) == "function" then
+            A.heelStop = hs A.heelDecel = hd A.heelAnim = ha A.heelSound = hsn
+            pcall(HJN_Set, "heeldecel", hd) pcall(HJN_Set, "heelanim", ha) pcall(HJN_Set, "heelsound", hsn) pcall(HJN_Set, "heelstop", hs)
+            log(string.format("native: the heel stop is %s (HeelStop=%d, friction %g cm/s2 = HeelStopFriction %g km/h a second, pose %d, sound %g)", hs == 1 and "ON: in a manual (not a nose manual) all the way down on the back-foot stick drags the tail and slows you ('heelstop:' lines)" or "off", hs, hd, hd * 0.036, ha, hsn))
+        end
+    end
+    do   -- (pidsnap 304) HeelStopSnap (HJN_Set("heelsnap"); an older native half ignores it): how quickly the heel stop's board gets down
+        local sn = math.max(1, math.min(8, tonumber(S.HeelStopSnap) or 4))
+        if (force or A.heelSnap ~= sn) and type(HJN_Set) == "function" then
+            A.heelSnap = sn
+            pcall(HJN_Set, "heelsnap", sn)
+            log(string.format("native: the heel stop's board PID x%g quicker while the tail drags (HeelStopSnap)", sn))
+        end
+    end
+    do   -- (bigdrop 302) BigDropLanding / BigDropHeight (HJN_Set("bigdrop" / "bigdropcm"); an older native half ignores them): the big drop landing
+        local bd = ((tonumber(S.BigDropLanding) or 0) >= 0.5) and 1 or 0
+        local bh = math.max(0.5, math.min(20, tonumber(S.BigDropHeight) or 2.5)) * 100
+        if (force or A.bigDrop ~= bd or A.bigDropCm ~= bh) and type(HJN_Set) == "function" then
+            A.bigDrop = bd A.bigDropCm = bh
+            pcall(HJN_Set, "bigdropcm", bh) pcall(HJN_Set, "bigdrop", bd)
+            log(string.format("native: the big drop landing is %s (BigDropLanding=%d, BigDropHeight=%g m)", bd == 1 and "ON: a landing that far under the take-off plays the game's unused big sketchy landing ('bigdrop:' lines)" or "off", bd, bh / 100))
+        end
+    end
+    do   -- (279) GrindLog (HJN_Set("grindlog", 0/1); an older native half ignores it): the grind log, read only
+        local gl = ((tonumber(S.GrindLog) or 0) >= 0.5) and 1 or 0
+        if ((force and gl == 1) or (A.grindLog or 0) ~= gl) and type(HJN_Set) == "function" then
+            A.grindLog = gl
+            pcall(HJN_Set, "grindlog", gl)
+            log(string.format("native: the grind log is %s (GrindLog=%d)", gl == 1 and "ON: grind: lines in ExpandedTricks.native.log" or "off", gl))
+        end
+    end
+    do   -- (280) AltGrinds (HJN_Set("altgrinds", 0/1); an older native half ignores it): the alt crouch's grinds
+        local ag = ((tonumber(S.AltGrinds) or 0) >= 0.5) and 1 or 0
+        if ((force and ag == 1) or (A.altGrinds or 0) ~= ag) and type(HJN_Set) == "function" then
+            A.altGrinds = ag
+            pcall(HJN_Set, "altgrinds", ag)
+            log(string.format("native: the alt crouch's grinds are %s (AltGrinds=%d)", ag == 1 and "ON: in the air and in grinds an alt crouch hands the game the sticks upside down (its nosegrind, its crouch, its flip-out)" or "off", ag))
+        end
+    end
+    do   -- (grindalt3 283) AltGrindFlipOut (HJN_Set("altgrindflipout", 0/1); an older native half ignores it): the alt flip out of an alt crouch's grind
+        local gf = ((tonumber(S.AltGrindFlipOut) or 0) >= 0.5) and 1 or 0
+        if ((force and gf == 1) or (A.altGrindFlipOut or 0) ~= gf) and type(HJN_Set) == "function" then
+            A.altGrindFlipOut = gf
+            pcall(HJN_Set, "altgrindflipout", gf)
+            log(string.format("native: the alt flip out of a grind is %s (AltGrindFlipOut=%d)", gf == 1 and "ON: with the alt crouch's mirror on in a grind the flip-out is taken by the alt flip set (needs AltGrinds)" or "off", gf))
+        end
+    end
+    do   -- (grindalt4 285) AltGrindsInGrind (HJN_Set("altgrindsingrind", 0/1); an older native half ignores it): the alt crouch only once in a grind
+        local gi = ((tonumber(S.AltGrindsInGrind) or 0) >= 0.5) and 1 or 0
+        if ((force and gi == 1) or (A.altGrindsInGrind or 0) ~= gi) and type(HJN_Set) == "function" then
+            A.altGrindsInGrind = gi
+            pcall(HJN_Set, "altgrindsingrind", gi)
+            log(string.format("native: the alt crouch only in a grind is %s (AltGrindsInGrind=%d)", gi == 1 and "ON: nothing in the air; in a grind back UP is handed as DOWN, front DOWN as UP, the flip-out the ground's alt set (needs AltGrinds, AltGrindFlipOut)" or "off", gi))
+        end
+    end
+    do   -- (grindfix5 286) AltDoubleVarialName (HJN_Set("altdoublevarialname", 0/1); an older native half ignores it): a double varial named the nightmare
+        local dv = ((tonumber(S.AltDoubleVarialName) or 0) >= 0.5) and 1 or 0
+        if ((force and dv == 1) or (A.altDvn or 0) ~= dv) and type(HJN_Set) == "function" then
+            A.altDvn = dv
+            pcall(HJN_Set, "altdoublevarialname", dv)
+            log(string.format("native: a double varial flip / heel is shown as %s (AltDoubleVarialName=%d)", dv == 1 and "the Nightmare / Daydream Flip (the game's own doubles too)" or "the game names it", dv))
+        end
+    end
+    do   -- (276) AltStall (HJN_Set("altstall", 0..2) and "altstallpitch" = DropInPitch; an older native half ignores them): the alt crouch stalls
+        local as = NATIVE.STALLS_SHELVED and 0 or (((tonumber(S.AltStall) or 0) >= 0.5) and 1 or 0)   -- (shelf 299) off while shelved; (stall3 278) 0 off, 1 on (an ini's 2 is on): the crouch chooses the stall
+        if ((force and as > 0) or (A.altStall or 0) ~= as) and type(HJN_Set) == "function" then
+            A.altStall = as
+            if as > 0 then pcall(HJN_Set, "altstallpitch", math.max(0, math.min(45, tonumber(S.DropInPitch) or 25))) end
+            pcall(HJN_Set, "altstall", as)
+            log(string.format("native: the alt crouch stalls are %s (AltStall=%d)", as == 1 and "ON: the ALT NOLLIE crouch = a no stall, the ALT crouch = a blunt (the game's own blunt grind, blunt 281) ('altstall:' lines; stall5 280: once caught he stands into it, the game's manual lean over the held truck -- let the sticks go, a NEW crouch press pops)" or "off", as))
+        end
+    end
+    do   -- (nostall 281) AltNoStallDropIn (HJN_Set("altnostalldrop", 0/1); an older native half ignores it): the no stall handed to the drop-in
+        local nd = ((tonumber(S.AltNoStallDropIn) or 0) >= 0.5) and 1 or 0
+        if ((force and nd == 1) or (A.altNsDrop or 0) ~= nd) and type(HJN_Set) == "function" then
+            A.altNsDrop = nd
+            pcall(HJN_Set, "altnostalldrop", nd)
+            log(string.format("native: the no stall %s (AltNoStallDropIn=%d)", nd == 1 and "is HANDED TO THE DROP-IN: caught at the lip the board tips UP about the wheels on the coping into the drop-in's stance (the drop-in backwards), sticks to the middle, then UP drops him back in ('altstall: ... no stall' lines)" or "is build 280's (held on the coping)", nd))
+        end
+    end
+    do   -- (revnostall 286) AltNoStallReverse (HJN_Set("altnostallrev", 0/1); an older native half ignores it): the no stall's body in reverse (the Lua moves him; the native half only logs it)
+        local nr = ((tonumber(S.AltNoStallReverse) or 0) >= 0.5) and 1 or 0
+        if ((force and nr == 1) or (A.altNsRev or 0) ~= nr) and type(HJN_Set) == "function" then
+            A.altNsRev = nr
+            pcall(HJN_Set, "altnostallrev", nr)
+            log(string.format("native: the no stall's body %s (AltNoStallReverse=%d)", nr == 1 and "is played IN REVERSE with the board's tip: the drop-in's motion stepped backwards, from the wall up to the drop-in's spot ('altstall: ... no stall ... REVERSE' lines; needs AltNoStallDropIn)" or "is left where it is (build 285: the board alone tips)", nr))
+        end
+    end
+    do   -- (bsblunt 286) AltBluntGame (HJN_Set("altbluntgame", 0/1); an older native half ignores it): the blunt forced into the game's blunt grind
+        local bg = ((tonumber(S.AltBluntGame) or 0) >= 0.5) and 1 or 0
+        if ((force and bg == 1) or (A.altBluntGame or 0) ~= bg) and type(HJN_Set) == "function" then
+            A.altBluntGame = bg
+            pcall(HJN_Set, "altbluntgame", bg)
+            log(string.format("native: the blunt %s (AltBluntGame=%d)", bg == 1 and "is FORCED INTO THE GAME'S OWN BLUNT GRIND, its speed along the coping zeroed ('altstall: ... bluntgame' lines)" or "is build 285's", bg))
+        end
+    end
+    do   -- (forcegrind 287) AltNoStallSlide (HJN_Set("altnostallslide", 0/1); an older native half ignores it): the no stall into the game's nose slide
+        local nsl = ((tonumber(S.AltNoStallSlide) or 0) >= 0.5) and 1 or 0
+        if ((force and nsl == 1) or (A.altNsSlide or 0) ~= nsl) and type(HJN_Set) == "function" then
+            A.altNsSlide = nsl
+            pcall(HJN_Set, "altnostallslide", nsl)
+            log(string.format("native: the no stall %s (AltNoStallSlide=%d)", nsl == 1 and "goes INTO THE GAME'S OWN NOSE SLIDE: held on the coping top (no turn), the game's grind begun there set to its Noseslide ('altstall: ... forcegrind' lines)" or "is build 286's", nsl))
+        end
+    end
     do   -- (274) AltCasperMatch on its own (HJN_Set("altcaspermatch", 0/1); an older native half ignores it): the auto casper made like a manual one
         local cm = ((tonumber(S.AltCasperMatch) or 0) >= 0.5) and 1 or 0
         if (force or A.altCm ~= cm) and type(HJN_Set) == "function" then
@@ -6571,6 +6736,31 @@ NATIVE.altCfg = function(force)                       -- from NATIVE.sync: the s
             A.altUfb = tostring(ub)
             if type(HJN_Set) == "function" then pcall(HJN_Set, "altunderfeetbig", ub) end
             log(string.format("native: alt flips: the kick / heel underflip's feet, bigger: %s (AltUnderFeetBig=%d)", (ub == 1) and "the heelflip's back foot hovers, then stomps onto the edge; the kickflip's front foot drops further out and down" or "build 254's", ub))
+        end
+    end
+    do   -- (279) AltUnderOwnSpeed on its own (HJN_Set("altunderownspeed", 0/1); an older native half ignores it): the underflip's reversal at the second flick's speed relative to the first's (native UfRelRate)
+        local uo = ((tonumber(S.AltUnderOwnSpeed) or 0) >= 0.5) and 1 or 0
+        if tostring(uo) ~= A.altUos or force then
+            A.altUos = tostring(uo)
+            if type(HJN_Set) == "function" then pcall(HJN_Set, "altunderownspeed", uo) end
+            log(string.format("native: alt flips: the kick / heel underflip's reversal: %s (AltUnderOwnSpeed=%d)", (uo == 1) and "the first flip's speed x the SECOND flick's speed over the first's (both timed off the pad every 1 ms; one 'underflip #n own speed' line each); (283) and the shuv-it underflip: its fixed spin x the late flick's speed over the scoop's (one 'shuv-it underflip #n own speed' line each)" or "build 278's (the first flick's speed turned; the shuv-it underflip at its fixed spin)", uo))
+        end
+    end
+    do   -- (285) AltUnderFlickRef on its own (HJN_Set("altunderflickref", 0..80); an older native half ignores it): the underflips' reversal off the second flick's own speed over this (native UfRefApply)
+        local fr = tonumber(S.AltUnderFlickRef) or 0
+        if fr ~= fr or fr < 0 then fr = 0 elseif fr > 80 then fr = 80 end
+        if tostring(fr) ~= A.altUfr or force then
+            A.altUfr = tostring(fr)
+            if type(HJN_Set) == "function" then pcall(HJN_Set, "altunderflickref", fr) end
+            log(string.format("native: alt flips: the underflips' reversal speed: %s (AltUnderFlickRef=%g)", (fr > 0) and string.format("the second flick's own speed over %g /s, x0.5..x1.6 of the base (with AltUnderOwnSpeed=1; one 'own speed' line each)", fr) or "build 284's (the second flick over the first, AltUnderOwnSpeed)", fr))
+        end
+    end
+    do   -- (285) AltShuvScoopSpeed on its own (HJN_Set("altshuvscoopspeed", 0/1); an older native half ignores it): the alt shove-it's spin x the scoop's own speed (native UfsScoopPace)
+        local ss = ((tonumber(S.AltShuvScoopSpeed) or 0) >= 0.5) and 1 or 0
+        if tostring(ss) ~= A.altSss or force then
+            A.altSss = tostring(ss)
+            if type(HJN_Set) == "function" then pcall(HJN_Set, "altshuvscoopspeed", ss) end
+            log(string.format("native: alt flips: the alt shove-it's spin: %s (AltShuvScoopSpeed=%d)", (ss == 1) and "the game's rate x the scoop's own speed over 8 /s, x0.6..x1.6 (with AltUnderOwnSpeed=1; one 'shuv-it scoop speed' line each)" or "the game's rate (build 284's)", ss))
         end
     end
     do   -- (261) AltUnderTouch on its own (HJN_Set("altundertouch", 0/1); an older native half ignores it): the kick / heel underflip's foot meets the board (native UfShoe)
@@ -7015,7 +7205,7 @@ NATIVE.wallTick = function()                          -- every frame of our skat
     if type(HJN_Wall) ~= "function" then
         if on and not W.said.old then
             W.said.old = true
-            log("wallride: the native half beside this file (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall: it is not the one made with this main.lua (v172, with wallrides) -- NOT TAKEN: no wallrides on this run")   -- (fixer, Lua review F7: by the function, not the number)
+            log("wallride: the native half beside this file (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall: it is not the one made with this main.lua (v207, with wallrides) -- NOT TAKEN: no wallrides on this run")   -- (fixer, Lua review F7: by the function, not the number)
         end
         return
     end
@@ -7107,7 +7297,7 @@ NATIVE.wallCfg = function(force)                      -- from NATIVE.sync: the s
         took = ok and tonumber(r) or 0
     end
     local tail = ""
-    if took == nil then tail = " -- NOT TAKEN: the native half (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall; these need the v172 made with this main.lua"   -- (fixer, Lua review F7)
+    if took == nil then tail = " -- NOT TAKEN: the native half (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall; these need the v207 made with this main.lua"   -- (fixer, Lua review F7)
     elseif took == -1 then tail = " -- stood down: not on this build of the game (ExpandedTricks.native.log says why)"
     elseif took > 0 and took < #n then tail = " -- an older native half took the first " .. tostring(took) .. " of " .. #n .. ": WallRideMaxApproach is its approach limit there, and the carve, the slam guard and the exit turn are not in it (copy the native half made with this main.lua)"
     elseif took ~= #n then tail = " -- REFUSED by the native half (" .. tostring(took) .. " of " .. #n .. " taken; ExpandedTricks.native.log says why)" end
@@ -8163,6 +8353,9 @@ NATIVE.MENU = {
         { "toggle", "StickTurn", "Left stick steers the board", 1, 1, "On: the game's own steering, where pushing the left stick sideways leans and turns the board. Off: only the triggers turn you, so doing a stick trick no longer pulls the board off its line." },
         { "toggle", "TrickNames", "Show trick names", 1, 1, "Shows this mod's tricks in the game's trick display when you land them, for example 180 Hippie Jump, Crail Grab, No Comply, Boneless or Bean Plant. Off: none of them are shown." },
         { "slider", "AutoUpdate", "Automatic updates", 1, 1, "0 = off. 1 = tells you, in the log and on the trick display, when a new version of the mod is out. 2 = also downloads it from the mod's GitHub page, checks it and installs it for the next time you start the game.", 0, 2 },
+        { "toggle", "HeelStop", "Heel stop", 1, 1, "In a manual (not a nose manual), push the back-foot stick all the way down to drag the tail and slow down instead of crouching. Ease off to ride on in the manual. Off: all the way down crouches, as in the game." },
+        { "slider", "HeelStopFriction", "Heel stop: friction", 1, 1, "How hard the dragged tail slows you, in km/h lost per second. 10 = from a fast roll to a stop in about 2 seconds; the game's own tail brake is 22. 0 = no slowing.", 0, 72, unit = "km/h per second" },
+        { "toggle", "BigDropLanding", "Big drop landing", 1, 1, "Land 2.5 m or more below where you left the ground and the trick lands with the game's unused big sketchy landing. Off: the game's own landing." },
     } },
     { "Hippie Jumps", {
         { "slider", "HippieJump", "Hippie jumps", 1, 1, "Hold one stick down to crouch, then click the other stick (L3 or R3) to jump off the board while it rolls on. 0 = off. 1 = the jump animation. 2 = the ollie animation. 3 = one or the other at random, jump by jump.", 0, 3 },
@@ -8199,6 +8392,7 @@ NATIVE.MENU = {
         { "slider", "DropInCrouch", "Drop-in: crouch", 1, 1, "How far your hips go down as you drop in, in cm, on a drop of the full height (a smaller drop gets its share). The knees bend and you lean toward the drop; holding the crouch stick takes you further down. 0 = no crouch.", 0, 40, unit = "cm" },
         { "slider", "DropInCrouchPeak", "Drop-in crouch: lowest at", 1, 5, "How far down the drop you are at your lowest, in percent of its height. The tip-in itself takes you halfway there.", 10, 100, unit = "%" },
         { "toggle", "DropInNoTwist", "Drop-in: hold the shoulder twist", 1, 1, "On: the game's own twist of the upper body, which swings the back arm behind you as the board tips in, is held off until you are down. Off: the game's own." },
+        { "toggle", "DropInSetSmooth", "Drop-in: smooth set-down walk", 1, 1, "On: as the board is set on the coping you are walked onto it once per drawn frame, by the time that passed: no jitter. Off: build 275's walk, which stepped unevenly." },
         { "slider", "DropInRange", "Drop-in edge distance", 1, 10, "How close to the edge you have to stand to set up a drop-in, in centimetres (cm) from the middle of your body. Higher = you can set up from further back.", 20, 200, unit = "cm" },
         { "slider", "DropInFace", "Drop-in facing limit", 1, 15, "How far off straight toward the drop you may face and still set up, in degrees to either side. 30 = up to 30 degrees left or right. 0 = no limit, any direction works.", 0, 180, unit = "degrees" },
         { "slider", "DropInVertSpeed", "Vert wall: launch speed", 0.036, 1, "On a ramp that goes vertical at the top: how fast the board is let go, in km/h. Lower lets the wheels meet the wall sooner; the wall itself gives you speed.", 0, 2000, unit = "km/h" },
@@ -8207,6 +8401,8 @@ NATIVE.MENU = {
         { "slider", "DropInVertBack", "Vert wall: push toward the wall", 0.036, 1, "On a vert wall: how fast the board is pushed back toward the wall as it is let go, in km/h. It helps the wheels catch a wall that hangs back under the coping.", 0, 400, unit = "km/h" },
         -- (v212) the variant has its own switch, so one test compares both ways without a new build (his ini has DropInSetDown=1)
         -- (v213) the two test rows of builds 211 and 212 are gone: the set-down on the coping IS the drop-in now (DropInSetDown and DropInSetEdge stay in the ini)
+        -- (shelf 299) the stall rows (StallLog, AltStall, AltNoStallDropIn, AltNoStallReverse, AltBluntGame, AltNoStallSlide) are SHELVED: NATIVE.STALLS_SHELVED (w67/heelstop/shelved_rows.lua)
+        -- (menu 309) the GrindLog row is out of the menu (a log for the shelved stall work; GrindLog=1 in the ini still writes it)
     } },
     { "Grabs", {
         { "toggle", "GrabStart", "Allow grabs", 1, 1, "Hold LB or RB in the air to grab, let go to release. LB = front hand with the left stick, RB = back hand with the right. Push toward your toes for Mute or Indy, toward your heels for Melon or Stalefish." },
@@ -8214,7 +8410,7 @@ NATIVE.MENU = {
         { "slider", "GrabTweakStyle", "Grab tweak", 1, 1, "What moving the stick off its grab direction does while you hold a grab. 0 = rotate: your legs and the board twist. 1 = bone: the board is poked out toward the nose; your back leans further to keep the hand on. See Bone moves.", 0, 1 },
         { "slider", "GrabAllBone", "All grabs: bone distance", 1, 1, "With Grab tweak on bone: centimetres (cm) added to what each grab asks for at the full swing of the stick. How far the board really goes is held by Boned grabs: how far out. 0 = no change.", -20, 80, unit = "cm" },
         { "slider", "GrabBoneBehind", "Boned grabs: how far out", 1, 5, "With Grab tweak on bone: how far a boned board may go. 0 = until your hips are over your back foot, as before. Higher = that many centimetres (cm) further. It stops where the front leg is straight or a hand would come off.", 0, 45, unit = "cm" },
-        { "slider", "GrabBoneMove", "Bone moves", 1, 1, "With Grab tweak on bone: what moves. 0 = your body goes back over the back foot. 1 = a test: your body stays and the board is pushed out toward the nose, in airs that began with a pop (in other airs as 0).", 0, 1 },
+        -- (menu 309) the GrabBoneMove row ("Bone moves": 1 was a test) is out of the menu; what ships is 0, the ini still sets it
         { "slider", "GrabBoneLean", "Boned grabs: extra lean", 1, 5, "How much further your back may lean toward the board while a grab is boned, so that the hand stays on it, in degrees. 0 = no further: the bone gets smaller wherever the arm cannot reach.", 0, 45, unit = "degrees" },
         { "slider", "GrabHeadUp", "Grabs: head up", 1, 5, "How far your head is raised in a grab, at the most, in degrees: you look ahead instead of down at the deck. It stops by itself when you look just under level. 0 = the head as the game has it.", 0, 90, unit = "degrees" },
         { "slider", "GrabHeadTurn", "Grabs: head toward travel", 1, 5, "How far your gaze is turned toward the way you travel in a grab, at the most, in degrees. It stops by itself when you look that way. 0 = not turned.", 0, 90, unit = "degrees" },
@@ -8223,6 +8419,9 @@ NATIVE.MENU = {
         { "toggle", "GrabKeepFirst", "Lock the grab until release", 1, 1, "On: the grab you took stays until you let go of the bumper, and moving the stick only tweaks it. Off: moving the stick just after grabbing can switch you to a different grab." },
         { "toggle", "GrabLetGo", "Let go on landing", 1, 1, "On: a grab you hold into the landing simply ends as the wheels touch down. Off: still holding the board when the wheels touch down makes you bail, so you have to let go in time." },
         { "slider", "GrindGrabs", "Grabs in grinds", 1, 1, "0 = Off. 1 = On: hold LB or RB while grinding to put a hand on the board; the bumpers no longer lean you off a grind. 2 = On + stick-click exits: L3 leans you off to the left, R3 to the right.", 0, 2 },
+        { "toggle", "AltGrinds", "Alt crouch grinds", 1, 1, "Needs Alt flips. In the air and in grinds an alt crouch (back stick up, front stick down) turns your sticks upside down for the game: front stick down lands a nosegrind, then just flick out. Push the game's way to undo." },
+        { "toggle", "AltGrindFlipOut", "Alt flips out of grinds", 1, 1, "Needs Alt crouch grinds. In a grind you got into with the alt crouch, your flick out is an alt flip (monster, dolphin, nightmare, underflip...) as from the alt crouch on the ground." },
+        { "toggle", "AltGrindsInGrind", "Alt crouch only once in a grind", 1, 1, "Needs Alt crouch grinds. Nothing in the air: grind with your normal sticks, then in the grind back stick up = the grind crouch, front down/up flicks = monster/dolphin as on the ground." },
         { "toggle", "GrabBlockFlips", "Block late flips while grabbing", 1, 1, "On: stick movements do not start a late flip while a bumper is held or a grab is on, so picking or tweaking a grab cannot flip the board by accident. Late flips work again 0.2 seconds after you let go." },
         { "slider", "GrabAllAlong", "All grabs: hand along the board", 1, 1, "Moves the grabbing hand along the board for every grab at once, on top of each grab's own setting, in centimetres (cm). + = toward the nose, - = toward the tail. 0 = no change.", -20, 20, unit = "cm" },
         { "slider", "GrabAllAcross", "All grabs: hand across the board", 1, 1, "Moves the grabbing hand across the board for every grab at once, on top of each grab's own setting, in centimetres (cm). + = toward your toes, - = toward your heels. 0 = no change.", -20, 20, unit = "cm" },
@@ -8263,6 +8462,10 @@ NATIVE.MENU = {
         { "slider", "AltNightmareSpeed", "Nightmare flip: flip speed", 100, 10, "How fast the nightmare and daydream flips flip, as a percentage (%) of the game's varial flip or varial heel. 200 = both turns in the time a varial flips once. Lower may not finish before you land.", 1.0, 3.0, unit = "%" },
         { "slider", "AltFlipPace", "Monster/dolphin: flip pace", 100, 5, "How fast the monster and dolphin flips turn, as a percentage (%) of your kickflip's speed for the same flick. Your flick and the game's flip speed setting still scale it.", 0.3, 1.5, unit = "%" },
         { "slider", "AltFlipPaceUp", "Monster/dolphin: extra pace", 100, 5, "The monster flip's (and the forward dolphin's) turn times this, as a percentage (%), on top of the flip pace. 120 brings your hardest flick round on flat ground. 100 = no extra.", 0.5, 2, unit = "%" },
+        { "toggle", "AltUnderOwnSpeed", "Underflip: speed of 2nd flick", 1, 1, "Kick/heel underflip: turns back at the first flip's speed x how much faster (or slower) your SECOND side flick was than your first (0.35x to 2.5x). Shuv-it underflip too: its usual spin x late flick vs scoop. Off: fixed." },
+        { "slider", "AltUnderFlickRef", "Underflip: 2nd flick reference", 1, 1, "Above 0 (with Underflip: speed of 2nd flick on): the underflip turns back at its usual speed x your 2nd side flick's speed / this (0.5x to 1.6x). 30 = a hard flick about x1.4. 0 = off.", 0, 80, unit = "/s" },
+        { "toggle", "AltShuvScoopSpeed", "Shuv-it: spin with scoop speed", 1, 1, "Alt shove-it: its spin follows how fast you scooped (0.6x to 1.6x of the game's; 8/s = 1x), the same 180 or 360. Needs Underflip: speed of 2nd flick on (it times the scoop). Off: the game's." },
+        { "toggle", "AltDoubleVarialName", "Double varial = Nightmare name", 1, 1, "Any Double Varial Flip the game would show (its own doubles too) reads Nightmare Flip, a Double Varial Heel Daydream Flip, with Switch / Nollie / Fakie and body varial names. Off: the game's names." },
         { "toggle", "AltCasperCatch", "Auto casper (alt kickflip)", 1, 1, "Alt crouch + kickflip: the board locks into the game's casper when it is upside down. Then front stick BACK = hospital flip, a side flick = underflip. Needs the game's Caspers on." },
         { "slider", "AltCasperLand", "Auto casper landing", 1, 1, "If you land still in the auto casper: 1 = Flip out (the board flips out by itself), 2 = Land in casper (ride on in it until a trick out of it), 3 = Bail.", 1, 3 },
         { "toggle", "AltHospital", "Hospital flip", 1, 1, "Turn on the game's Casper (experimental settings). In a casper in the air pull the front-foot stick BACK (AltHospitalFlick 0: up): the board turns 180 end over end and lands grip up, reversed." },
@@ -8302,6 +8505,7 @@ NATIVE.MENU = {
 }
 -- (v140) QUICK: the main switches -- what SessionOpenMP's one flat page (14 rows, pages in order, each key once) shows when
 -- the mod's own nested pages cannot be placed, so it stays the FIRST page. (v184) Its rows are the other pages' own
+NATIVE.STALLS_SHELVED = true   -- (shelf 299) the alt crouch stalls (no stall, blunt, their grinds and the stall log) are SHELVED: sent as off whatever the ini says, their menu rows out; false + the rows back = builds 276-298
 NATIVE.MENU_QUICK = { "HippieJump", "MiniHop", "Varial", "SpeedScale", "Height", "BoardHop", "DropIn", "DropInSpeed", "GrabStart", "DoubleGrabs", "GrabTweakInvert", "NoComply", "WallRide", "StickTurn" }
 NATIVE.menuQuick = function()
     local by, rows = {}, {}
@@ -8842,7 +9046,7 @@ function NATIVE.sync()
         -- (v191, review) AN OLDER NATIVE HALF BESIDE THIS FILE (main.lua copied by hand, or main.dll not replaced because the
         -- game held it): everything runs, what needs the newer one is left out -- and nothing said so
         if (tonumber(NATIVE.v) or 0) < (NATIVE.WANT or 0) then
-            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then what needs the newer one is left out, each saying so in its own line (wallrides need v172: without it the log says NOT TAKEN)")
+            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then what needs the newer one is left out, each saying so in its own line (wallrides need v207: without it the log says NOT TAKEN)")
             NATIVE.upd = NATIVE.upd or {}
             if not NATIVE.upd.show then NATIVE.upd.show, NATIVE.upd.tries = "Expanded Tricks: native half is old - see the log", 0 end
         end
@@ -10930,6 +11134,191 @@ do
     end
 
     NATIVE.dropBusy = function() return DI.state ~= nil and DI.state ~= "ride" end   -- (v106) the ride monitor after a drop-in does not block clicks
+    -- (nostall, build 281) THE NO STALL HANDED TO THE DROP-IN (AltNoStallDropIn; the native half's note at AltNsHand). "The no stall
+    -- is the reverse of the drop-in. The character has to rotate like 90 degrees up the vert and then basically be in the drop-in
+    -- position. Then we can just let it be in the drop-in position and let him drop back in." The native half catches it (the
+    -- leading truck at the lip) and hands over the lip; here he is turned in NATIVE.nsTurn s (state "nostall"): the actor from where
+    -- he rides up the wall to the spot the drop-in's "mount" stands him on (DropInBack behind the edge, L.top + 90, facing the drop:
+    -- its yaw + 180 riding switch), his pitch and roll eased to 0, his yaw the short way round, his place on a curve over the edge;
+    -- the board in step with him by the native half (HJN_SetDown "nsstep"). Then the ledge is looked for again from there, as a Y
+    -- press at the coping would, and the drop-in goes on from "set" -- its board taken where it lies, the slide out, the stance,
+    -- GO, the ride: all its own. One rule more for this one: GO waits until the sticks have been in the middle once (the crouch that
+    -- armed the stall is still held as he arrives -- the alt crouch is a stick pushed UP, which is GO).
+    -- (nostall2 283) THE DROP-IN PLAYED BACKWARDS. "It did trigger a drop-in, but it drove around to do it -- it caused the player to 180
+    -- and all this other stuff. Once it gets to the coping it needs to do a REVERSE of the drop-in to get into the drop-in." (the user,
+    -- on build 282.) So the turn above is gone: he is never moved or turned by the mod (no yaw, no carrying to the drop-in's spot, no
+    -- "set" sliding the board out). The native half lays the board's capture so its LEADING wheels are the drop-in's pivot and plays the
+    -- drop-in's GO backwards (HJN_SetDown "nsstep", e 0..1): the board tips UP about the wheels on the coping, from the wall's angle to
+    -- the drop-in's stance pitch, in NATIVE.nsTurn s while he rides it; then the drop-in's "wait" (SET, ready to GO) holds it exactly
+    -- there and its GO tips it down about the same wheels (nose first: the front wheels, the drop back in fakey -- the mirror).
+    NATIVE.nsTurn = 0.35
+    NATIVE.nsPlan = function(n, T, sw)                    -- the hand-over's numbers -> the plan (the lip as the drop-in's ledge; nothing about where he goes)
+        local L = { x = n[3], y = n[4], top = n[5], ox = n[6], oy = n[7], dist = 0, near = 0, far = 0, meet = 0, nx = n[6], ny = n[7], nz = 0, slope = n[8], toptilt = 0, lip = 0 }
+        return { L = L, nst = n[1], lead = n[2], ramp = n[8], T = T, sw = sw }
+    end
+    NATIVE.nsEase = function(k)                           -- k 0..1 (time) -> e 0..1: the tip's share done (eased in and out)
+        k = math.max(0, math.min(1, k))
+        return k * k * (3 - 2 * k)
+    end
+    NATIVE.nsFree = function(L, ly, ry, now)               -- false while a no stall's drop-in waits for the sticks to come to the middle once
+        local A = DI.ns
+        if not A or A.L ~= L or A.free then return true end
+        if math.max(math.abs(ly or 0), math.abs(ry or 0)) < 0.3 then
+            A.free = true
+            log(string.format("altstall: no stall #%d: the sticks are in the middle %.2f s after the turn -- a stick UP drops you in, LB/RB back", A.nst, now - (A.endAt or now)))
+        end
+        return false
+    end
+    -- (revnostall 286) HIS BODY PLAYED BACKWARDS AS WELL (AltNoStallReverse; needs AltStall and AltNoStallDropIn). "For the no stall
+    -- there isn't an in-game equivalent. That's where we have to force the reverse drop in, which you did that one time. But again,
+    -- the player didn't do it in reverse. He started the animation from the beginning. You have to do it somehow in reverse." (the
+    -- user, 28 Oct, on build 282's no stall of 27 Oct 22:37 -- the only one that has fired: turned 171 deg, carried to the drop-in's
+    -- spot, then the drop-in from "set" forwards.) The drop-in's GO plays NO clip of the game's on his body: from GO to the let-go
+    -- he stands at the drop-in's spot (upright, DropInBack behind the edge) on the board the native half tips nose-down; the game's
+    -- own riding pose follows the board (its IK on the deck), the mod adds the arms out for balance and the crouch by the share of
+    -- the drop come down (DI.armsRise), the shoulder twist held off; then the ride takes him down the wall. So "in reverse" is that
+    -- motion stepped backwards, frame by frame, with the board's own eased share e of the 283 tip (the same e, the same frame):
+    -- e 0 = the drop-in's end (him on the wall as he rides up it: his pitch / roll, crouched and arms out by the share of the drop
+    -- he is below the drop-in's spot), e 1 = its start (the drop-in's spot, upright, squared to the edge facing the way he rode,
+    -- arms in, no crouch) = the drop-in's "wait", where its own GO takes him back in. His place on a curve over the edge (never
+    -- through the coping), set on the game thread as build 282's turn did. 0 = build 285: the board alone tips, he is not moved.
+    NATIVE.nsRevMake = function(A, x0, y0, z0, p0, yaw0, r0, back, H, full, crouch)   -- the plan (no game calls: the suite runs it)
+        local L = A.L
+        local out = math.deg(math.atan(L.oy, L.ox))
+        local d = ((out - yaw0 + 540) % 360) - 180
+        local yaw1 = (math.abs(d) <= 90) and out or (out + 180)            -- squared to the edge, the way he faces kept (nose first = fakey)
+        local x1, y1, z1 = L.x - L.ox * back, L.y - L.oy * back, L.top + 90   -- the drop-in's spot (its "align" / build 282's)
+        H = math.max(10, tonumber(H) or 100)
+        return { x0 = x0, y0 = y0, z0 = z0, p0 = p0, yaw0 = yaw0, r0 = r0, x1 = x1, y1 = y1, z1 = z1, yaw1 = yaw1, dyaw = ((yaw1 - yaw0 + 540) % 360) - 180,
+                 cx = L.x, cy = L.y, cz = math.max(z0, z1) + 10, H = H, amt = math.max(0, math.min(1, H / math.max(10, tonumber(full) or 200))),
+                 crouch = math.max(0, tonumber(crouch) or 0), n = 0, bad = 0, len = A.T, rate = -1 }
+    end
+    NATIVE.nsRevAt = function(R, e, armsPeak, crouchPeak)  -- e 0..1 -> x, y, z, pitch, yaw, roll, the arms' weight, the crouch cm, the share of the drop
+        e = math.max(0, math.min(1, tonumber(e) or 1))
+        local u = 1 - e
+        local x = u * u * R.x0 + 2 * u * e * R.cx + e * e * R.x1
+        local y = u * u * R.y0 + 2 * u * e * R.cy + e * e * R.y1
+        local z = u * u * R.z0 + 2 * u * e * R.cz + e * e * R.z1
+        local f = math.max(0, math.min(1, (R.z1 - z) / R.H))                -- the drop-in's own clock: the share of the drop he is below its spot
+        local function sm(v) v = math.max(0, math.min(1, v)) return v * v * (3 - 2 * v) end
+        local w = R.amt * sm(f / math.max(0.1, (tonumber(armsPeak) or 50) / 100))
+        local cc = R.crouch * R.amt * sm(math.max(0.5 * u, f / math.max(0.1, (tonumber(crouchPeak) or 25) / 100)))   -- (the tip itself half of it, as GO's)
+        return x, y, z, R.p0 * u, R.yaw0 + R.dyaw * e, R.r0 * u, w, cc, f
+    end
+    NATIVE.nsRevPlan = function(A, now)                    -- at the tip's START: where he is -> the plan; nil = the board alone tips (as build 285)
+        if (tonumber(S.AltNoStallReverse) or 0) < 0.5 or (tonumber(S.AltNoStallDropIn) or 0) < 0.5 or not s0 then return nil end
+        local loc, rot = q(function() return s0:K2_GetActorLocation() end), q(function() return s0:K2_GetActorRotation() end)
+        local x0, y0, z0 = loc and tonumber(q(function() return loc.X end)), loc and tonumber(q(function() return loc.Y end)), loc and tonumber(q(function() return loc.Z end))
+        local p0, yaw0, r0 = rot and tonumber(q(function() return rot.Pitch end)), rot and tonumber(q(function() return rot.Yaw end)), rot and tonumber(q(function() return rot.Roll end))
+        if not (x0 and y0 and z0 and p0 and yaw0 and r0) then log(string.format("altstall: no stall #%d: REVERSE (revnostall 286) -- where you are could not be read: the board alone tips (as build 285)", A.nst)) return nil end
+        local L, H, how = A.L, nil, "not traced (native v119 needed): 100 cm taken"
+        if (tonumber(NATIVE.v) or 0) >= 119 and type(HJN_DropDepth) == "function" then
+            local okd, dd = pcall(HJN_DropDepth, L.x, L.y, L.top, L.ox, L.oy)
+            dd = okd and tonumber(dd) or -1
+            if dd and dd > 0 then H, how = dd, "the way down traced" end
+        end
+        local R = NATIVE.nsRevMake(A, x0, y0, z0, p0, yaw0, r0, tonumber(S.DropInBack) or 34, H, S.DropInArmsFull, S.DropInCrouch)
+        local _, _, _, _, _, _, w0, c0, f0 = NATIVE.nsRevAt(R, 0, S.DropInArmsPeak, S.DropInCrouchPeak)
+        R.w0, R.c0, R.f0, R.wl, R.cl, R.e0, R.el, R.zl, R.pl = w0, c0, f0, w0, c0, nil, nil, z0, p0
+        NATIVE.nsRevLogs = (NATIVE.nsRevLogs or 0) + 1
+        R.say = NATIVE.nsRevLogs <= 3                       -- a line per frame for the first three no stalls of a run
+        DI.armsRec(240, "no stall reverse")
+        log(string.format("altstall: no stall #%d: REVERSE (revnostall 286) -- his body plays the drop-in's GO BACKWARDS with the board's tip (no clip of the game's: the drop-in's own motion, stepped from its END to its START with the board's eased share, rate -1, %.2f s): "
+            .. "from the drop-in's end (on the wall: pitch %+.0f roll %+.0f, %.0f cm below its spot = %.0f %% of the %.0f cm drop (%s), arms %.0f %% of DropInArms, crouch %.1f cm) to its start, the \"wait\" (upright, %.0f cm behind the edge, %.0f over the top, yaw %+.0f deg = squared to the edge, %+.0f from yours; arms 0, crouch 0); %.0f cm to go over the edge",
+            A.nst, R.len, p0, r0, R.z1 - z0, 100 * f0, R.H, how, 100 * w0, c0, tonumber(S.DropInBack) or 34, 90, R.yaw1, R.dyaw, math.sqrt((R.x1 - x0) ^ 2 + (R.y1 - y0) ^ 2 + (R.z1 - z0) ^ 2)))
+        return R
+    end
+    NATIVE.nsRevStep = function(A, e, now)                 -- one frame of it (after the board's own pose of this frame)
+        local R = A.rev
+        if not R then return end
+        local x, y, z, pitch, yaw, roll, w, cc, f = NATIVE.nsRevAt(R, e, S.DropInArmsPeak, S.DropInCrouchPeak)
+        local sk = s0
+        R.n = R.n + 1
+        R.e0, R.el, R.wl, R.cl, R.zl, R.pl = R.e0 or e, e, w, cc, z, pitch
+        NATIVE.gt(function()
+            local ok = pcall(function() sk:K2_SetActorLocationAndRotation({ X = x, Y = y, Z = z }, { Pitch = pitch, Yaw = yaw, Roll = roll }, false, {}, true) end)
+            if not ok then R.bad = R.bad + 1 end
+        end)
+        if w > 0.005 then DI.arms(w) elseif DI.armsN then pcall(HJN_Set, "droparms", 0) end
+        if cc > 0.2 then DI.crouch(cc) end
+        DI.twist()
+        if R.say and R.n <= 40 then
+            log(string.format("altstall: no stall #%d: reverse frame %d +%.3f s: position %.2f -> e %.2f (rate -1): him %+.0f cm over the top, %+.0f past the edge, pitch %+.0f roll %+.0f yaw %+.0f; the drop's share %.0f %%, arms %.0f %%, crouch %.1f cm",
+                A.nst, R.n, now - (A.t0 or now), 1 - e, e, z - 90 - A.L.top, (x - A.L.x) * A.L.ox + (y - A.L.y) * A.L.oy, pitch, roll, yaw, 100 * f, 100 * w, cc))
+        end
+    end
+    NATIVE.nsRevEnd = function(A, now)                     -- the tip's END: he stands at the drop-in's spot; the drop-in's own arms and crouch start again from nothing at GO
+        local R = A.rev
+        if not R then return end
+        DI.armsOff()
+        log(string.format("altstall: no stall #%d: REVERSE END -- %d frames stepped in %.2f s (position %.2f -> %.2f, e %.2f -> %.2f, rate -1): him %+.0f -> %+.0f cm over the top, pitch %+.0f -> %+.0f, arms %.0f -> %.0f %%, crouch %.1f -> %.1f cm; %d teleport(s) refused; he stands where the drop-in's \"wait\" has him",
+            A.nst, R.n, now - (A.t0 or now), 1 - (R.e0 or 0), 1 - (R.el or 1), R.e0 or 0, R.el or 1, R.z0 - 90 - A.L.top, (R.zl or R.z1) - 90 - A.L.top, R.p0, R.pl or 0, 100 * (R.w0 or 0), 100 * (R.wl or 0), R.c0 or 0, R.cl or 0, R.bad))
+    end
+    NATIVE.nsPoll = function(now)
+        if DI.state or active or not s0 or type(HJN_SetDown) ~= "function" then return end
+        local r = HJN_SetDown("nstake")
+        if type(r) ~= "string" or r == "" then return end
+        local n = {}
+        for v in r:gmatch("%-?%d+%.?%d*") do n[#n + 1] = tonumber(v) end
+        if #n < 8 then log("altstall: no stall: the native half's hand-over could not be read: " .. r) return end
+        local rot = q(function() return s0:K2_GetActorRotation() end)   -- (read for the log only: he is not moved)
+        local p0, r0 = rot and tonumber(q(function() return rot.Pitch end)), rot and tonumber(q(function() return rot.Roll end))
+        local sw = q(function() return s0:IsSkatingSwitch() end, false) == true
+        local A = NATIVE.nsPlan(n, NATIVE.nsTurn, sw)
+        local parts = boardParts()
+        local took = parts and tonumber(HJN_BoardParts(table.unpack(parts))) or 0
+        local got = (took > 0) and (tonumber(HJN_SetDown("nsbegin", S.DropInHang, S.DropInPitch, S.DropInTail, S.DropInKick, A.L.lip)) or 0) or 0   -- (nostall2 283) the drop-in's own stance
+        if got < 1 then
+            pcall(HJN_BoardParts) pcall(HJN_SetDown, "nsend")
+            log(string.format("altstall: no stall #%d: the board could not be tipped (%d parts named, %d taken, %d planned: ExpandedTricks.native.log says why) -- nothing done, you ride on", A.nst, parts and #parts or 0, took, got))
+            return
+        end
+        local inf = {}
+        for v in tostring(HJN_SetDown("nsinfo") or ""):gmatch("%-?%d+%.?%d*") do inf[#inf + 1] = tonumber(v) end
+        A.front, A.phi0, A.pitchTo, A.pitchFrom, A.resid, A.off, A.parts = inf[1] == 1, inf[2] or 0, inf[3] or 0, inf[4] or 0, inf[5] or 0, inf[6] or 0, got
+        A.piv = A.front and "FRONT wheels (fakey: the drop-in mirrored)" or "BACK wheels (the drop-in itself)"
+        DI.ground = (type(HJN_GroundHold) == "function" and tonumber(HJN_GroundHold(1)) == 1) or nil
+        DI.state, DI.L, DI.t0, DI.rideAt, DI.tries, DI.tryAt, DI.hang, DI.pitch, DI.pulled, DI.held = "nostall", A.L, now, nil, 0, nil, S.DropInHang, S.DropInPitch, false, nil
+        DI.th, DI.sd, DI.tapOver, DI.sw, DI.boosted, DI.nb0 = nil, true, nil, sw or nil, nil, nil
+        DI.remounts, DI.vk, DI.edgeAt = 0, 1, nil
+        DI.armsN, DI.armsAt, DI.armsAir, DI.armsDeg, DI.armsYaw = nil, nil, nil, nil, nil
+        DI.crouchN, DI.crouchTop, DI.twistSaid, DI.armsTip = nil, nil, nil, nil
+        DI.ns = A
+        myAddr = addr(s0)
+        ensureHook()
+        log(string.format("altstall: no stall #%d: tip START (nostall2 283) -- up the %.0f deg ramp %s first: the drop-in played backwards, the board tips UP about its %s on the coping, pitch %+.0f -> %+.0f deg (%.0f deg about them); no yaw, no travel: you ride it, facing the way you rode (pitch %s roll %s%s); %.2f s; %d board parts; faded out over the tip: %.0f deg of yaw/roll, %.1f cm at the wheels",
+            A.nst, A.ramp, A.lead > 0 and "nose" or "tail", A.piv, A.pitchFrom, A.pitchTo, A.phi0, p0 and string.format("%+.0f", p0) or "?", r0 and string.format("%+.0f", r0) or "?", sw and ", riding switch" or "", A.T, got, A.resid, A.off))
+        if (tonumber(S.AltNoStallReverse) or 0) >= 0.5 and NATIVE.nsRevPlan then A.rev = NATIVE.nsRevPlan(A, now) end   -- (revnostall 286) his body with it (nil = the board alone, as 285)
+    end
+    NATIVE.nsStep = function(now, cm)                      -- the state "nostall", every frame: the tip up (nostall2 283)
+        local A = DI.ns
+        if not A or DI.L ~= A.L then pcall(HJN_SetDown, "nsend") letGo("altstall: no stall: the tip lost its plan") return end
+        if cm ~= MODE_RIDING and cm ~= MODE_AIR and cm ~= MODE_TO_BOARD and cm ~= -1 then
+            pcall(HJN_SetDown, "nsend") letGo(string.format("altstall: no stall #%d: you are off the board (mode %s) %.2f s into the tip -- let go", A.nst, tostring(cm), now - DI.t0)) return
+        end
+        A.t0 = A.t0 or DI.t0
+        local k = (now - DI.t0) / math.max(0.05, A.T)
+        local nb = tonumber(HJN_SetDown("nsstep", NATIVE.nsEase(k))) or 0
+        if nb < 1 then pcall(HJN_SetDown, "nsend") letGo(string.format("altstall: no stall #%d: the board could not be tipped on (the native half let its parts go) -- let go", A.nst)) return end
+        if A.rev and NATIVE.nsRevStep then NATIVE.nsRevStep(A, NATIVE.nsEase(k), now) end   -- (revnostall 286) AltNoStallReverse: his body stepped back with the board (the same e)
+        NATIVE.gt(function() pcall(function() mv.Velocity = { X = 0, Y = 0, Z = 0 } end) end)   -- his speed up the wall taken (he is never moved: the board carries him)
+        sticksCentred()
+        if k < 1 then return end
+        pcall(HJN_SetDown, "nsend")                        -- the tip's last pose is the drop-in's stance: "wait" holds it from here (the same capture)
+        A.endAt = now
+        local L = A.L
+        local L2 = parseLedge(HJN_Ledge(S.DropInRange, S.DropInMinDrop, math.deg(math.atan(L.oy, L.ox)), S.DropInFace, -1))
+        local took = "not found: the hand-over's own lip (the ramp's angle as its slope)"
+        if L2 and math.abs((L2.x - L.x) * L.ox + (L2.y - L.y) * L.oy) < 15 and (L2.ox * L.ox + L2.oy * L.oy) > 0.866 and math.abs(L2.top - L.top) < 10 then
+            L.near, L.far, L.slope, L.nx, L.ny, L.nz, L.meet, L.toptilt, L.dist = L2.near, L2.far, L2.slope, L2.nx, L2.ny, L2.nz, L2.meet, L2.toptilt, L2.dist   -- (not its lip: the stance is laid on the hand-over's coping top)
+            took = string.format("found: %.0f cm down just past the edge, %.0f further out, the slope %.0f deg (a lip of %.0f cm not used)", L.near or 0, L.far or 0, L.slope or 0, L2.lip or 0)
+        elseif L2 then took = string.format("found a different edge (%.0f cm off, %.0f deg) -- the hand-over's own lip kept", (L2.x - L.x) * L.ox + (L2.y - L.y) * L.oy, math.deg(math.acos(math.max(-1, math.min(1, L2.ox * L.ox + L2.oy * L.oy))))) end
+        DI.state, DI.t0, DI.k, DI.phi, DI.parts, DI.modeWas = "wait", now, 1, 0, A.parts or nb, cm
+        log(string.format("altstall: no stall #%d: tip END (%.2f s) -- handed to the drop-in at state \"wait\" (SET, ready to GO; mode %s): the %s hung on the coping, the deck up %.0f deg; sticks to the middle, then a stick UP drops you back in about the same wheels, LB/RB = back onto the deck; the ledge looked for again: %s",
+            A.nst, now - A.t0, tostring(cm), A.piv or "?", A.pitchTo or 0, took))
+        if A.rev and NATIVE.nsRevEnd then NATIVE.nsRevEnd(A, now) end   -- (revnostall 286)
+        if S.DropInSounds ~= 0 then playSound(S.DropInSetSound, S.DropInSoundVolume) end   -- (the drop-in's SET cue: the end on the deck)
+    end
     NATIVE.dropTick = function(now)
         if DI.flyT and DI.th ~= DI.flyT then   -- (v216) a set-down that ended while he was flown over the edge (a bail, the old way): the engine's falling takes him
             if q(function() return mv.MovementMode end, 0) == 5 and q(function() return s0:IsOnBoard() end, false) ~= true then
@@ -11030,7 +11419,7 @@ do
             if now - T.t0 > 4 then DI.trace = nil end
         end
         local st = DI.state
-        if not st then return end
+        if not st then if not NATIVE.STALLS_SHELVED and (tonumber(S.AltNoStallDropIn) or 0) >= 0.5 and NATIVE.nsPoll then local okn, errn = pcall(NATIVE.nsPoll, now) if not okn then logOnce("nserr", "altstall: no stall hand-over error: " .. tostring(errn)) end end return end   -- (nostall 281)
         if not alive(s0) then letGo("the skater is gone") return end
         local cm, L = modeNow(), DI.L
         -- (v210) NO BOARD TOGGLE OF THE GAME'S WHILE YOU ARE HELD ON THE BOARD. Five drop-in set-ups of ten on 9 Oct
@@ -11149,6 +11538,7 @@ do
                 local parts = boardParts()
                 local took = parts and tonumber(HJN_BoardParts(table.unpack(parts))) or 0
                 local a = (took > 0) and tostring(HJN_SetDown("arm", DI.hang, DI.pitch, S.DropInTail, S.DropInKick, L.lip, L.ox, L.oy, L.x, L.y, L.top, S.DropInBack, S.DropInSetFeet or 1) or "") or ""
+                if not NATIVE.STALLS_SHELVED and (tonumber(S.StallLog) or 0) >= 0.5 then log(string.format("stall ref: drop-in arm: hang %s pitch %s tail %s kick %s lip %s edge out (%.2f %.2f) top %s back %s setfeet %s -> set-down \"%s\"", tostring(DI.hang), tostring(DI.pitch), tostring(S.DropInTail), tostring(S.DropInKick), tostring(L.lip), tonumber(L.ox) or 0, tonumber(L.oy) or 0, tostring(L.top), tostring(S.DropInBack), tostring(S.DropInSetFeet or 1), a)) end   -- (275) StallLog
                 local m0, m1, z0, z1, pu = a:match("^(%S+) (%S+) (%S+) (%S+) (%S+)")
                 m0, m1, z0, z1 = tonumber(m0), tonumber(m1), tonumber(z0), tonumber(z1)
                 if m0 and m1 and z0 and z1 then
@@ -11285,8 +11675,29 @@ do
                             T.ex, T.ey = qx - cx, qy - cy                  -- he is walked on by what the clip drags its own board: its board kept on the held one
                             T.ga, T.gs = -(T.ex * L.ox + T.ey * L.oy), -(T.ey * L.ox - T.ex * L.oy)   -- (for the log: the clip's board from the held one, out along the way over the edge and across it)
                             local ex, ey = 0.3 * T.ex, 0.3 * T.ey          -- three tenths of the gap a frame, as build 211's walk
+                            local cap = 3
+                            if (tonumber(S.DropInSetSmooth) or 1) ~= 0 then
+                                -- (276) "the drop-in stutter is pretty bad ... it shimmies him into position, but it's very jittery"
+                                -- (25 Oct). This runs on the mod's loop (10 ms asked, Windows' timer makes it 10 to 16), not once a
+                                -- drawn frame; the gap read is the LAST POSE's. Build 275 stepped 0.3 of it on every tick: two ticks
+                                -- in one frame stepped twice on one stale gap (0.51 of it), a frame with no tick not at all. Now a
+                                -- step only on a pose not stepped on yet, sized by the time since the last one (0.3 per 60th of a
+                                -- second, 3 cm per 60th at most: build 211's walk at 60 fps); the move below still sets him every tick
+                                local fresh = r ~= T.smR
+                                local dt = math.max(0, math.min(0.025, now - (T.smT or now)))   -- (a hitch with no pose is not caught up in one jump: 4.5 cm at most)
+                                T.smN = (T.smN or 0) + 1
+                                if fresh then
+                                    T.smR, T.smT, T.smF = r, now, (T.smF or 0) + 1
+                                    if dt <= 0 then dt = 1 / 60 end
+                                    local a = 1 - 0.7 ^ (dt * 60)
+                                    ex, ey, cap = a * T.ex, a * T.ey, 180 * dt
+                                else
+                                    ex, ey = 0, 0
+                                end
+                            end
                             local n = math.sqrt(ex * ex + ey * ey)
-                            if n > 3 then ex, ey = ex * 3 / n, ey * 3 / n end   -- 3 cm a frame at most
+                            if n > cap then ex, ey = ex * cap / n, ey * cap / n end   -- 3 cm a frame at most
+                            if T.smN then T.smMax = math.max(T.smMax or 0, math.min(n, cap)) end
                             T.wx, T.wy = T.wx + ex, T.wy + ey
                             local wl = math.sqrt(T.wx ^ 2 + T.wy ^ 2)
                             if wl > 60 then T.wx, T.wy = T.wx * 60 / wl, T.wy * 60 / wl end
@@ -11377,6 +11788,7 @@ do
                 end
                 if not T.asked and now >= T.mountAt then
                     T.asked = true
+                    if T.smN then log(string.format("set-down smooth: the walk onto the board stepped on %d fresh poses in %d ticks (%d ticks read a pose already stepped on: no step; build 275 stepped again), each step 0.3 of the gap per 60th of a second since the last pose, 180 cm/s at most; the largest step %.1f cm (DropInSetSmooth)", T.smF or 0, T.smN, T.smN - (T.smF or 0), T.smMax or 0)) end
                     local sk, sw = s0, DI.sw
                     NATIVE.gt(function()
                         if DI.th ~= T then return end                 -- (the queue can run late, the note at the move below: no mount is asked for once the set-down is over -- a bail in between, the old way)
@@ -11529,6 +11941,7 @@ do
             return
         end
         if cm == MODE_BAILING then letGo("the game bailed you") return end
+        if st == "nostall" then NATIVE.nsStep(now, cm) return end   -- (nostall 281) the no stall turned into the drop-in's place
         if st == "align" then                             -- (v175) the first move, a step a frame
             local A = DI.al
             if not A then DI.state, DI.t0 = "set", now return end
@@ -11732,7 +12145,7 @@ do
             if (tonumber(HJN_Bumpers()) or 0) ~= 0 then
                 DI.state, DI.t0 = "back", now
                 log("drop-in: LB/RB -- back onto the ledge")
-            elseif math.max(ly or 0, ry or 0) > 0.6 then
+            elseif NATIVE.nsFree(L, ly, ry, now) and math.max(ly or 0, ry or 0) > 0.6 then
                 -- (v101) the way down traced now, from the stance as it stands: the front wheels' bottoms and the nose swung
                 -- about the hung back axle, a degree at a time, until one meets the ground (v100 took the angle from chords
                 -- of a guessed circle: the wheels ended 10 cm inside the ramp and the board stuck fast)
@@ -11807,6 +12220,7 @@ do
                 -- let go slowly, kept tipping, so the wheels meet the wall and the wall gives the speed
                 local vert = (not ramp) and (not plain) and (not floorMet) and (L.near or 0) >= S.DropInVertDrop and (L.far or 0) >= 90   -- (v217: not a plain wall, and not where the hung board's nose meets a flat floor)
                 DI.state, DI.t0, DI.ramp, DI.vert = "in", now, ramp, vert
+                if DI.ns and DI.ns.L == L then log(string.format("altstall: no stall #%d: drop-in GO (stick %.2f, %.2f s after the turn) -- %s", DI.ns.nst, math.max(ly or 0, ry or 0), now - (DI.ns.endAt or now), (ramp and "a ramp" or (vert and "a vert wall" or "a straight drop")) .. (DI.ns.piv and (", tipping down about the " .. DI.ns.piv) or ""))) DI.ns = nil end   -- (nostall 281; nostall2 283: the wheels)
                 DI.armsRec(240, "drop-in GO")                -- (v218)
                 do  -- (v220) the arms: the drop, and where he stands as it begins
                     DI.armsH = math.max(L.near or 0, L.far or 0)
@@ -11845,6 +12259,7 @@ do
                     end
                 end
                 DI.down = ramp and meet or (DI.pitch + (vert and S.DropInVertTilt or S.DropInTilt))
+                if not NATIVE.STALLS_SHELVED and (tonumber(S.StallLog) or 0) >= 0.5 then log(string.format("stall ref: drop-in GO: down %s pitch %s crouch %s cm (lowest at %s %%) arms %s deg (full at %s %%) %s; goofy %s", tostring(DI.down), tostring(DI.pitch), tostring(S.DropInCrouch), tostring(S.DropInCrouchPeak), tostring(S.DropInArms), tostring(S.DropInArmsPeak), ramp and "a ramp" or (vert and "a vert wall" or "a straight drop"), tostring(NATIVE.mirrorSent))) end   -- (275) StallLog
                 log(string.format("drop-in: GO (stick %.2f) -- %s", math.max(ly or 0, ry or 0),
                     ramp and string.format("the board tips %.0f deg nose-down about its back wheels, to %.0f deg below level, where its front wheels meet the ramp (%.0f deg steep there)", DI.down, DI.down - DI.pitch, slope)
                           or (vert and string.format("a VERT wall (%.0f cm down just past the edge, %.0f further out, nothing for the wheels to pivot onto): it tips to %.0f deg nose-down, goes slowly and keeps tipping", L.near or 0, L.far or 0, DI.down - DI.pitch))
@@ -11920,6 +12335,67 @@ NATIVE.root = function(o, what)
     log("root: " .. tostring(what) .. " is kept for the whole run (" .. r .. ")")
     return true
 end
+-- (bigdrop 302) THE BIG DROP LANDING (BigDropLanding; the note in v144/w70/bigdrop/mk_bigdrop_native.pl). 301's SketchLanding is no longer
+-- read. Every sample of the regular and switch trick landings' blend spaces is handed to the native half with its stance's big sketchy
+-- landing (HJN_Set "bdbs" / "bdidx" / "bdorig" / "bdanim"); the native half puts the sketch in them for a big drop only. All rooted (the
+-- no comply's lesson: the GC does not count the native half's writes).
+NATIVE.sketch = { done = false, tries = 0 }
+NATIVE.sketchApply = function()
+    local SK = NATIVE.sketch
+    if SK.done or SK.tries >= 30 then return end
+    SK.tries = SK.tries + 1
+    if type(HJN_Set) ~= "function" or type(HJN_Root) ~= "function" then SK.done = true log("big drop landing: needs the native half -- not set") return end
+    local SETS = { { "regular", "/Game/Animation/AMXX/OnBoard/Regular/FlipTrick/", "AMXX_RGS_Ollie_Hi_Land_Sketch_Max_Right", "BLD_RGS_",
+                     { "Ollie_Lands_New", "Kickflip_Lands", "Heelflip_Lands", "Treflip_Lands", "Varialflip_Lands", "VarialHeel_Lands",
+                       "BS_PopShuv_Lands", "BS_PopShuv360_Lands", "FS_PopShuv_Lands", "FS_PopShuv360_Lands" } },
+                   { "switch", "/Game/Animation/AMXX/OnBoard/SWS/FlipTrick/", "AMXX_SWS_Ollie_Hi_Land_Sketch_Max_Right", "BLD_SWS_",
+                     { "Ollie_Lands", "Kickflip_Lands", "Heelflip_Lands", "Treflip_Lands", "Varialflip_Lands", "VarialHeel_Lands",
+                       "Hardflip_Lands", "Hardflip360_Lands", "InwardHeel_Lands", "Inward360_Lands", "Laserflip_Lands",
+                       "BS_PopShuv_Lands", "BS_PopShuv360_Lands", "FS_PopShuv_Lands", "FS_PopShuv360_Lands" } } }
+    local function find(dir, n)
+        local path = dir .. n .. "." .. n
+        local o = alive(q(function() return StaticFindObject(path) end))
+        if not o then pcall(function() LoadAsset(path) end) o = alive(q(function() return StaticFindObject(path) end)) end
+        return o
+    end
+    local slid = 0   -- (snap 303) the slide blend spaces: no smoothing while the heel stop is on (HJN_Set "hsbs")
+    for _, p in ipairs({ { "/Game/Animation/AMXX/OnBoard/Regular/Ground/Break/", "BLD_AMXX_RGS_" }, { "/Game/Animation/AMXX/OnBoard/SWS/Ground/Break/", "BLD_AMXX_SWS_" } }) do
+        for _, nm in ipairs({ "PowerSlides_Tail", "PowerSlides_Base", "PowerSlide_Ready", "PowerSlide_Ready_PreLeans" }) do
+            local o = find(p[1], p[2] .. nm)
+            local okh, rh = false, nil
+            if o then NATIVE.root(o, p[2] .. nm) okh, rh = pcall(HJN_Set, "hsbs", addr(o)) end
+            if okh and (tonumber(rh) or 0) > 0 then slid = slid + 1 end
+        end
+    end
+    local missing, lines = 0, { string.format("the heel stop's slide blend spaces: %d of 8", slid) }
+    for _, st in ipairs(SETS) do
+        local sk = find(st[2], st[3])
+        local ta = sk and addr(sk)
+        if not ta then missing = missing + 1 lines[#lines + 1] = st[1] .. ": " .. st[3] .. " not found"
+        else
+            NATIVE.root(sk, st[3])
+            local nbs, took, other = 0, 0, 0
+            for _, nm in ipairs(st[5]) do
+                local name = st[4] .. nm
+                local bs = find(st[2], name)
+                if not bs then missing = missing + 1
+                else
+                    nbs = nbs + 1
+                    NATIVE.root(bs, name)
+                    pcall(HJN_Set, "bdsk", ta) local okw, r = pcall(HJN_Set, "bdall", addr(bs))   -- (dropfix 303) the native half reads the samples (UE4SS gives nothing for sd[j]:get().Animation)
+                    r = okw and tonumber(r) or -1
+                    if okw and r > 0 then took = took + r else other = other + 1 end   -- (dropfix 303)
+                end
+            end
+            lines[#lines + 1] = string.format("%s: %d of %d blend spaces, %d samples handed over%s", st[1], nbs, #st[5], took, other > 0 and string.format(" (%d blend spaces not taken)", other) or "")
+        end
+    end
+    if missing == 0 or SK.tries >= 30 then
+        SK.done = true
+        log("big drop landing: the trick landings for the big sketchy landing (Sketch_Max_Right) -- " .. table.concat(lines, "; ") .. (missing > 0 and string.format("; %d not found after %d tries", missing, SK.tries) or ""))
+    end
+end
+
 NATIVE.noComply = { done = false, tries = 0, saved = {} }
 NATIVE.noComplyApply = function()
     local NC = NATIVE.noComply
@@ -12143,8 +12619,8 @@ end
 -- latest release's update.txt: its version, build number, the game build it is for and the two files' SHA-256). With
 -- AutoUpdate=2 a newer build is downloaded, checked and put in place for the next start; with 1 you are only told.
 -- NATIVE.BUILD is this file's own build number: the release's update.txt carries the same number, and that is what is compared.
-NATIVE.BUILD = 274
-NATIVE.WANT = 172      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
+NATIVE.BUILD = 309
+NATIVE.WANT = 207      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
 NATIVE.updateTick = function(live)
     local U = NATIVE.upd or {}
     NATIVE.upd = U
@@ -12401,6 +12877,7 @@ LoopAsync(2000, function()
         if not ok then logOnce("nativesync", "native sync error: " .. tostring(err)) end
         if NATIVE.hopMeasure then pcall(NATIVE.hopMeasure) end
         if NATIVE.axisCheck then pcall(NATIVE.axisCheck) end       -- (v131)
+        if NATIVE.sketchApply then pcall(NATIVE.sketchApply) end   -- (sketch 301) the sketchy landing, once the skater is there
         if NATIVE.noComplyApply then pcall(NATIVE.noComplyApply) end   -- (v143) once the skater is there: the level's definitions are the ones that count
         if NATIVE.speedApply then pcall(NATIVE.speedApply) end         -- (v147)
         -- (v86) is the pose hook live in the replay editor? (then the numpad hand nudges show while you scrub a grab)
@@ -12424,7 +12901,7 @@ LoopAsync(2000, function()
     return false
 end)
 
-log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v274 / native v172)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
+log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v309 / native v207)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
 
 -- the game's grabs need IsGrabsEnabled in its experimental save (the profile loads it at start-up). (v121) If it is off or
 -- missing, the save is PATCHED here: a BoolProperty tag put into FExperimentalSettings -- the bytes the game's own serializer

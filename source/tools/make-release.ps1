@@ -106,7 +106,7 @@ $version = if ($lua -match 'local MOD_VERSION = "([0-9A-Za-z.\-]+)"') { $Matches
 $build = if ($lua -match '(?m)^NATIVE\.BUILD = (\d+)') { [int]$Matches[1] } else { 0 }
 $loaded = if ($lua -match 'loaded \(v(\d+) / native v(\d+)') { @([int]$Matches[1], [int]$Matches[2]) } else { @(0, 0) }
 $native = if ($cpp -match '(?m)^#define HJN_VERSION (\d+)') { [int]$Matches[1] } else { 0 }
-$stamp = if ($cpp -match 'constexpr uint32_t\s+kExeStamp\s*=\s*0x([0-9a-fA-F]+);') { $Matches[1].ToLower().PadLeft(8, '0') } else { $null }
+$stamp = if ($cpp -match 'kExeStamp2\s*=\s*0x([0-9a-fA-F]+)[,;]') { $Matches[1].ToLower().PadLeft(8, '0') } elseif ($cpp -match 'constexpr uint32_t\s+kExeStamp\s*=\s*0x([0-9a-fA-F]+)[,;]') { $Matches[1].ToLower().PadLeft(8, '0') } else { $null }   # (1.2.0) the newest Epic exe (28 Oct 2026: 6a9ae35d) when the source knows two
 if (-not $version) { $problems.Add("main.lua: MOD_VERSION not found") }
 elseif ($version.Length -gt 24) { $problems.Add("main.lua: MOD_VERSION '$version' is longer than 24 characters -- the in-game updater refuses such an update.txt") }
 if ($build -le 0) { $problems.Add("main.lua: NATIVE.BUILD not found") }

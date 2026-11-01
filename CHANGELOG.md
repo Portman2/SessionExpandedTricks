@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.0 -- the heel stop, the big drop landing, alt crouch grinds
+Lua build 309, native v207. A 1.0.0 or 1.1.x install with *Automatic updates* at 2 installs it by itself at its next start.
+
+- **Heel stop** (General gameplay page, `HeelStop`, on): in a manual, the back-foot stick all the way down drags the tail in the game's one-foot powerslide pose with its tail-slide sound and slows you to a stop; ease off to ride on in the manual. It drags the end behind you, so it works switch, fakie and nollie too. *Heel stop: friction* (`HeelStopFriction`, km/h lost per second, 10); `HeelStopSnap` (ini, 4) sets how quickly the tail goes down.
+- **Big drop landing** (General gameplay page, `BigDropLanding`, on): a landing 2.5 m or more below the take-off (`BigDropHeight`, ini) plays the game's unused big sketchy landing.
+- **Alt crouch grinds** (Grabs page, `AltGrinds`, off): the alternate crouch in a grind; *Alt crouch only once in a grind* (`AltGrindsInGrind`): back stick up in a grind = the grind crouch, front down / up = a monster / dolphin flip out; *Alt flips out of grinds* (`AltGrindFlipOut`).
+- **Underflip: speed of 2nd flick** (Flip Tricks page, `AltUnderOwnSpeed`, off; `AltUnderFlickRef`): the underflip turns back as fast as your second flick; **Shuv-it: spin with scoop speed** (`AltShuvScoopSpeed`, off); **Double varial = Nightmare name** (`AltDoubleVarialName`, off).
+- **Drop-in: smooth set-down walk** (Drop-ins page, `DropInSetSmooth`, on): stepping onto the board on the coping no longer jitters.
+- **Epic game update of 28 Oct**: the updated exe (same code, a new build stamp) is recognised, so grinds, wallrides and the alternate flips stay on.
+- Menu tidied: the grind log and the *Bone moves* test rows are out of the menu (`GrindLog`, `GrabBoneMove` still work in the ini).
+
+### Build by build
+- Builds 299-309, native v197-v207: the heel stop (the pose, sound, friction in km/h a second, a quick tail-down with a soft touch-down, switch / fakie / nollie by the end behind you); the big drop landing; the menu tidied, version 1.2.0.
+- Builds 275-298, native v173-v196: alt crouch grinds and alt flips out of grinds, the underflip's second-flick speed, the shove-it's scoop speed, double varial names, the drop-in's smooth set-down walk, the Epic exe re-stamp (284). The ramp stalls worked on in these builds (no stall, blunt) are shelved: off and out of the menu.
+
 ## 1.1.3 -- grabs in grinds, the auto casper
 Lua build 274, native v172. Both new options are off until you turn them on. A 1.0.0 or 1.1.x install with *Automatic updates* at 2 installs it by itself at its next start.
 

@@ -43,7 +43,7 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 172
+#define HJN_VERSION 207
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
@@ -60,7 +60,7 @@ constexpr char kBuildTag[] = "ExpandedTricksNative-build-" HJN_STR(HJN_VERSION);
 // so a build whose structs differ does not pass. Whatever is found goes to the log (the probe a tester sends back).
 #include "hn_sigs.h"
 #include "hn_sigscan.h"
-constexpr uint32_t  kExeStamp      = 0x69ca6d05;
+constexpr uint32_t  kExeStamp      = 0x69ca6d05, kExeStamp2 = 0x6a9ae35d; constexpr bool KnownStamp(uint32_t s) { return s == kExeStamp || s == kExeStamp2; }   /* (restamp 284) Epic's 28 Oct exe is the 30 March one re-stamped: 35 bytes apart, all PE header / debug directory */
 uintptr_t RVA_FBT        = 0x2b58280;   // USkeletalMeshComponent::FinalizeBoneTransform
 uintptr_t RVA_SKM_VT_FBT = 0x3d541a8;   // ??_7USkaterSkeletalMeshComponent@@6BUObject@@@ + 0x938
 // USkinnedMeshComponent (engine, verified in this exe: FlipEditableSpaceBases reads +0x4f0/+0x4f4 and
@@ -6460,7 +6460,7 @@ bool DropArms(const void* mesh, float w) {       // on g_Ct, after everything th
     return ch;
 }
 // (v127) the wallride (defined after the caveman: the note at WallTick)
-float WallW(); bool WallPose(void* mesh, const void* anim); bool SafeWallSmooth(bool drawn, bool ok); void SafeWallTick(void* mesh); bool WallRiding(); void WallForget(const char* why);
+float WallW(); bool WallPose(void* mesh, const void* anim); bool SafeWallSmooth(bool drawn, bool ok); void SafeWallTick(void* mesh); bool WallRiding(); void WallForget(const char* why); void SafeStallTick(void* mesh); extern volatile LONG g_stallLog; void SafeGrindLogTick(void* mesh); extern volatile LONG g_grindLog; void SafeAltStallTick(void* mesh); extern volatile LONG g_altStall; bool AltStallRide(); void SafeAltStallNua(void* anim); void AsStick(float bx, float by, float fx, float fy, float downSign, float eng, float rel, double now);   /* (stalllog 275) */
 bool g_wrGrabPose = false;   // (v127, fixer: native review 8) this pose is a grab's in PosePass, its release's too (up to 90 poses after the game's grab byte clears): no wallride starts under it (WallTick reads the last pose's)
 void SafeStSteer();   // (v137)
 bool AltAirNow(); bool AltVarDolAir(); void AltPopLatch(const void* mesh);   /* (245) AltVarDolAir: a varial dolphin in the air (recorded only) */   // (242) a monster / dolphin in the air (recorded, every one) and its pop seen in the pose (the note at AltPopLatch)
@@ -7284,7 +7284,7 @@ void SafeApply(void* self) {
         // (v95) nothing of the mod's on a pose whose mesh, skater or world is on its way out (the note at PoseWorld)
         int why = 0;
         g_poseWorld = PoseWorld(self, &why);
-        if (g_poseWorld) { g_gonePoses = 0; g_inPose = true; SafeWallTick(self); PosePass(self); }   // (v127) the wallride's state for this pose (its rays see this pose's world), then the pose
+        if (g_poseWorld) { g_gonePoses = 0; g_inPose = true; if (g_altStall) SafeAltStallTick(self); SafeWallTick(self); if (g_stallLog) SafeStallTick(self); PosePass(self); }   // (v127) the wallride's state for this pose (its rays see this pose's world), then the pose
         else if (InterlockedIncrement(&g_gonePoses) == 1 && InterlockedIncrement(&g_goneLogs) <= 60)
             Log("level change: our skater's mesh %s -- nothing of the mod's runs on its poses until the Lua hands a skater over again",
                 why == 1 ? "is not registered any more" : why == 2 ? "has no owner or world" : why == 3 ? "belongs to a skater that is being destroyed" : "is in a world that has begun tearing down");
@@ -7580,7 +7580,7 @@ void FrameWatch(double t0, double t1) {                 // t0 = this pose's hook
     g_fwOwnMost = 0.0f;
 }
 void CkPoll();                                              // (v123) the stick clicks kept for the Lua's answer (by hkInputKey)
-void SafeAltTick(void* mesh); void SafeAltPost(); void AltIdle();   // (v129) the alt flip set (defined after the wallride: the note at AltTick)
+void SafeAltTick(void* mesh); void SafeAltPost(); void AltIdle(); void SafeHsTick(void* mesh); void HsIdle(); void SafeBdTick(void* mesh); void BdIdle();   // (bigdrop 302) the big drop landing; (v129) the alt flip set; (heelstop 299) the heel stop (defined after the wallride: the note at AltTick)
 void hkFbt(void* self) {
     InterlockedIncrement(&g_calls);
     InterlockedIncrement(&g_beat);                          // (v95) the watchdog's counter; the game thread is the one that poses
@@ -7596,7 +7596,7 @@ void hkFbt(void* self) {
         SpeedNote(self);                                        // (v96) how fast the skater really moves, for the drop-in's standstill test
         const bool whole = PoseWorld(self) != nullptr;          // (v95, review) the controller's write and the trace read the skater too: the same test
         if (whole && g_pc) SafeLateBlock();
-        if (whole && g_pc) SafeAltTick(self); else AltIdle();   // (v129) the alt flip set: the mirrored back stick, the alt trick's board (the note at AltTick)
+        if (whole && g_pc) { SafeAltTick(self); SafeHsTick(self); SafeBdTick(self); } else { AltIdle(); HsIdle(); BdIdle(); }   // (bigdrop 302) the big drop landing last; (v129) the alt flip set; (heelstop 299) the heel stop after it (it reads the alt set's writes): the mirrored back stick, the alt trick's board (the note at AltTick)
         if (whole && g_gsFaults < 3) SafeGrindSound();          // (v96) one log line a grind: what the game set its loop to
         g_stHot = false;
         SafeApply(self);
@@ -7660,7 +7660,7 @@ bool InstallHook() {
     uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr);
     const IMAGE_DOS_HEADER* dos = (const IMAGE_DOS_HEADER*)exe;
     const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(exe + dos->e_lfanew);
-    if (nt->FileHeader.TimeDateStamp != kExeStamp) {
+    if (!KnownStamp(nt->FileHeader.TimeDateStamp)) {
         Log("the game exe is ANOTHER BUILD than this mod was written against (stamp %08x, image %u KB; written against %08x) -- its functions are looked for by signature in the exe on disk",
             nt->FileHeader.TimeDateStamp, (unsigned)(nt->OptionalHeader.SizeOfImage / 1024), kExeStamp);
         static HnSigFound found[kSigN];
@@ -7686,7 +7686,7 @@ bool InstallHook() {
     *slot = (void*)&hkFbt;
     VirtualProtect(slot, sizeof(void*), old, &old);
     g_hooked = true;
-    Log("pose hook installed: USkaterSkeletalMeshComponent::FinalizeBoneTransform slot @ %p (original %p)", slot, (void*)g_origFbt);
+    Log("pose hook installed: USkaterSkeletalMeshComponent::FinalizeBoneTransform slot @ %p (original %p) | Epic's exe, stamp %08x (the known build%s)", slot, (void*)g_origFbt, nt->FileHeader.TimeDateStamp, nt->FileHeader.TimeDateStamp == kExeStamp2 ? ": the 28 Oct re-stamp of 30 March's, the same code" : "");
     FaInstall();                                   // (v138) the monster's feet: the animation's own foot anchors
     WrBtInstall();                                 // (v140) the wallride's board height under the body's line
     FbInstall();                                   // (242) the monster's board out of the game's catch; the flip's loop held
@@ -8630,7 +8630,7 @@ void UpdRun() {
     bool stampOk = stamp.empty() || stamp.size() == 8;           // (review) it goes into both logs: eight hex digits, as make-release.ps1 writes it, or nothing
     for (char ch : stamp) if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'))) stampOk = false;
     if (!stampOk) { UpdSay(5, "the release's update.txt could not be read (its game_stamp) -- not checked this time"); return; }
-    if (!stamp.empty() && (uint32_t)strtoul(stamp.c_str(), nullptr, 16) != mine && !g_sigMode) {   // (v104) a build the mod runs on by signature (Steam's) takes the release: the new mod checks the exe for itself at its start
+    if (!stamp.empty() && (uint32_t)strtoul(stamp.c_str(), nullptr, 16) != mine && !(KnownStamp((uint32_t)strtoul(stamp.c_str(), nullptr, 16)) && KnownStamp(mine)) && !g_sigMode) {   // (v104) a build the mod runs on by signature (Steam's) takes the release: the new mod checks the exe for itself at its start
         UpdSay(3, "version %s is out, but it is made for another build of the game (%s; this game is %08x) -- not installed", ver.c_str(), stamp.c_str(), mine);
         return;
     }
@@ -10914,6 +10914,7 @@ int SdArm(const double* a, char* out, size_t n) {
     snprintf(out, n, "%.2f %.2f %.2f %.2f %.1f", dot(sub(m0, S.E), S.o), dot(sub(m1, S.E), S.o), m0.z - S.zTop, m1.z - S.zTop, s1.pitch);
     Log("set-down: armed -- the board's %d parts laid level in memory (back axle %.1f cm behind the deck's middle, %d + %d wheels); level over the stance its middle is %.1f cm past the edge and %.1f over the top, in the stance %.1f past and %.1f over, the deck up %.0f deg",
         g_bpartN, axle0, s1.g.nB, s1.g.nF, dot(sub(m0, S.E), S.o), m0.z - S.zTop, dot(sub(m1, S.E), S.o), m1.z - S.zTop, s1.pitch);
+    if (g_stallLog) Log("stall ref: set-down armed: hang %.1f pitch %.1f (stance pitch %.1f) tail %.1f kick %.1f lip %.1f back %.1f feet %.2f top %.1f; deck middle level %.1f past / %.1f over, in the stance %.1f past / %.1f over; back axle %.1f", S.hang, S.pitch, s1.pitch, S.tail, S.kick, S.lip, S.back, S.feet, S.zTop, dot(sub(m0, S.E), S.o), m0.z - S.zTop, dot(sub(m1, S.E), S.o), m1.z - S.zTop, axle0);   /* (stalllog 275) */
     return 1;
 }
 // HJN_SetDown("pin", w, k) every frame -> "clipX clipY clipH pinX pinY pinZ deckOff" from the last pose; "wait" = no
@@ -15956,7 +15957,7 @@ void WallTick(void* mesh) {
     WallNoRide(mesh, sk, mc, board, bm, anim, body, bodyOk, vBody, vOk, airNow, mcAir, impClear, hangOff, now);
     WallGroundAfter(now);                                                      // (v134) ...and the ride a take-off from the ground became, said with its START
 }
-void SafeWallTick(void* mesh) {
+void SafeWallTick(void* mesh) { if (g_grindLog) SafeGrindLogTick(mesh);   /* (grindalt 279) GrindLog, read only */
     __try { WallTick(mesh); }
     __except (GrabFilter(GetExceptionCode())) {
         g_wrDead = 1;
@@ -17326,6 +17327,7 @@ int nWall(const Lua& lua) {                                      // (a std::stri
 }
 // HJN_SetDown(op, ...): "arm" (12 numbers) -> text | "pin", w, k -> text | "mount", switch -> 0/1 |
 // "state" -> parts put back inside the game's mount (0 = not (yet), under 0 = it failed) | "end" -> 1
+void SafeAltNsTake(char* b, size_t n); int SafeAltNsBegin(const double* a); int SafeAltNsStep(float e); void AltNsEnd(); void AltNsInfo(char* b, size_t n);   /* (nostall 281) the no stall's hand-over, defined with the alt stalls */
 int nSetDown(const Lua& lua) {                                   // (a std::string lives here: no __try in this function, C2712)
     std::string op; double a[12] = { 4, 25, 17, 7, 0, 1, 0, 0, 0, 0, 34, 1 };
     ArgStr(lua, op);
@@ -17339,6 +17341,11 @@ int nSetDown(const Lua& lua) {                                   // (a std::stri
     else if (op == "pin") { SdPin(got >= 1 ? (float)a[0] : 0.0f, got >= 2 ? (float)a[1] : 0.0f, b, sizeof(b)); lua.set_string(b); }
     else if (op == "mount") lua.set_integer(SafeSdMount((got >= 1 && a[0] != 0) ? 1 : 0));
     else if (op == "state") lua.set_integer((int)g_sdMounted);
+    else if (op == "nstake") { SafeAltNsTake(b, sizeof(b)); lua.set_string(b); }   /* (nostall 281) -> "n lead edgeX edgeY top outX outY ramp" or "" */
+    else if (op == "nsbegin") lua.set_integer(SafeAltNsBegin(a));   /* (nostall2 283) hang, pitch, tail, kick, lip (the drop-in's stance) -> parts */
+    else if (op == "nsinfo") { AltNsInfo(b, sizeof(b)); lua.set_string(b); }   /* (nostall2 283) -> "front phi0 pitchTo pitchFrom resid cm" or "" */
+    else if (op == "nsstep") lua.set_integer(SafeAltNsStep(got >= 1 ? (float)a[0] : 1.0f));   /* (nostall 281) e -> parts placed */
+    else if (op == "nsend") { AltNsEnd(); lua.set_integer(1); }   /* (nostall 281) */
     else { SdEnd("the Lua ended it"); lua.set_integer(1); }
     return 1;
 }
@@ -17586,6 +17593,8 @@ V3 UfOnTop(float footX, int edge, float upz0) {   /* (254) the heelflip underfli
     return v3(clampf(footX, -UF_XMAX, UF_XMAX), -(float)edge * UF_ON_Y, (upz0 >= 0.0f) ? UF_SLAB_TOP + UF_ON_Z : UF_SLAB_BOT - UF_ON_Z);
 }
 volatile LONG g_altUnderTouch = 1;   /* (261) AltUnderTouch: the kick / heel underflip's foot meets the board at the strike (the note at UfShoe); 0 = build 260's */
+volatile LONG g_altUnderOwnSpeed = 0;   /* (279) AltUnderOwnSpeed: the kick / heel underflip's reversal spins at the SECOND flick's speed (the note at UfFlick); 0 = build 278's (the first flip's rate turned) */
+volatile LONG g_altShuvScoopSpeed = 0; volatile float g_altUnderFlickRef = 0.0f;   /* (285) AltShuvScoopSpeed: the alt shove-it's scoop spin paced by the scoop's own speed (the note at UfRefApply); AltUnderFlickRef: the underflips' reversal = base x the second flick's own speed over this (/s); 0 = build 284's */
 constexpr int UF_SHOE_N = 28;
 constexpr float UF_TOUCH = 0.5f, UF_TOUCH_MAX = 14.0f;   /* (261) AltUnderTouch (the note at UfShoe): the gap kept between the shoe and the deck's slab at the strike (cm; a riding foot reads 0..1 by the same sums), the most the target moves for it */
 // (261) THE FOOT MEETS THE BOARD. The user (23 Oct, build 259): "the kick and heel flip underflip feet motion is good, just needs to collide a
@@ -18607,11 +18616,14 @@ struct AltTrick {                                  // one alt trick (zeroed when
     // (242) the dolphin in its own frame (the note at AltDolTurnStart): used, still written each pose; why not (1 AltDolphinTurn=0, 2 a channel
     // not readable, 3 the getter failed, 4 the model missed); the model's miss at the take (deg); the game's sense of its yaw / pitch / roll; the
     // channels last written; the 180's centre (deg of the flip) and its turn so far; the target wanted (controller frame); the game's own from it at the most (deg)
-    bool dolTurn, dolLive; int dolWhy; float dolFit, dsz, dsy, dsx, chA, chB, chC, dolEc, dolPsi; Q4 dolQ; float dolMissMost;
+    bool dolTurn, dolLive; int dolWhy; float dolFit, dsz, dsy, dsx, chA, chB, chC, dolEc, dolPsi; Q4 dolQ; float dolMissMost; int dolAg; float dolAgB2, dolAgRel;   /* (grindfix5 286) AltDolAgFit */
     float dolW;                                    // (243) AltDolphinSpread as this dolphin took it (0: build 242's window)
     bool dolFwd; int dolToe; float dolPE, dolRS, dolRSign, paceUp;   // (246) the forward dolphin (the note at AltDolFwdAt): taken; the toes' side across the board (+1 / -1; 2 not read: +1 taken); its pitch's end and roll's start (deg of the flip); the roll's way on the roll channel; AltFlipPaceUp as taken
     bool por, porLate; float porBest; int porMost;   /* (251) a PORPOISE FLIP (the note at AltPorHeelX): the forward dolphin's half flip the heelflip's way; decided after the take; its lean read (deg toward the heelflip's side at most, poses in a row) */
     int uKind, uSide, uStick, uWhy, uHeel; bool uDone, uArmF, uArmB, uHold; float uCur, uTgt, uRate, uCur2, uTgt2, uMag, uRate2; double uT; LONG uNeutral;   /* (251) the underflip: its kind, the second flick (side, stick 1 front / 2 back, why not applied), the channel before / after */
+    int uOs; float uOsDt, uOsSpd, uOsLo, uOsHi, uOsM2, uOsM1, uOsRate0;   /* (279) AltUnderOwnSpeed: 1 read / -1 range unread, the second flick's time from the centre, its speed (throws/s), the game's range, its multiplier, the first flip's (fth+0xc0), the turned rate before */
+    float uF1dt, uF1pk, uF1lv, uF1sp, uF2dt, uF2pk, uF2lv, uF2sp, uRatio, uSms; int uSrc, uSrcMiss, uF1st, uF2st, uSn;   /* (280) AltUnderOwnSpeed: both flicks timed the same way (the note at UfFlick): the first's / second's time 0.2 -> level, peak, level, speed; their ratio; ms a sample; the source (1 the 1 ms ring, 2 the poses, -n tried and not held); the sources that missed (bits); the sticks (0 left, 1 right); the second's samples */
+    float uRef, uRefK; int ssSt, ssSrc, ssStick; float ssSpd, ssK, ssR0, ssR1;   /* (285) AltUnderFlickRef at the read (0: build 284's ratio ran), its factor (NaN: the second flick not measured); AltShuvScoopSpeed: 0 waiting / 1 paced / 2 not, the scoop's source and stick, its speed, the factor, the game's rate and ours */
     int ufPe, ufPopR, ufEdge, ufFoot, ufWhy; bool ufHaveQ; float ufWx, ufUpz, ufX, ufZ0, ufFollow, ufMost; double ufT0, ufT1; Q4 ufQ, ufQ0;   /* (253) the underflip's foot (the note at UfStep): the pop's end / its foot, the edge, the foot, why not, the deck's roll before the flick, up's z at it, the place along the board, the foot's own height over the deck then, how long it rides, its share at the most, when the flick was seen / the foot placed, the deck's turn last pose / at the flick */
     int ufHeelB, ufE0, ufDropFoot, ufFeet; bool ufDropOn, ufDropOff; float ufRoll, ufDropX, ufDropR, ufDropW, ufDropW0, ufDropMost; double ufDropT, ufDropT2; V3 ufDropY;   /* (254) the kick / heel underflip's feet (the note at UfDrop): a heelflip by its definition, the first-rising edge, the dropped foot, 1 the drop handed to the lift / 2 the back foot on top, the drop on / let go, the roll so far (deg), the foot's place along the board, the roll at the drop, its share now / at the flick / at the most, when it began / was let go, the deck's y then */
     int ufTouchN; float ufTouchGap, ufTouchMove; V3 ufTouchC; double ufTouchT;   /* (261 review) the last pose's correction (deck frame) and its time */
@@ -18640,11 +18652,20 @@ struct AltT {
     AltPor por, porn; bool fwPor;   /* (251) the porpoise's lean on the ollie set's flick (the front stick) and the nollie set's (the back stick); the front stick handed straight now (not turned over: not the state's 7th number) */
     uintptr_t nvLast; LONG nvSwaps; bool rideRefused;   // (249) the nollie varials: the pending definition looked at last, the swaps made; a refused alt crouch on the rolling board said (until the stick comes back)
     bool uFw, uBack; float* uFwp; float uFpx, uFpy; double uFwT;   /* (251) the underflip's front-stick write (a second pose in one frame reads it back), its back stick zeroed this pose */
+    double uInF, uInB;   /* (279) AltUnderOwnSpeed: the last pose each physical stick was inside 0.3 sideways */
     AltTrick t;
 };
 AltT g_alt = {};
-int AltSetNow(const AltT& A, double now) { return (A.sn.in == 1 || AltInWindow(A.sn, now)) ? 1 : (A.s.in == 1 || AltInWindow(A.s, now)) ? 0 : -1; }   // (246) the set a trick that starts now is taken from (-1 none)
-bool AltPulledIn(const AltT& A, int set) { return set == 1 ? (A.frn.dol || A.frn.on) : (A.fr.dol || A.fr.on); }   // (246) that set's other-way flick seen / handed over now
+extern volatile LONG g_altGrinds; extern volatile LONG g_agMirOn;   /* (grindalt3 283) defined with AltRidingWhy (AltGrinds and its mirror) */
+volatile LONG g_agFlipOut = 0;   /* (grindalt3 283) AltGrindFlipOut (HJN_Set("altgrindflipout", 0/1)): the alt flip out of an alt crouch's grind (the note at AgArmStep); 0 = nothing of it runs */
+int g_agArm = -1, g_agArmLast = -1; bool g_agArmPull = false; double g_agArmT = 0.0, g_agArmT0 = 0.0; uintptr_t g_agClaim = 0;   /* (grindalt3 283) the set armed in the grind (0 the alt crouch's, 1 the alt nollie crouch's, -1 none), its flick stick handed over turned, its clocks, the trick it claimed */
+volatile LONG g_agInGrind = 0;   /* (grindalt4 285) AltGrindsInGrind (HJN_Set("altgrindsingrind", 0/1)): the alt crouch only once in a grind (the note at AgInGrind); 0 = nothing of it runs */
+struct AgGT { bool pull, bGame, fGame; int flk, heel[2]; float px, py, hx, hy, most; double gameT; AltPor por; const char* hard; LONG ons, flicks; bool rb, rf; LONG refs; };   /* (grindalt4 285) the armed set's flick read (the pull; its way 1 alt / 2 the game's / 3 side; physical and handed at its most), a game-way flick's time, the porpoise's lean, the heel sides, the crouch sticks pushed the game's way, a hard off */
+AgGT g_agg = {};
+uintptr_t g_agTaking = 0;   /* (grindfix5 286) the definition AgTake is handing AltTake (0 otherwise): AltDolTurnStart's grind-claimed dolphin (the note at AltDolAgFit) */
+int AgArmSet(double now) { return (g_agFlipOut && g_altGrinds && g_agMirOn && g_agArm >= 0 && now - g_agArmT <= 0.25) ? g_agArm : -1; }   /* (grindalt3 283) the alt set armed by the alt crouch in a grind: -1 with AltGrindFlipOut 0 (the note at AgArmStep) */
+int AltSetNow(const AltT& A, double now) { return (A.sn.in == 1 || AltInWindow(A.sn, now)) ? 1 : (A.s.in == 1 || AltInWindow(A.s, now)) ? 0 : AgArmSet(now); }   /* (grindalt3 283) + the alt set armed in an alt crouch's grind (AgArmSet: -1 with AltGrindFlipOut 0) */   // (246) the set a trick that starts now is taken from (-1 none)
+bool AltPulledIn(const AltT& A, int set) { return (set == 1 ? (A.frn.dol || A.frn.on) : (A.fr.dol || A.fr.on)) || (g_agFlipOut && g_agArmPull && AgArmSet(NowS()) == set); }   /* (grindalt3 283) + the armed grind's flick handed over turned */   // (246) that set's other-way flick seen / handed over now
 // (v137) SessionTweaks told a monster / dolphin in the air is not an ollie (the note at StSteerScan); put back once it is down
 void StSteer() {
     int* const fl = g_stOllie; uintptr_t* const dp = g_stDefP;
@@ -19221,6 +19242,9 @@ void AltDefName(uintptr_t def, char* out, size_t n) {   // a definition's FName 
     out[m] = 0;
     if (!m) snprintf(out, n, "?");
 }
+volatile LONG g_altGrinds = 0;   /* (altgrind 280) AltGrinds (HJN_Set("altgrinds", 0/1)): the alt crouch's grinds (the note at AgPick); 0 = nothing of it runs */
+volatile LONG g_agMirOn = 0;   /* (grindmirror 282) 1 while AltGrinds' mirror is on (AgMirror): the alt set's "down" vote skips those poses */
+void AgMirror(AltT& A, uint8_t* pc, const uint8_t* sk, const uint8_t* mc, const uint8_t* bm, const uint8_t* anim, const uint8_t* fth, bool backLeft, bool modeOk, bool winOpen, double now);   /* (grindmirror 282) the note at AgMirror */
 const char* AltRidingWhy(const uint8_t* sk, const uint8_t* mc, const uint8_t* bm, const uint8_t* anim, const uint8_t* pc) {   // nullptr = riding on the ground with nothing in the way (design 1.5)
     if (!AltRideMode(mc[MC_ONBOARD], mc[ALT_SMC_MODE], mc[ALT_SMC_CUSTOM], bm[BM_MODE], (int)g_altLimbo)) return (mc[ALT_SMC_CUSTOM] == 4 && mc[MC_ONBOARD] && bm[BM_MODE] == 1) ? "the game's spawn limbo (AltSpawnLimbo=0)" : "not riding on the ground";   /* (249) the spawn's limbo (the note at AltRideMode) */
     if (sk[ALT_SK_FLAGS] & 0x02) return "bailing";
@@ -19289,6 +19313,44 @@ void AltUnwobble(AltTrick& T, uint8_t* bm) {      // both put back exactly, the 
     if (bm[BM_MODE] == 3 && !(bm[ALT_BM_FLAGS] & 0x28)) { AltRollHold(bm, T.rollHold); if (T.yawOk) *(float*)(bm + ALT_BM_YAW) = T.y0 + T.dolSpin; }   // (v134) a dolphin's 180 kept
     T.bankNow = 0.0f; T.driftNow = 0.0f; T.wobbleBack = true;
 }
+// (grindfix5, build 286) THE DOLPHIN OUT OF A GRIND IN ITS OWN FRAME. Every dolphin claimed by the in-grind flip-out in build 285 fell to
+// build 241's way ("its 180 build 241's way ... the game's own target is not the model's -- 3.3 deg off"; 3.3, 5.1, 6.8, 8.8, 11.3, and
+// #2 passed at 0.94: only grind takes ever missed, never a ground one), so it flipped BACKSIDE about its up instead of the ground's FORWARD
+// dolphin ("does not flip how it normally flips"). The getter is exact in the model (ctrl x yaw x pitch x roll, read off its code: no
+// other input but the flag 0x7e9's bit 7), so the miss is something the grind leaves at the take that the 5 probes do not hold still.
+// Only for a dolphin taken by AgTake with AltGrindsInGrind on (AltDolTurnStart's refusal otherwise exactly build 285's): the 8 sense sets
+// are scored again; the best is taken when it is CLEAR -- under 15 deg and the next best at least 8 deg worse (a wrong sense misses a
+// 10 deg probe by ~20) -- or when the probes measured against the FIRST probe (a constant turn left of the channels cancels) fit under
+// 2 deg. One 'alt flips:' line a grind dolphin: every probe's miss, the controller's length, the channels, the flags, for the next round.
+bool AltDolAgFit(AltTrick& T, const uint8_t* bm, const Q4* L, const float (*ch)[3], float* sz, float* sy, float* sx) {
+    float b1 = 1.0e9f, b2 = 1.0e9f; int mb = 0;
+    for (int m = 0; m < 8; m++) {
+        const float a = (m & 1) ? -1.0f : 1.0f, b = (m & 2) ? -1.0f : 1.0f, c = (m & 4) ? -1.0f : 1.0f;
+        float w = 0.0f;
+        for (int k = 0; k < 5; k++) w = fmaxf(w, qangle(qmul(qconj(qnorm(L[k])), AltChanQ(ch[k][0], ch[k][1], ch[k][2], a, b, c))));
+        if (w < b1) { b2 = b1; b1 = w; mb = m; } else if (w < b2) b2 = w;
+    }
+    const float a = (mb & 1) ? -1.0f : 1.0f, b = (mb & 2) ? -1.0f : 1.0f, c = (mb & 4) ? -1.0f : 1.0f;
+    float pk[5] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }, rel = 0.0f;
+    const Q4 c0 = AltChanQ(ch[0][0], ch[0][1], ch[0][2], a, b, c), l0 = qnorm(L[0]);
+    for (int k = 0; k < 5; k++) {
+        const Q4 ck = AltChanQ(ch[k][0], ch[k][1], ch[k][2], a, b, c);
+        pk[k] = qangle(qmul(qconj(qnorm(L[k])), ck));
+        rel = fmaxf(rel, qangle(qmul(qconj(qmul(qconj(l0), qnorm(L[k]))), qmul(qconj(c0), ck))));
+    }
+    const Q4 raw = *(const Q4*)(bm + ALT_BM_CTRL);
+    const float cl = sqrtf(raw.x * raw.x + raw.y * raw.y + raw.z * raw.z + raw.w * raw.w);
+    const bool clear = b1 < 15.0f && b2 >= b1 + 8.0f, ok = clear || rel < 2.0f;
+    T.dolAg = ok ? 1 : 2; T.dolAgB2 = b2; T.dolAgRel = rel;
+    static LONG n = 0;
+    if (InterlockedIncrement(&n) <= 200)
+        Log("alt flips: #%ld a DOLPHIN out of a grind (the in-grind flip-out): the channel model %.1f deg off at the take (each probe: %.1f %.1f %.1f %.1f %.1f; senses %+.0f %+.0f %+.0f, the next best set %.1f; against the first probe %.1f) | the controller's length %.4f, yaw %.1f pitch %.1f roll %.1f, flags %02x, mode %d -> %s",
+            (long)T.n, b1, pk[0], pk[1], pk[2], pk[3], pk[4], a, b, c, b2, rel, cl, ch[0][0], ch[0][1], ch[0][2], (unsigned)bm[ALT_BM_FLAGS], (int)bm[BM_MODE],
+            ok ? (clear ? "its own frame (the senses clear)" : "its own frame (the probes agree with each other: a constant turn off the controller)") : "build 241's way (the senses not clear)");
+    if (!ok) return false;
+    *sz = a; *sy = b; *sx = c;
+    return true;
+}
 // (242) THE DOLPHIN'S 180 ABOUT ITS OWN UP. "It flips over in half, but then it spins around, does a full 360, then spins up, then it
 // spins another 180 ... it's just going ballistic" (19 Oct, build 241). Two things made that: the game's catch turning the board's frame
 // at every pass through vertical (the note at hkSkFlipBoard), and this: the 180 was written on the yaw offset (+0x624), which the game
@@ -19322,7 +19384,7 @@ void AltDolTurnStart(AltTrick& T, uint8_t* bm) {
     if (!ok) { T.dolWhy = 3; return; }
     float sz = 1.0f, sy = 1.0f, sx = 1.0f;
     T.dolFit = AltChanFit(L, ch, 5, &sz, &sy, &sx);
-    if (!(T.dolFit < 2.0f)) { T.dolWhy = 4; return; }
+    if (!(T.dolFit < 2.0f) && !(g_agInGrind && g_agTaking && g_agTaking == T.def && AltDolAgFit(T, bm, L, ch, &sz, &sy, &sx))) { T.dolWhy = 4; return; }   /* (grindfix5 286) a grind-claimed dolphin: the note at AltDolAgFit */
     T.dsz = sz; T.dsy = sy; T.dsx = sx; T.chA = y0; T.chB = p0; T.chC = r0; T.dolPsi = 0.0f;
     T.dolEc = AltDolCentre(p0, T.s); T.dolQ = AltChanQ(y0, p0, r0, sz, sy, sx);
     T.dolW = (float)g_altDolSpread;                // (243) AltDolphinSpread (the note at AltDolSpinW)
@@ -19582,6 +19644,7 @@ void AltMonsterLine(const AltTrick& T, int how, double now, char* b, size_t n) {
                                AltDolA(T), AltDolB(T), T.dsz, T.dsy, T.dsx, T.dolFit, T.dolMissMost);   /* (243) the window as this dolphin took it (AltDolphinSpread) */
         else AltCat(b, n, "; its 180 build 241's way, on the yaw offset (%s)", T.dolWhy == 1 ? "AltDolphinTurn=0" : T.dolWhy == 2 ? "a channel not readable" : T.dolWhy == 3 ? "the game's target could not be read" : T.dolWhy == 4 ? "the game's own target is not the model's" : "the turn not begun");
         if (!T.dolTurn && T.dolWhy == 4) AltCat(b, n, " -- %.1f deg off", T.dolFit);
+        if (T.dolAg) AltCat(b, n, "; out of a grind: the channel model %.1f deg off at the take, the next best senses %.1f, against the first probe %.1f -- %s (AltDolAgFit)", T.dolFit, T.dolAgB2, T.dolAgRel, T.dolAg == 1 ? "its own frame taken all the same" : "left build 241's way");   /* (grindfix5 286) */
     }
     const char* stick = T.catchStick == 1 ? "FRONT" : T.catchStick == 2 ? "BACK" : "?";
     if (!T.manual) {
@@ -20327,6 +20390,175 @@ void UfsSpinStart(AltTrick& T, uint8_t* bm) {
         if (std::isfinite(s)) { *(float*)(bm + ALT_BM_SCOOPRATE) = s; T.usSynRem = T.usCap - fabsf(T.usDone0); T.usSynR0 = s; T.usSyn = 1; }
     }
 }
+// (279) THE UNDERFLIP'S OWN SPEED. The user (26 Oct, build 278): "the flip and the underflip are tied to the original sideways stick
+// flick. If I do a slow flick and then a fast underflip flick, it reverses at the same speed as the original flip ... make the underflip
+// go with the speed of the second stick flick." Build 252's turn back (AltUnderMirror) is the game's rate turned (-rate): the first
+// flick's speed. With AltUnderOwnSpeed on, the second flick is timed from the pose its stick was last inside 0.3 sideways to the take
+// (past 0.6): its speed in throws a second, mapped onto the game's own range for this definition (AltFlickRead's: FlipSpeedMin..Max,
+// the FlipSpeed setting, the synced input range); the flip's base = |rate| / the game's multiplier for the first flick (FlipTricksHandler
+// +0xc0); the reversal = base x the second's, the roll's way kept. Replaced in build 280 (the note below: that read was always x1.00).
+// (280) BOTH FLICKS MEASURED THE SAME WAY, THE SECOND'S SPIN RELATIVE TO THE FIRST. Build 279 (27 Oct, "it didn't feel like the flips
+// were any different"): its log read "first flick x1.00" every time (FlipTricksHandler +0xc0 is not the flick's multiplier) and every
+// second flick 0.016-0.033 s from the centre (1-2 poses: 21-43 throws/s), clamped to the top of the game's range -> always the mirror
+// x1.12. Now a small thread (UfSampProc) reads the XInput pad every 1 ms while AltUnderOwnSpeed is on (HJN_PadSticks' pad, or its own
+// scan); a flick is timed on its stick's sideways |x| from leaving UF_FL_LEAVE (0.2) to reaching UF_FL_REACH (0.85; its peak when it
+// stops short), crossings interpolated; speed = (that level - 0.2) / that time. The FIRST flick: the stick with the higher sideways
+// peak from 0.5 s before to 0.1 s after the trick's start; the SECOND: the stick that took it, its newest throw past 0.5.
+// THE CURVE (linear): spin2 = the first flip's rate turned x clamp(speed2 / speed1, 0.35, 2.5) -- a second flick twice as fast as
+// the first turns back twice as fast, half as fast half as fast, the same speed = build 278's mirror -- kept within 250..2000 deg/s
+// (or the first's own rate when that is outside). No XInput pad, or a flick the 1 ms ring does not hold: the same measure on the
+// sticks the game read, one sample a pose ("pose-rate" in the log); neither holds both flicks: build 278's mirror, said so.
+struct UfSmp { double t; float x[2]; };   /* (280) one sample: the left / right stick's sideways |x| */
+struct UfFl { int ok, n; float dt, peak, lvl, spd, ms; double t0; };   /* (283) t0: the time it left 0.2 (UfsOwnSpeed) */   /* (280) one flick: measured; its samples; the time 0.2 -> lvl; its peak; lvl; speed (/s); ms a sample */
+constexpr int UF_SN = 4096, UF_PN = 256;   /* (280) the 1 ms ring (4 s), the pose ring */
+constexpr float UF_FL_LEAVE = 0.2f, UF_FL_REACH = 0.85f, UF_FL_TAKE = 0.5f, UF_RATIO_LO = 0.35f, UF_RATIO_HI = 2.5f, UF_SPIN_LO = 250.0f, UF_SPIN_HI = 2000.0f;
+constexpr float UF_REF_LO = 0.5f, UF_REF_HI = 1.6f, UFS_SCOOP_REF = 8.0f, UFS_SCOOP_LO = 0.6f, UFS_SCOOP_HI = 1.6f, UFS_SCOOP_WAIT = 0.15f; constexpr int ALT_BM_SCOOPNORM = 0x54a;   /* (285) AltUnderFlickRef's clamp (x0.5..x1.6 of the base); AltShuvScoopSpeed: the scoop's speed for x1 (/s), its clamp, how long after the trick it is looked for (s); the game's one-shot flip / scoop normalise (exe+0xfddf40) */
+UfSmp g_uoRing[UF_SN]; volatile LONG g_uoRingN = 0, g_uoOn = 0, g_uoPad = -1, g_uoHr = -1, g_uoTold = -100;   /* (280) the 1 ms ring (its thread writes, the game thread reads), its count; started; its pad (-1 none); its timer (1 high-resolution, 0 Sleep(1), -1 not yet); the state last logged */
+UfSmp g_uoPose[UF_PN]; LONG g_uoPoseN = 0;   /* (280) the pose ring (the game thread: the physical sticks, one sample a pose) */
+void UfSampPoll();   /* (280) starts the sampler once and logs its state when it changes (defined after HJN_PadSticks) */
+void UfPosePush(double now, float l, float r) {   /* (280) one pose's sticks into the pose ring */
+    if (g_uoPoseN > 0 && g_uoPose[(g_uoPoseN - 1) % UF_PN].t >= now) return;
+    UfSmp& p = g_uoPose[g_uoPoseN % UF_PN];
+    p.t = now; p.x[0] = std::isfinite(l) ? fminf(fabsf(l), 1.0f) : 0.0f; p.x[1] = std::isfinite(r) ? fminf(fabsf(r), 1.0f) : 0.0f;
+    g_uoPoseN++;
+}
+UfFl UfFlick(const UfSmp* R, LONG cnt, int size, int st, double t0, double t1, bool newest) {   /* (280) one flick of stick st in t0..t1: newest = the latest throw past UF_FL_TAKE, else the highest */
+    UfFl f = {};
+    const LONG lo = (cnt > size - 64) ? cnt - (size - 64) : 0;
+    LONG ia = -1; float best = -1.0f;
+    for (LONG i = lo; i < cnt; i++) {
+        const UfSmp& q = R[i % size];
+        if (q.t < t0 || q.t > t1) continue;
+        if (newest ? (q.x[st] >= UF_FL_TAKE) : (q.x[st] > best)) { ia = i; best = q.x[st]; }
+    }
+    if (ia < 0 || best < UF_FL_LEAVE + 0.1f) return f;
+    LONG i0 = -1;
+    for (LONG i = ia; i > lo; i--) if (R[(i - 1) % size].x[st] < UF_FL_LEAVE) { i0 = i - 1; break; }
+    if (i0 < 0 || R[i0 % size].t < t0 - 0.5) return f;
+    LONG ip = i0 + 1, ie = i0 + 1;
+    for (LONG i = i0 + 1; i < cnt && R[i % size].t <= t1 && R[i % size].x[st] >= UF_FL_LEAVE; i++) { ie = i; if (R[i % size].x[st] > R[ip % size].x[st] + 0.004f) ip = i; }
+    f.peak = R[ip % size].x[st]; f.lvl = fminf(f.peak, UF_FL_REACH);
+    const UfSmp& a = R[i0 % size]; const UfSmp& b = R[(i0 + 1) % size];
+    const double tl = a.t + (b.t - a.t) * (double)((UF_FL_LEAVE - a.x[st]) / fmaxf(b.x[st] - a.x[st], 1e-4f));
+    LONG j = i0 + 1;
+    while (j < ip && R[j % size].x[st] < f.lvl) j++;
+    const UfSmp& c = R[(j - 1) % size]; const UfSmp& d = R[j % size];
+    const double tr = (d.x[st] > c.x[st]) ? c.t + (d.t - c.t) * (double)((f.lvl - c.x[st]) / (d.x[st] - c.x[st])) : d.t;
+    f.dt = (float)fmax(tr - tl, 0.0005); f.spd = (f.lvl - UF_FL_LEAVE) / f.dt; f.n = (int)(ie - i0 + 1);
+    f.ms = (ie > i0) ? (float)((R[ie % size].t - a.t) * 1000.0 / (double)(ie - i0)) : 0.0f;
+    f.ok = 1; f.t0 = tl;   /* (283) */
+    return f;
+}
+float UfRelRate(float rate2, float ratio) {   /* (280) THE CURVE: the turned rate x clamp(ratio, 0.35, 2.5), within 250..2000 deg/s (or the first's own); rate2 itself when not usable */
+    if (!std::isfinite(rate2) || !std::isfinite(ratio) || ratio <= 0.0f || fabsf(rate2) < 1.0f) return rate2;
+    const float a = fabsf(rate2), sp = a * clampf(ratio, UF_RATIO_LO, UF_RATIO_HI);
+    return copysignf(clampf(sp, fminf(UF_SPIN_LO, a), fmaxf(UF_SPIN_HI, a)), rate2);
+}
+// (285) THE REFERENCE FLICK AND THE SCOOP'S PACE. The user (28 Oct, build 284, AltUnderOwnSpeed=1): "they both seem like they're at a
+// fixed speed ... the underflip is crazy fast now". Build 284's log: the second flick over the first was 2.05-5.22 (a scoop is a slow
+// sweep, 2-10 /s; a late flick 6.5-42 /s; a kick / heel first flick 13-16 /s, its second 42 /s), so UfRelRate sat on its x2.5 cap nearly
+// every time (~1400 deg/s kick / heel, 2000 shuv-it): one speed whatever the flick.
+// AltUnderFlickRef (/s; 0 = off = build 284's ratio): the reversal = its base (the first flip's rate turned; the shuv-it underflip's 800)
+// x clamp(the second flick's OWN speed / the ref, UF_REF_LO, UF_REF_HI) -- 30: a 42 /s flick x1.4, 20 /s x0.67, 6.5 /s x0.5 -- the first
+// flick no longer divides it (UfRefApply; UfRelRate's 250..2000 deg/s still bound it). Its "own speed" line names the formula (UfRefLog).
+// AltShuvScoopSpeed (0/1): the alt shove-it's spin is the game's scoop channel (+0x780 rate, +0x788 target, +0x78c done; bit 0x20), its
+// rate set ONCE by the game: UpdateBoardTargetFlipAndScoop (exe+0xfddf40) re-derives it only in its one-shot normalise (+0x54a, cleared
+// after), then only a friction runs on it -- 444-510 deg/s in 284's log whatever the scoop (2.0-9.6 /s). Once a trick, from the first pose
+// the scoop runs with that normalise done, its rate x clamp(the scoop's own speed / UFS_SCOOP_REF, UFS_SCOOP_LO, UFS_SCOOP_HI), the scoop
+// timed off the underflips' rings (UfOwnRead's first flick: the stick with the higher sideways peak from 0.5 s before the trick), so it
+// needs AltUnderOwnSpeed=1 (the sampler and the pose ring run with it). The target is not touched: the same 180 / 360, sooner or later
+// (a friction-stopped short spin goes further when faster); UfsSpinStart then reads the paced rate as the scoop's own. Not found within
+// UFS_SCOOP_WAIT of the trick's start: the game's rate, said so ("shuv-it scoop speed" lines).
+void UfRefApply(AltTrick& T) {   /* (285) AltUnderFlickRef (its callers gate it): the reversal from the second flick's own speed (the note above) */
+    const float ref = g_altUnderFlickRef, base = T.uOsRate0, s2 = T.uF2sp;
+    if (!(ref > 0.0f)) return;
+    T.uRef = ref; T.uRefK = NAN;
+    if (!std::isfinite(base) || !std::isfinite(s2) || s2 <= 0.0f) { T.uRate2 = base; return; }
+    T.uRefK = clampf(s2 / ref, UF_REF_LO, UF_REF_HI);
+    T.uRate2 = UfRelRate(base, T.uRefK);
+}
+void UfRefLog(const AltTrick& T, const char* src) {   /* (285) the "own speed" line when AltUnderFlickRef ran (kinds 8 and 9) */
+    const bool sh = T.kind == 9;
+    if (std::isfinite(T.uRefK)) Log("alt flips: %sunderflip #%ld own speed (%s): the formula AltUnderFlickRef=%.0f/s: the second flick (%s, %s stick) %.3f s from 0.2 to %.2f, peak %.2f = %.1f/s (%d samples, %.1f ms apart) -> x clamp(%.1f / %.0f, %.2f, %.2f) = x%.2f of %s %+.0f deg/s -> spin %+.0f deg/s (the first flick %.1f/s, the ratio %.2f NOT used; AltUnderOwnSpeed=1)",
+        sh ? "shuv-it " : "", (long)T.n, src, T.uRef, sh ? "the late flick" : "the 2nd side flick", T.uF2st ? "right" : "left", T.uF2dt, T.uF2lv, T.uF2pk, T.uF2sp, T.uSn, T.uSms,
+        T.uF2sp, T.uRef, UF_REF_LO, UF_REF_HI, T.uRefK, sh ? "the shuv-it underflip's fixed" : "the first flip's turned", T.uOsRate0, T.uRate2, T.uF1sp, T.uRatio);
+    else Log("alt flips: %sunderflip #%ld own speed: the formula AltUnderFlickRef=%.0f/s: the second flick NOT measured (the 1 ms ring %s; the poses %s) -> spin %+.0f deg/s UNCHANGED: %s (AltUnderOwnSpeed=1)",
+        sh ? "shuv-it " : "", (long)T.n, T.uRef, (T.uSrcMiss & 1) ? "did not hold it / no pad" : "not tried", (T.uSrcMiss & 2) ? "did not hold it" : "not tried", T.uRate2, sh ? "the fixed rate" : "build 278's mirror");
+}
+UfFl UfsScoopFlick(double tStart, double now, int* st, int* src) {   /* (285) the scoop's flick, as UfOwnRead's first: the 1 ms ring, else the poses */
+    UfFl f = {}; *st = 0; *src = 0;
+    for (int s = 1; s <= 2 && !f.ok; s++) {
+        const UfSmp* R = (s == 1) ? g_uoRing : g_uoPose; const LONG cnt = (s == 1) ? g_uoRingN : g_uoPoseN; const int size = (s == 1) ? UF_SN : UF_PN;
+        if (cnt < 4 || (s == 1 && (g_uoPad < 0 || R[(cnt - 1) % size].t < now - 0.05))) continue;
+        const double t1 = (s == 1) ? NowS() : now + 0.001;
+        const UfFl fa = UfFlick(R, cnt, size, 0, tStart - 0.5, t1, false), fb = UfFlick(R, cnt, size, 1, tStart - 0.5, t1, false);
+        const bool useB = fb.ok && (!fa.ok || fb.peak > fa.peak + 0.05f);
+        if (useB || fa.ok) { f = useB ? fb : fa; *st = useB ? 1 : 0; *src = s; }
+    }
+    return f;
+}
+void UfsScoopPace(AltTrick& T, uint8_t* bm, double now) {   /* (285) AltShuvScoopSpeed (its caller gates it), once a trick: the alt shove-it's scoop rate x the scoop's own speed (the note at UfRefApply) */
+    if (T.uDone && !T.uWhy) { T.ssSt = 2; Log("alt flips: #%ld shuv-it scoop speed: NOT paced -- the shuv-it underflip took the spin first (AltShuvScoopSpeed=1)", (long)T.n); return; }
+    const float r = ReadF(bm, ALT_BM_SCOOPRATE), tg = ReadF(bm, ALT_BM_SCOOPTGT), d = ReadF(bm, ALT_BM_SCOOPDONE);
+    const bool run = (bm[ALT_BM_FLAGS] & 0x20) != 0, norm = bm[ALT_BM_SCOOPNORM] != 0;
+    const bool ready = run && !norm && std::isfinite(r) && fabsf(r) >= 1.0f && std::isfinite(tg) && std::isfinite(d) && fabsf(d) < fabsf(tg);
+    UfFl f = {}; int st = 0, src = 0;
+    if (ready) f = UfsScoopFlick(T.tStart, now, &st, &src);
+    if (ready && f.ok && f.spd > 0.0f) {
+        T.ssSpd = f.spd; T.ssStick = st; T.ssSrc = src; T.ssK = clampf(f.spd / UFS_SCOOP_REF, UFS_SCOOP_LO, UFS_SCOOP_HI); T.ssR0 = r; T.ssR1 = r * T.ssK; T.ssSt = 1;
+        *(float*)(bm + ALT_BM_SCOOPRATE) = T.ssR1;
+        Log("alt flips: #%ld shuv-it scoop speed (%s): the scoop (%s stick) %.3f s from 0.2 to %.2f, peak %.2f = %.1f/s -> x clamp(%.1f / %.0f, %.2f, %.2f) = x%.2f of the game's scoop rate %+.0f deg/s -> %+.0f deg/s, %.2f s after the trick began (its target %+.0f kept, %.0f deg done; AltShuvScoopSpeed=1)",
+            (long)T.n, (src == 1) ? "XInput, 1 ms" : "pose-rate", st ? "right" : "left", f.dt, f.lvl, f.peak, f.spd, f.spd, UFS_SCOOP_REF, UFS_SCOOP_LO, UFS_SCOOP_HI, T.ssK, r, T.ssR1, now - T.tStart, tg, d);
+        return;
+    }
+    if (now - T.tStart <= UFS_SCOOP_WAIT) return;
+    T.ssSt = 2;
+    Log("alt flips: #%ld shuv-it scoop speed: NOT paced %.2f s after the trick began -- %s -> the game's own rate %+.0f deg/s (AltShuvScoopSpeed=1)", (long)T.n, now - T.tStart,
+        !run ? "the game's scoop not running (over, or never begun)" : norm ? "the game's normalise still pending" : !ready ? "the scoop's rate / target unreadable or already done"
+        : (g_altUnderOwnSpeed == 0) ? "the scoop not timed: the sampler runs with AltUnderOwnSpeed=1" : "the scoop's flick not found in the 1 ms ring or the poses", std::isfinite(r) ? r : 0.0f);
+}
+void UfOwnRead(AltTrick& T, bool bl, double now) {   /* (280) at the take: both flicks timed the same way (the note at UfFlick) */
+    T.uOs = -1; T.uSrc = 0; T.uSrcMiss = 0; T.uRatio = NAN;
+    T.uF2st = ((T.uStick == 1) == bl) ? 1 : 0;   /* the physical stick: the front is the right one when the back is the left */
+    for (int src = 1; src <= 2 && T.uOs != 1; src++) {
+        const UfSmp* R = (src == 1) ? g_uoRing : g_uoPose; const LONG cnt = (src == 1) ? g_uoRingN : g_uoPoseN; const int size = (src == 1) ? UF_SN : UF_PN;
+        if (cnt < 4 || (src == 1 && (g_uoPad < 0 || R[(cnt - 1) % size].t < now - 0.05))) { T.uSrcMiss |= src; continue; }
+        const double t1 = (src == 1) ? NowS() : now + 0.001;
+        const UfFl f2 = UfFlick(R, cnt, size, T.uF2st, now - 0.4, t1, true);
+        const double t1a = (T.kind == 9 && f2.ok) ? fmin(T.tStart + 0.1, f2.t0 - 0.005) : T.tStart + 0.1;   /* (283) a shuv-it underflip's late flick can come 0.08 s into the air: its scoop is looked for before it (the note at UfsOwnSpeed); kind 8 unchanged */
+        const UfFl fa = UfFlick(R, cnt, size, 0, T.tStart - 0.5, t1a, false), fb = UfFlick(R, cnt, size, 1, T.tStart - 0.5, t1a, false);
+        const bool useB = fb.ok && (!fa.ok || fb.peak > fa.peak + 0.05f);
+        const UfFl& f1 = useB ? fb : fa;
+        T.uF1st = useB ? 1 : 0;
+        T.uF1dt = f1.dt; T.uF1pk = f1.peak; T.uF1lv = f1.lvl; T.uF1sp = f1.spd; T.uF2dt = f2.dt; T.uF2pk = f2.peak; T.uF2lv = f2.lvl; T.uF2sp = f2.spd; T.uSms = f2.ms; T.uSn = f2.n;
+        if (f1.ok && f2.ok && f1.spd > 0.0f) { T.uOs = 1; T.uSrc = src; T.uRatio = f2.spd / f1.spd; }
+        else { T.uSrc = -src; T.uSrcMiss |= src; }
+    }
+}
+// (283) THE SHUV-IT UNDERFLIP'S OWN SPEED. The user (27 Oct, build 282, AltUnderOwnSpeed=1): "I feel like the underflip from the
+// shuvit is still at a fixed speed." It was: kind 9's whole flip from underneath (target 360 from flat) always ran at UfsGameRoll's
+// ALT_UNDER_SHUV_RATE (800 deg/s; build 282's log: "target +360 at -800 deg/s" / "+800" every time), and UfOwnRead ran for kind 8 only.
+// With AltUnderOwnSpeed on it is timed like the kick / heel one (the note at UfFlick), off the same 1 ms ring (or the pose ring): the
+// FIRST flick = the shove-it's scoop -- the pop stick swept round from the alt crouch's up to the side, its sideways |x| rising 0 -> 1,
+// the axis the rings hold; the stick with the higher sideways peak from 0.5 s before the trick to 0.1 s after, cut short of the late
+// flick (which can begin 0.08 s into the air, inside that window); the SECOND = the late side flick. spin = 800 x clamp(speed2 / speed1,
+// 0.35, 2.5) (UfRelRate: 280..2000 deg/s), the roll's way (UfsGameRoll's sign) kept. THE BASE is the underflip's own 800, not the
+// shove-it's spin: the scoop turns the board about its up axis (the scoop channel, held to its 180 / 360 by UfsSpinHold) and the
+// underflip is a fresh roll from flat -- nothing of the scoop's is turned back -- so the same flick speed as the scoop = build 282's
+// spin. The half scoop's pacing (UfsSyncRate), the foot's ride (UfFollow) and the strike read the rate written, so they follow it.
+// Neither ring holds both flicks: the fixed 800, said so ("NOT measured").
+void UfsOwnSpeed(AltTrick& T) {   /* (283) AltUnderOwnSpeed: the shuv-it underflip's spin from its two flicks (the note above); its caller gates it on the key */
+    T.uOsRate0 = T.uRate2;   /* the fixed rate (UfsGameRoll) */
+    if (T.uOs == 1) T.uRate2 = UfRelRate(T.uRate2, T.uRatio);   /* (283) relative to the scoop (the note at UfsOwnSpeed) */
+    if (g_altUnderFlickRef > 0.0f) UfRefApply(T);   /* (285) AltUnderFlickRef: the late flick's own speed over the ref instead (the note at UfRefApply) */
+    const char* src = (T.uSrc == 1) ? "XInput, 1 ms" : (T.uSrcMiss & 1) ? "pose-rate: the 1 ms ring did not hold both flicks" : "pose-rate: no XInput pad read";
+    if (T.uRef > 0.0f) UfRefLog(T, src);   /* (285) AltUnderFlickRef's line (the note at UfRefApply) */
+    else if (T.uOs == 1) Log("alt flips: shuv-it underflip #%ld own speed (%s): first flick = the scoop (%s stick) %.3f s from 0.2 to %.2f, peak %.2f = %.1f/s; second flick = the late flick (%s stick) %.3f s from 0.2 to %.2f, peak %.2f = %.1f/s (%d samples, %.1f ms apart) -> ratio %.2f -> x%.2f of the shuv-it underflip's fixed %+.0f deg/s -> spin %+.0f deg/s (the curve: x clamp(ratio, %.2f, %.2f), %.0f..%.0f deg/s; AltUnderOwnSpeed=1)",
+        (long)T.n, src, T.uF1st ? "right" : "left", T.uF1dt, T.uF1lv, T.uF1pk, T.uF1sp, T.uF2st ? "right" : "left", T.uF2dt, T.uF2lv, T.uF2pk, T.uF2sp, T.uSn, T.uSms, T.uRatio,
+        (fabsf(T.uOsRate0) > 0.5f) ? fabsf(T.uRate2 / T.uOsRate0) : 1.0f, T.uOsRate0, T.uRate2, UF_RATIO_LO, UF_RATIO_HI, UF_SPIN_LO, UF_SPIN_HI);
+    else Log("alt flips: shuv-it underflip #%ld own speed: NOT measured (the 1 ms ring %s; the poses %s; the last tried: the scoop %s, the late flick %s) -> spin %+.0f deg/s UNCHANGED: the fixed rate (AltUnderOwnSpeed=1)",
+        (long)T.n, (T.uSrcMiss & 1) ? "did not hold both flicks / no pad" : "not tried", (T.uSrcMiss & 2) ? "did not hold both flicks" : "not tried", (T.uF1dt > 0.0f) ? "found" : "NOT found", (T.uF2dt > 0.0f) ? "found" : "NOT found", T.uRate2);
+}
 void UfsSpinHold(AltTrick& T, uint8_t* bm, double now) {   /* every air pose from the flick while its scoop runs */
     if (!(bm[ALT_BM_FLAGS] & 0x20)) { T.usOn = false; return; }   /* over (the game's end or ours) */
     const float d = ReadF(bm, ALT_BM_SCOOPDONE), r = ReadF(bm, ALT_BM_SCOOPRATE), tg = ReadF(bm, ALT_BM_SCOOPTGT);
@@ -20344,12 +20576,25 @@ void UfsSpinHold(AltTrick& T, uint8_t* bm, double now) {   /* every air pose fro
 void AltUnder(AltT& A, uint8_t* bm, uint8_t* fth, double now) {   // every pose of its air: the flick (read by the stick block, earlier this pose) applied once
     AltTrick& T = A.t;
     if (T.kind == 9 && T.uDone && !T.uWhy && T.usOn) UfsSpinHold(T, bm, now);   /* (255) the shove's spin held to its definition (the note at UfsSpinStart) */
+    if (g_altShuvScoopSpeed != 0 && T.kind == 9 && T.ssSt == 0) UfsScoopPace(T, bm, now);   /* (285) AltShuvScoopSpeed: the shove's spin rate x the scoop's own speed, once (the note at UfRefApply) */
     if (T.uDone || !T.uSide) return;
     T.uDone = true; T.uT = now;
     T.uCur = ReadF(bm, ALT_BM_FLIPCUR); T.uTgt = ReadF(bm, ALT_BM_FLIPTGT); T.uRate = ReadF(bm, ALT_BM_FLIPRATE);
     if (T.kind == 8) {
         if (!(bm[ALT_BM_FLAGS] & 0x08) || !AltUnderMirror(T.uCur, T.uTgt, T.uRate, &T.uCur2, &T.uRate2)) { T.uWhy = 1; return; }
         T.uTgt2 = T.uTgt;   /* (252) the RATE turned (the roll's way), the target kept */
+        if (g_altUnderOwnSpeed != 0 && T.uOs != 0) {   /* (280) AltUnderOwnSpeed: the second flick's speed relative to the first's (the note at UfFlick) */
+            T.uOsRate0 = T.uRate2;   /* (280) the first flip's rate turned (build 278's mirror) */
+            if (T.uOs == 1) T.uRate2 = UfRelRate(T.uRate2, T.uRatio);   /* (280) relative to the first flick (the note at UfFlick) */
+            if (g_altUnderFlickRef > 0.0f) UfRefApply(T);   /* (285) AltUnderFlickRef: the second flick's own speed over the ref instead (the note at UfRefApply) */
+            const char* src = (T.uSrc == 1) ? "XInput, 1 ms" : (T.uSrcMiss & 1) ? "pose-rate: the 1 ms ring did not hold both flicks" : "pose-rate: no XInput pad read";
+            if (T.uRef > 0.0f) UfRefLog(T, src);   /* (285) AltUnderFlickRef's line (the note at UfRefApply) */
+            else if (T.uOs == 1) Log("alt flips: underflip #%ld own speed (%s): first flick (%s stick) %.3f s from 0.2 to %.2f, peak %.2f = %.1f/s; second flick (%s stick) %.3f s from 0.2 to %.2f, peak %.2f = %.1f/s (%d samples, %.1f ms apart) -> ratio %.2f -> x%.2f of the first flip's turned %+.0f deg/s -> spin %+.0f deg/s (the curve: x clamp(ratio, %.2f, %.2f), %.0f..%.0f deg/s; AltUnderOwnSpeed=1)",
+                (long)T.n, src, T.uF1st ? "right" : "left", T.uF1dt, T.uF1lv, T.uF1pk, T.uF1sp, T.uF2st ? "right" : "left", T.uF2dt, T.uF2lv, T.uF2pk, T.uF2sp, T.uSn, T.uSms, T.uRatio,
+                (fabsf(T.uOsRate0) > 0.5f) ? fabsf(T.uRate2 / T.uOsRate0) : 1.0f, T.uOsRate0, T.uRate2, UF_RATIO_LO, UF_RATIO_HI, UF_SPIN_LO, UF_SPIN_HI);
+            else Log("alt flips: underflip #%ld own speed: NOT measured (the 1 ms ring %s; the poses %s; the last tried: first flick %s, second flick %s) -> spin %+.0f deg/s UNCHANGED: build 278's mirror (AltUnderOwnSpeed=1)",
+                (long)T.n, (T.uSrcMiss & 1) ? "did not hold both flicks / no pad" : "not tried", (T.uSrcMiss & 2) ? "did not hold both flicks" : "not tried", (T.uF1dt > 0.0f) ? "found" : "NOT found", (T.uF2dt > 0.0f) ? "found" : "NOT found", T.uRate2);
+        }
         *(float*)(bm + ALT_BM_FLIPCUR) = T.uCur2; *(float*)(bm + ALT_BM_FLIPRATE) = T.uRate2;
     }
     else {
@@ -20358,6 +20603,7 @@ void AltUnder(AltT& A, uint8_t* bm, uint8_t* fth, double now) {   // every pose 
         T.usFlip = UfsPairFlip((g_altUnderShuvShove != 0) ? T.usShove : 0, T.ufLead, T.usPair, T.uSide, T.uHeel); T.usWant = UfsRuleWant(T.usFlip, T.uHeel, T.usPair);   /* (262) the one rule (the note at UfsRuleFlip) */
         if (T.usWant != 0 && T.uSide != T.usWant) { T.uWhy = 3; return; }   /* (256) the flick the other way: not this shuv-it's underflip, the game's own goes on */
         T.uCur2 = 0.0f; T.uTgt2 = 360.0f; T.uRate2 = UfsGameRoll(T.usFlip, T.usGoofy);   /* (262) the game's own sign for that flip and rider (the note at UfsRuleFlip) */   /* (256) the pairing (UfsPairWant) */   /* (255) by the shove (the note at UfsSpinStart) */   /* (252) its way by the rate */
+        if (g_altUnderOwnSpeed != 0 && T.uOs != 0) UfsOwnSpeed(T);   /* (283) AltUnderOwnSpeed: the shuv-it underflip's whole flip at its fixed rate x the late flick's speed over the scoop's (the note at UfsOwnSpeed) */
         *(float*)(bm + ALT_BM_FLIPRATE) = T.uRate2; *(float*)(bm + ALT_BM_FLIPTGT) = T.uTgt2; *(float*)(bm + ALT_BM_FLIPCUR) = 0.0f;
         _InterlockedAnd8((char*)(bm + ALT_BM_FLAGS), (char)0xf9); _InterlockedOr8((char*)(bm + ALT_BM_FLAGS), 0x08);   /* FlipBoard's own bits: flipping on, catching off */
         if (g_altUnderShuvShove != 0) UfsSpinStart(T, bm);   /* (255) the shove's spin held to its definition */
@@ -20661,6 +20907,51 @@ const char* HospStance(const char* nm) {           /* the stance's prefix from t
    2.5 s after the landing or 6 s after the flick at the most. With TrickNames 0 nothing is renamed. */
 struct HospNm { int on; LONG n; uintptr_t def; uint64_t defName; double t0, tLand; bool idxSeen; int evSlot; };   /* on: 0 off, 1 in its turn / air, 2 landed (its line still to be shown) */
 HospNm g_hospNm = {};
+// (grindfix5, build 286) ALTDOUBLEVARIALNAME. The user on 285: "the nightmare flip calls itself a double varial flip, which I'm guessing the
+// game must have had programmed in there, because I see that from time to time as well ... just stifle that from ever popping up and always
+// show nightmare flip." The game writes "Double" from the pending line's flip (the event's +0x10: ~720 = Double); the alt nightmare's own line
+// is halved by AltEventFix (n.log: "display: Double -> fixed"), the game's OWN double varial flip / heel never was. AltDoubleVarialName
+// (HJN_Set("altdoublevarialname", 0/1); 0 = nothing here runs: DvnPoll is called only with the key on and DvnLive answers false): every pose
+// (AltTick, the alt set on) a pending line of one of the 8 varial flip / heel definitions (RGS/SWS/NLS/FKS) with its flip at 700..1000 (a
+// double) is halved (no "Double"), not an alt trick's own while it runs (AltEventFix's), and HJN_Alt("state") says kind 13 with that
+// definition until its line has been shown (HospNamePoll's way, 8 s at most): the Lua writes NATIVE.ALT_NAMES' texts on it ("[Switch |Nollie
+// |Fakie ]Nightmare Flip" / "... Daydream Flip" and their body varial texts) as for an alt one. 'alt flips: double varial' lines.
+struct DvnT { int on, kind, evSlot; bool idxSeen; uintptr_t def; uint64_t defName; double t0; float was; };
+DvnT g_dvn = {}; volatile LONG g_altDvn = 0; LONG g_dvnSaid = 0;
+bool DvnLive(double now) { return g_altDvn != 0 && g_dvn.on != 0 && g_dvn.def != 0 && now - g_dvn.t0 <= 8.0; }
+void DvnPoll(const AltT& A, const uint8_t* pc, double now) {
+    DvnT& D = g_dvn;
+    if (!pc || !PtrOk(pc, ALT_PC_WIDGET + 8)) return;
+    if (D.on) {   /* its line looked for on the trick display: the names go back once it has been shown */
+        int idx = -1;
+        const int i = AltEventFind(pc, D.defName, nullptr, &idx);
+        if (i >= 0 && D.evSlot < 0) D.evSlot = i;
+        if (idx >= 0) D.idxSeen = true;
+        if (!DvnLive(now) || (D.idxSeen && (idx < 0 || (D.evSlot >= 0 && idx > D.evSlot)))) D.on = 0;
+    }
+    for (int s = 4; s < 12; s++) {
+        const uintptr_t d = g_altDef[s];
+        if (!d || !PtrOk((const void*)d, ALT_FTD_NAME + 8)) continue;
+        if (A.t.phase != 0 && A.t.def == d) continue;   /* an alt nightmare / daydream running: AltEventFix's line */
+        uint64_t nm = 0; memcpy(&nm, (const void*)(d + ALT_FTD_NAME), 8);
+        uint8_t* ev = nullptr; int idx = -1;
+        const int i = AltEventFind(pc, nm, &ev, &idx);
+        if (i < 0 || !ev) continue;
+        float* r = (float*)(ev + ALT_TDW_EV_ROLL);
+        const float was = *r, a = fabsf(was);
+        if (!(a >= 700.0f && a < 1000.0f)) continue;
+        *r = copysignf(a * 0.5f, was);
+        if (!D.on || D.def != d) { D = DvnT{}; D.on = 1; D.kind = (s < 8) ? 2 : 4; D.evSlot = i; D.def = d; D.defName = nm; D.t0 = now; D.was = was; }
+        if (InterlockedIncrement(&g_dvnSaid) <= 200)
+            Log("alt flips: double varial: the game's pending line of definition slot %d (a varial %s) read a flip of %.0f (\"Double\") -> %.0f; named the %s until its line is shown (AltDoubleVarialName=1)",
+                s, s < 8 ? "flip" : "heel", was, *r, s < 8 ? "Nightmare Flip" : "Daydream Flip");
+    }
+}
+void DvnSet(double v) {   /* HJN_Set("altdoublevarialname") */
+    const LONG o = (v >= 0.5) ? 1 : 0;
+    if (InterlockedExchange(&g_altDvn, o) != o) Log("alt flips: a double varial flip / heel shown as the Nightmare / Daydream Flip %s (AltDoubleVarialName=%ld)", o ? "ON" : "off", (long)o);
+    if (!o) g_dvn.on = 0;
+}
 bool HospNameLive(double now) { const HospNm& M = g_hospNm; return M.on != 0 && M.def != 0 && now - M.t0 <= 6.0 && (M.on != 2 || now - M.tLand <= 2.5); }
 void HospNamePoll(const uint8_t* pc, double now) {   /* every pose of the watch: a landed one's line looked for on the trick display (AltPending's way) */
     HospNm& M = g_hospNm;
@@ -21175,6 +21466,29 @@ void HospWatch(uint8_t* pc, uint8_t* sk, const uint8_t* anim, uint8_t* bm, const
     }
     H.bits = bits;
 }
+void AgTake(AltT& A, const uint8_t* sk, uint8_t* bm, uintptr_t trick, int det, double now) {   /* (grindalt3 283) the flip-out of an alt crouch's grind taken as a ground alt pop (the note at AgArmStep) */
+    const int set = AgArmSet(now);
+    if (set < 0) return;
+    A.takeSet = set; A.takePulled = AltPulledIn(A, set);
+    const bool pulled = A.takePulled;
+    AltIn& s = (set == 1) ? A.sn : A.s;
+    if (s.in == 0) { if (g_agArmT0 > 0.0) s.tEng = g_agArmT0; s.tRel = 0.0; s.relPoses = 0; s.swHeld = false; s.swMost = 0.0f; }   /* as AltInTaken does to a crouch let go, no sweep of an older crouch read (a carried one is left to its machine) */
+    const double armed = (g_agArmT0 > 0.0) ? now - g_agArmT0 : 0.0;
+    g_agArm = -1; g_agClaim = trick;
+    g_agTaking = trick; AltTake(A, sk, bm, trick, det, now); g_agTaking = 0;   /* (grindfix5 286) the note at AltDolAgFit */
+    char nm[100]; AltDefName(trick, nm, sizeof(nm));
+    const int k = A.t.kind;
+    const char* kn = k == 1 ? (A.t.dol ? "a DOLPHIN FLIP" : "a MONSTER FLIP") : k == 2 ? "a NIGHTMARE FLIP" : k == 4 ? "a DAYDREAM FLIP" : k == 6 ? "a DOLPHIN FLIP (the game's own varial flip)"
+                   : k == 8 ? "the KICKFLIP UNDERFLIP (the game's flip until the second flick)" : k == 9 ? "the SHUV-IT UNDERFLIP (the game's until the second flick)" : "left as the game's own (that alt trick is off)";
+    static LONG n = 0;
+    if (InterlockedIncrement(&n) <= 300)
+        Log("altgrind: the flip-out \"%s\" CLAIMED by the alt set as kind %d: %s -- the alt %scrouch armed in the grind %.2f s, its %s stick's flick %s; the start seen by %s",
+            nm, k, kn, set ? "NOLLIE " : "", armed, set ? "back" : "front", pulled ? "handed over turned (the ground's other-way flick)" : "as it is (the game's own way)", det == 1 ? "its pop pending" : "its definition");
+    if (g_agInGrind && InterlockedIncrement(&g_agg.flicks) <= 300)   /* (grindalt4 285) the note at AgInGrind */
+        Log("altgrind: in-grind flip-out: the %s stick's flick %s, physical (%+.2f, %+.2f), handed to the game (%+.2f, %+.2f) | the game's definition \"%s\" | claimed as kind %d: %s%s",
+            set ? "back" : "front", g_agg.flk == 1 ? (set ? "UP (the alt way: handed over as DOWN, the pull)" : "DOWN (the alt way: handed over as UP, the pull)") : g_agg.flk == 2 ? (set ? "DOWN (the game's own way, raw)" : "UP (the game's own way, raw)") : g_agg.flk == 3 ? "to the side (raw)" : "not read (under half its throw)",
+            g_agg.px, g_agg.py, g_agg.hx, g_agg.hy, nm, k, kn, A.t.por ? " (a PORPOISE)" : "");
+}
 void AltTick(void* mesh) {
     AltT& A = g_alt; AltTrick& T = A.t;
     if (g_altForgetAsk && g_altLow.on) AltLowBackNow();   // (v134) a new skater, mesh or map: put back while the skater is still the one it was written on (else only forgotten)
@@ -21201,6 +21515,7 @@ void AltTick(void* mesh) {
     if (!g_altCfg.on && T.phase == 0 && A.s.in == 0 && A.sn.in == 0) { A.lastOk = false; return; }   /* (246) the nollie set's crouch ends by its machine first */   // off: nothing read at all
     uint8_t* fth = LateHandler();                  // the controller, its flip tricks handler and our skater all name each other
     uint8_t* pc = (uint8_t*)g_pc; uint8_t* sk = (uint8_t*)g_skater;
+    if (g_altDvn) DvnPoll(A, pc, now);   /* (grindfix5 286) AltDoubleVarialName (the note at DvnPoll) */
     uint8_t* ih = nullptr; uint8_t* mc = nullptr; uint8_t* board = nullptr; uint8_t* bm = nullptr;
     const uint8_t* anim = (const uint8_t*)g_anim;
     bool ok = fth && PtrOk(fth, 0x70) && pc && PtrOk(pc, 0x7c8) && sk && PtrOk(sk, 0xa40);
@@ -21237,8 +21552,9 @@ void AltTick(void* mesh) {
     }
     else A.stale = 0;
     const float mag = sqrtf(bx * bx + by * by);
+    if (g_altStall) { const float* fq = (const float*)(pc + ALT_PC_STICKS) + (backLeft ? 2 : 0); float fx0 = fq[0], fy0 = fq[1]; if (A.fwrote && fq == A.fwp && fx0 == A.fwx && fy0 == A.fwy) { fx0 = A.fpx; fy0 = A.fpy; } AsStick(bx, by, fx0, fy0, A.downSign, g_altCfg.engage, g_altCfg.release, now); }   /* (stall2 277) the physical sticks for the alt stall's exit */
     // the buffer's "down" from the game's own crouches (the physical back stick deflected while the game cranks; not ours)
-    if (A.s.in == 0 && A.sn.in == 0 && !AltInWindow(A.sn, now) && anim[ALT_AI_CRANKING] && mag > 0.6f && fabsf(by) > 0.5f && fabsf(bx) < fabsf(by)) {
+    if (!g_agMirOn && A.s.in == 0 && A.sn.in == 0 && !AltInWindow(A.sn, now) && anim[ALT_AI_CRANKING] && mag > 0.6f && fabsf(by) > 0.5f && fabsf(bx) < fabsf(by)) {   /* (grindmirror 282) not while AltGrinds' mirror is on */
         if (by * A.downSign > 0.0f) { if (A.signYes < 1000) A.signYes++; } else if (A.signNo < 1000) A.signNo++;
         if (A.signNo >= 20 && A.signYes < 5) {
             A.downSign = -A.downSign; A.signYes = A.signNo; A.signNo = 0;
@@ -21306,6 +21622,10 @@ void AltTick(void* mesh) {
         }
         A.nvLast = pend;
     }
+    if (g_altUnderOwnSpeed != 0) {   /* (280) AltUnderOwnSpeed: the flick sampler, and the pose ring before the take (the first flick; the note at UfFlick) */
+        UfSampPoll();
+        if (T.phase != 2) { const float* fq = (const float*)(pc + ALT_PC_STICKS) + (backLeft ? 2 : 0); float fx0 = fq[0]; if (A.fwrote && fq == A.fwp && fx0 == A.fwx && fq[1] == A.fwy) fx0 = A.fpx; UfPosePush(now, backLeft ? bx : fx0, backLeft ? fx0 : bx); }
+    }
     // 1. a trick's start (before anything that needs the skater on the ground)
     const bool popPend = (sk[ALT_SK_FLAGS] & 0x04) != 0;
     const float clock = ReadF(mc, ALT_SMC_TCLOCK);
@@ -21319,6 +21639,7 @@ void AltTick(void* mesh) {
     A.lastPop = popPend; A.lastClock = clock; A.lastTrick = trick; A.lastOk = true;
     if (det && trick && PtrOk((const void*)trick, 0x2d0) && modeOk && g_altCfg.on && winOpen && AltInWindow(A.s, now)) { A.takeSet = 0; A.takePulled = A.fr.dol || A.fr.on; AltInTaken(A.s); AltTake(A, sk, bm, trick, det, now); }
     else if (det && trick && PtrOk((const void*)trick, 0x2d0) && modeOk && g_altCfg.on && winOpen && AltInWindow(A.sn, now)) { A.takeSet = 1; A.takePulled = A.frn.dol || A.frn.on; AltInTaken(A.sn); AltTake(A, sk, bm, trick, det, now); }   /* (246) the nollie set's */
+    else if (g_agFlipOut && (det == 1 || det == 3) && trick && PtrOk((const void*)trick, 0x2d0) && modeOk && g_altCfg.on && winOpen && AgArmSet(now) >= 0) AgTake(A, sk, bm, trick, det, now);   /* (grindalt3 283) AltGrindFlipOut: the alt crouch's grind's flip-out taken as an alt pop (the note at AgArmStep) */
     // (alt2) B2: THE MONSTER'S CATCH IN MANUAL -- either PHYSICAL stick crossing the game's catch-orient dead zone, once it has been
     // inside it since the take-off (a stick held through the pop is no catch until it comes back), not a spring-back past the
     // centre within 0.06 s of its fall; read before anything below writes the buffer (the masks), one sample a frame
@@ -21343,10 +21664,12 @@ void AltTick(void* mesh) {
         if (!std::isfinite(ux) || !std::isfinite(uy)) { ux = 0.0f; uy = 0.0f; }
         const bool open = AltUnderOpen(T, bm, now);
         if (fabsf(ux) < 0.3f) T.uArmF = true;
+        if (g_altUnderOwnSpeed != 0) UfPosePush(now, backLeft ? bx : ux, backLeft ? ux : bx);   /* (280) AltUnderOwnSpeed: the pose ring (the note at UfFlick) */
         if (fabsf(bx) < 0.3f) T.uArmB = true;
         const int sF = AltUnderSide(ux, uy), sB = AltUnderSide(bx, by);
         if (open && !T.uSide && ((sF && T.uArmF) || (sB && T.uArmB))) {
             T.uStick = (sF && T.uArmF) ? 1 : 2; T.uSide = (T.uStick == 1) ? sF : sB; T.uMag = (T.uStick == 1) ? fabsf(ux) : fabsf(bx); T.uHold = true;
+            if (g_altUnderOwnSpeed != 0 && (T.kind == 8 || T.kind == 9)) UfOwnRead(T, backLeft, now);   /* (280) AltUnderOwnSpeed: both flicks timed (the note at UfFlick) */   /* (283) the shuv-it underflip's too (the note at UfsOwnSpeed) */
             T.uHeel = AltPorHeelX(A.takeSet == 1 ? 1 : 0, mode, sw, goofy);   /* (252) the x toward the heelflip's flick (the toes' and heels' sides are one for both feet) */
             T.usGoofy = goofy ? 1 : 0; T.usMode = mode; T.usSw = sw ? 1 : 0;   /* (262) the table's rider, stick mode and switch (the note at UfsRuleFlip) */
             if (CasAutoHold(T) && g_cas.st == 1) CasAutoUnder(A, pc, sk, bm, now);   /* (271) the underflip from the auto casper (the note at CasAutoFor) */
@@ -21367,7 +21690,7 @@ void AltTick(void* mesh) {
     f.now = now; f.bx = bx; f.by = by; f.downSign = A.downSign; f.engage = g_altCfg.engage; f.release = g_altCfg.release;
     const bool nBusy = A.sn.in != 0 || AltInWindow(A.sn, now) || (T.phase == 2 && A.takeSet == 1);   /* (246) the nollie set's crouch, its window or its trick: the ollie set waits */
     f.active = g_altCfg.on && winOpen && modeOk && !g_bail && !g_offBoard && !nBusy;
-    f.riding = rideWhy == nullptr;
+    f.riding = rideWhy == nullptr || AltStallRide();   /* (stall2 277) a waiting alt stall rides: its crouch may come (AltStallRide) */
     if (f.riding && mc[ALT_SMC_CUSTOM] == 4 && !g_altLimboTold) {   // (249) the spawn's limbo ridden (the note at AltRideMode): said once a run
         g_altLimboTold = true;
         AltNews("info", "the game rides in its custom movement mode 4 (ToSkateboarding: after a spawn it stays there until a bail or getting off the board) on the rolling board: the alt set takes it as riding (AltSpawnLimbo=1; build 248 refused the alt crouch there)");
@@ -21479,10 +21802,12 @@ void AltTick(void* mesh) {
             }
         }
     }
+    if (g_agInGrind) { g_agg.heel[0] = AltPorHeelX(0, mode, sw, goofy); g_agg.heel[1] = AltPorHeelX(1, mode, sw, goofy); }   /* (grindalt4 285) AltGrindsInGrind: the porpoise's lean read in the grind (the note at AgInGrind) */
     if (T.phase == 2 && T.kind == 1 && T.mStep <= 1 && bm[BM_MODE] == 3 && modeOk) {   // (review F4) the monster's air until its turn is over: the FRONT stick kept from the game's catch orient too (CatchOrientPitchSmoothing 11 pulls the pitch toward its own every physics step)
         float* fsp = (float*)(pc + ALT_PC_STICKS) + (backLeft ? 2 : 0);
         if (std::isfinite(fsp[0]) && std::isfinite(fsp[1]) && fsp[0] * fsp[0] + fsp[1] * fsp[1] >= 0.0144f) { fsp[0] = 0.0f; fsp[1] = 0.0f; }
     }
+    if (g_altGrinds) AgMirror(A, pc, sk, mc, bm, anim, fth, backLeft, modeOk, winOpen, now);   /* (grindmirror 282) AltGrinds: the sticks upside down in the air and in a grind (the note at AgMirror) */
     const float u = -A.downSign * by;
     if (!AltInCone(bx, u) || u < g_altCfg.engage) A.refusedThis = false;
     switch (o.event) {
@@ -22304,8 +22629,9 @@ int nAlt(const Lua& lua) {                                       // (a std::stri
         const int tph = g_altForgetAsk ? 0 : A.t.phase;   // (243) a new skater, mesh or map: the trick being forgotten is not reported (the Lua lets go of its trick slot at once)
         const int ph = (FeatSigOff() || !g_hooked || g_altDead) ? -1 : (tph ? tph : ((A.s.in || A.sn.in) ? 1 : 0));   /* (246) + the nollie set's crouch */
         char b[128];
+        const bool dv = !tph && g_altDvn && !HospNameLive(NowS()) && DvnLive(NowS());   /* (grindfix5 286) AltDoubleVarialName: a double varial's names (kind 13, the note at DvnPoll) */
         const bool hn = !tph && HospNameLive(NowS());   /* (253 review) no alt trick: a driven hospital's name (kind 11, the note at HospNm) */
-        snprintf(b, sizeof(b), "%d %d %llu %ld %d %d %d", ph, ((tph && !A.t.dol && A.t.kind == 9 && A.t.usSweep) ? 3 : 0) + (tph ? (A.t.dol ? (A.t.por ? 10 : 5) : A.t.kind) : 0) + (hn ? 11 : 0), (unsigned long long)(tph ? A.t.def : (hn ? g_hospNm.def : 0)), (long)A.t.n, tph ? A.t.names : (hn ? 1 : 0), (A.s.in == 1) ? (A.engLeft ? 2 : 1) : (A.sn.in == 1 && A.nMir) ? (A.nLeft ? 2 : 1) : 0, A.nFlip ? (A.nFlipLeft ? 2 : 1) : (A.fwrote && !A.nMir && !A.fwPor) ? (A.fwLeft ? 2 : 1) : 0);   // (review F10) + the mirror now: 0 none, 1 the right stick, 2 the left stick; (v134 review) + the front stick turned over now (the dolphin's), the same way
+        snprintf(b, sizeof(b), "%d %d %llu %ld %d %d %d", ph, ((tph && !A.t.dol && A.t.kind == 9 && A.t.usSweep) ? 3 : 0) + (tph ? (A.t.dol ? (A.t.por ? 10 : 5) : A.t.kind) : 0) + (hn ? 11 : 0) + (dv ? 13 : 0), (unsigned long long)(tph ? A.t.def : (hn ? g_hospNm.def : (dv ? g_dvn.def : 0))), (long)A.t.n, tph ? A.t.names : ((hn || dv) ? 1 : 0), (A.s.in == 1) ? (A.engLeft ? 2 : 1) : (A.sn.in == 1 && A.nMir) ? (A.nLeft ? 2 : 1) : 0, A.nFlip ? (A.nFlipLeft ? 2 : 1) : (A.fwrote && !A.nMir && !A.fwPor) ? (A.fwLeft ? 2 : 1) : 0);   // (review F10) + the mirror now: 0 none, 1 the right stick, 2 the left stick; (v134 review) + the front stick turned over now (the dolphin's), the same way
         lua.set_string(b);
         return 1;
     }
@@ -22787,10 +23113,24 @@ void SafeLoopWrite(uint8_t* a, LONG bits) {
     __try { LoopWrite(a, bits); InterlockedIncrement(&g_loopN); }
     __except (EXCEPTION_EXECUTE_HANDLER) { g_loopBits = 0; g_nuaOn = 0; }
 }
+/* (heelanim 300) the heel stop's pose, written after NativeUpdateAnimation (the note in mk_heelanim_native.pl): 1 = the manual let go for the
+   graph's BreakTail state, 2 = the one-foot powerslide's flags and ratios (g_hsPs: learned from your own tail-down powerslide) */
+volatile LONG g_hsNua = 0; float g_hsPs[6] = { -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f }; volatile LONG g_hsPsLearned = 0, g_hsNuaN = 0; float g_hsCom = -1.0f;   /* COM offset, pitch ratio, ratio, target, exit ratio, exit time; (switchstop 307) the COM side written (-1 the regular tail's) */
+void HsNua(uint8_t* a, LONG how) {   /* POD only (the caller's __try) */
+    a[ALT_AI_MANUAL] = 0; a[ALT_AI_NOSEMANUAL] = 0;
+    if (how == 2) {
+        a[0x2d8] = 1; a[0x2d9] = 1; a[0x2da] = 0;
+        *(float*)(a + 0x2dc) = fabsf(g_hsPs[0]) * g_hsCom; *(float*)(a + 0x2e0) = g_hsPs[1]; *(float*)(a + 0x2e4) = g_hsPs[2];
+        *(float*)(a + 0x2e8) = g_hsPs[3]; *(float*)(a + 0x2ec) = g_hsPs[4]; *(float*)(a + 0x2f0) = g_hsPs[5];
+    }
+}
+void SafeHsNua(void* anim, LONG how) { __try { HsNua((uint8_t*)anim, how); InterlockedIncrement(&g_hsNuaN); } __except (EXCEPTION_EXECUTE_HANDLER) { g_hsNua = 0; } }
 void hkNua(void* self, float dt) {
     o_Nua(self, dt);
     const LONG bits = g_loopBits;
     if (bits && g_nuaOn && FpLive() && self && self == g_faAnim) SafeLoopWrite((uint8_t*)self, bits);   /* (243) FpLive */
+    if (g_altStall && g_nuaOn && self && self == g_anim) SafeAltStallNua(self);   /* (stall5 280) the alt stall's rider: the game's manual lean, not the crouch */
+    { const LONG hn = g_hsNua; if (hn && g_nuaOn && self && self == g_anim) SafeHsNua(self, hn); }   /* (heelanim 300) the heel stop's pose */
 }
 void FbInstall() {
     static const uint8_t fbExpect[18] = { 0x48, 0x89, 0x74, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0xB9, 0x68, 0x05, 0x00, 0x00, 0x00 };
@@ -23390,6 +23730,44 @@ struct XiPad { uint16_t buttons; uint8_t lt, rt; int16_t lx, ly, rx, ry; };
 struct XiState { uint32_t packet; XiPad pad; };
 typedef uint32_t (WINAPI *XiGetStateFn)(uint32_t, XiState*);
 XiGetStateFn g_xiGet = nullptr; bool g_xiTried = false; int g_xiUser = -1; ULONGLONG g_xiScanAt = 0;
+DWORD WINAPI UfSampProc(void*) {   /* (280) the underflip's flick sampler (the note at UfFlick): the XInput pad every 1 ms while AltUnderOwnSpeed is on */
+    HANDLE tm = CreateWaitableTimerExW(nullptr, nullptr, 0x00000002, TIMER_ALL_ACCESS);   /* CREATE_WAITABLE_TIMER_HIGH_RESOLUTION (Windows 10 1803 on); else Sleep(1) */
+    XiGetStateFn get = g_xiGet;
+    const wchar_t* dlls[] = { L"xinput1_4.dll", L"xinput1_3.dll", L"xinput9_1_0.dll" };
+    for (int i = 0; i < 3 && !get; i++) { HMODULE h = LoadLibraryW(dlls[i]); if (h) get = (XiGetStateFn)GetProcAddress(h, "XInputGetState"); }
+    InterlockedExchange(&g_uoHr, tm ? 1 : 0);
+    if (!get) return 0;
+    int u = -1; ULONGLONG scan = 0;
+    for (;;) {
+        if (g_altUnderOwnSpeed == 0) { Sleep(100); continue; }
+        XiState st; memset(&st, 0, sizeof(st));
+        if (u < 0 && g_xiUser >= 0) u = g_xiUser;
+        bool ok = u >= 0 && get((uint32_t)u, &st) == 0;
+        if (!ok) {
+            const ULONGLONG t = GetTickCount64();
+            if (t - scan > 2000) { scan = t; u = -1; for (uint32_t k = 0; k < 4 && !ok; k++) { memset(&st, 0, sizeof(st)); if (get(k, &st) == 0) { ok = true; u = (int)k; } } }
+            if (!ok) { InterlockedExchange(&g_uoPad, -1); Sleep(50); continue; }
+        }
+        if (g_uoPad != u) InterlockedExchange(&g_uoPad, u);
+        const LONG n = g_uoRingN; UfSmp& q = g_uoRing[n % UF_SN];
+        q.t = NowS(); q.x[0] = fminf(fabsf(st.pad.lx / 32767.0f), 1.0f); q.x[1] = fminf(fabsf(st.pad.rx / 32767.0f), 1.0f);
+        InterlockedIncrement(&g_uoRingN);
+        LARGE_INTEGER due; due.QuadPart = -10000;
+        if (tm && SetWaitableTimer(tm, &due, 0, nullptr, nullptr, FALSE)) WaitForSingleObject(tm, 20); else Sleep(1);
+    }
+}
+void UfSampPoll() {   /* (280) the game thread, every pose while AltUnderOwnSpeed is on: the sampler started once, its state logged when it changes */
+    if (InterlockedCompareExchange(&g_uoOn, 1, 0) == 0) {
+        HANDLE h = CreateThread(nullptr, 0, UfSampProc, nullptr, 0, nullptr);
+        if (h) CloseHandle(h); else { InterlockedExchange(&g_uoHr, 0); Log("alt flips: the underflip's flick sampler could NOT be started (error %lu): the flicks are timed one sample a pose (pose-rate)", GetLastError()); }
+    }
+    if (g_uoHr < 0) return;
+    const LONG k = (g_uoPad + 1) * 4 + g_uoHr;
+    if (k == g_uoTold) return;
+    g_uoTold = k;
+    if (g_uoPad >= 0) Log("alt flips: the underflip's flick sampler reads XInput pad %ld every 1 ms (%s): both flicks are timed from it (AltUnderOwnSpeed=1)", (long)g_uoPad, g_uoHr ? "a high-resolution timer" : "Sleep(1): the system timer decides the real rate");
+    else Log("alt flips: the underflip's flick sampler has no XInput pad to read: the flicks are timed one sample a pose (pose-rate; AltUnderOwnSpeed=1)");
+}
 int nPadSticks(const Lua& lua) {
     char out[96] = "";
     if (!g_xiTried) {
@@ -23413,6 +23791,1921 @@ int nPadSticks(const Lua& lua) {
     }
     lua.set_string(out);
     return 1;
+}
+// (stalllog, build 275) THE STALL LOG: LOGGING ONLY. "No stall / tail stall / blunt stall: play-test logs first" (25 Oct). With
+// StallLog=1 (HJN_Set("stalllog", 0/1); 0 = nothing here runs) every pose of our skater is looked at, ~12 times a second at the
+// most: riding UP a transition (the deck rising, the ground under it steeper than 30 deg) with a lip within 150 cm ahead opens an
+// ATTEMPT. While it runs, one "stall:" line per sample (12 a second at the most): speed (total, along the ramp, up), the ramp's
+// angle, the deck's pitch (world and to the ramp), the front / back truck, tail and nose from the lip (cm past it level / cm over
+// it), the board's wheels on the floor (the game's own bits), the anim's manual / nose manual / casper / grind / lip / primo /
+// crank flags, the riding / air modes, goofy, switch, travelling tail first, the pad (sticks, triggers, bumpers) and every crouch
+// known (the game's crank bit, the anim's crank flag, the alt crouch, the alt nollie crouch). Its end writes one "stall sum:"
+// line. The LIP: vertical rays from 260 cm over the deck down, every 10 cm ahead along the way uphill (level), refined to 2 cm:
+// the first that reaches the top's height. Read only: nothing of the game's is written. Epic's exe only (the offsets are not
+// reflected); another build says so once.
+volatile LONG g_stallLog = 0;            // HJN_Set("stalllog", 0/1): the ini's StallLog (declared ahead with SafeWallTick)
+struct StallT {
+    bool on, sigTold; double nextT, t0, lastT, stillT, stillFrom, upT; V3 pPrev; double pPrevT; bool pOk; V3 vel;
+    V3 E, h; float zTop; bool eOk; int n, airN;
+    float peakZ, ftMost, btMost, tailMost, noseMost, vMin, rampMax; int crSeen, altSeen, nolSeen, manSeen, noseSeen, grindSeen;
+};
+StallT g_stallSt = {};
+// the top's edge ahead: vertical rays along h from P; false = no lip within reach (cm, level)
+bool StallLip(const void* world, V3 P, V3 h, float reach, V3& E, float& zTop) {
+    float zt[24]; bool ok[24]; const int N = (int)(reach / 10.0f) + 2;
+    float zMax = -1.0e9f; int nOk = 0;
+    for (int i = 0; i < N && i < 24; i++) {
+        const V3 a = add(P, mul(h, 10.0f * i)); RayHit r;
+        ok[i] = Ray(world, v3(a.x, a.y, P.z + 260.0f), v3(a.x, a.y, P.z - 120.0f), r) && r.n.z > -0.2f;
+        zt[i] = ok[i] ? r.p.z : -1.0e9f;
+        if (ok[i]) { nOk++; if (zt[i] > zMax) zMax = zt[i]; }
+    }
+    if (nOk < 3 || zMax < P.z + 5.0f) return false;          // nothing over the deck ahead: no lip in reach
+    int k = -1;
+    for (int i = 1; i < N && i < 24; i++) if (ok[i] && zt[i] >= zMax - 4.0f) { k = i; break; }
+    if (k < 1) return false;
+    float x = 10.0f * k; zTop = zt[k];
+    for (int j = 1; j <= 4; j++) {                              // refined: 2 cm steps back from the first at the top
+        const V3 a = add(P, mul(h, 10.0f * k - 2.0f * j)); RayHit r;
+        if (Ray(world, v3(a.x, a.y, P.z + 260.0f), v3(a.x, a.y, P.z - 120.0f), r) && r.p.z >= zMax - 4.0f) { x = 10.0f * k - 2.0f * j; zTop = r.p.z; } else break;
+    }
+    E = add(P, mul(h, x)); E.z = zTop;
+    return true;
+}
+void StallSumLine(const char* how, double now) {
+    StallT& T = g_stallSt;
+    Log("stall sum: #%d %.2f s, %d samples -- %s; peak %+.0f cm over the lip; past the lip at most: front truck %+.0f, back truck %+.0f, tail %+.0f, nose %+.0f cm; least speed near the top %.0f cm/s; near-still (<40 cm/s) at the top %.2f s; steepest ramp %.0f deg; seen: crouch %d alt %d altnollie %d manual %d nosemanual %d grind %d (samples)",
+        T.n, now - T.t0, T.airN, how, T.peakZ, T.ftMost, T.btMost, T.tailMost, T.noseMost, T.vMin < 1.0e8f ? T.vMin : -1.0f, T.stillT, T.rampMax, T.crSeen, T.altSeen, T.nolSeen, T.manSeen, T.noseSeen, T.grindSeen);
+    T.on = false;
+}
+void StallTick(void* mesh) {
+    StallT& T = g_stallSt;
+    if (!g_stallLog || !g_hooked) { if (T.on) StallSumLine("ended: StallLog was turned off", NowS()); return; }
+    if (g_sigMode) { if (!T.sigTold) { T.sigTold = true; Log("stall: another build of the game -- the stall log reads unsigned addresses and stands down"); } return; }
+    const double now = NowS();
+    if (now < T.nextT) return;
+    T.nextT = now + 1.0 / 12.0;
+    uint8_t* sk = (uint8_t*)g_skater;
+    uint8_t* mc = (sk && PtrOk(sk, 0xa40)) ? *(uint8_t**)(sk + SK_MC) : nullptr;
+    uint8_t* board = (sk && PtrOk(sk, 0xa40)) ? *(uint8_t**)(sk + SK_BOARD) : nullptr;
+    uint8_t* bm = BoardMC();
+    const uint8_t* anim = (const uint8_t*)g_anim;
+    if (!mc || !PtrOk(mc, 0xe28) || !board || !PtrOk(board, 0x530) || !bm || !PtrOk(bm, 0x1700) || !anim || !PtrOk(anim, 0x600) || mesh != g_mesh) { if (T.on) StallSumLine("ended: the skater or the board is not read any more", now); return; }
+    Q4 dq; V3 dp;
+    if (!WrDeckWorld(board, dq, dp)) { T.pOk = false; return; }
+    if (T.pOk && now - T.pPrevT > 0.02 && now - T.pPrevT < 0.3) { const V3 st = sub(dp, T.pPrev); if (len(st) < 200.0f) T.vel = mul(st, 1.0f / (float)(now - T.pPrevT)); }
+    else if (!T.pOk) T.vel = v3(0, 0, 0);
+    T.pPrev = dp; T.pPrevT = now; T.pOk = true;
+    const bool onB = mc[MC_ONBOARD] != 0, bail = (sk[WR_SK_FLAGS] & 2) || g_bail;
+    const bool mcAir = onB && mc[WR_SMC_MODE] == 6 && mc[WR_SMC_CUSTOM] == 2;
+    const void* world = SkaterWorld();
+    if (!world) return;
+    const V3 Zw = v3(0, 0, 1), up = qrot(dq, Zw);
+    RayHit g; const bool gOk = Ray(world, add(dp, mul(up, 30.0f)), sub(dp, mul(up, 80.0f)), g);
+    const V3 n = gOk ? g.n : Zw;
+    const float ramp = acosf(clampf(n.z, -1.0f, 1.0f)) * 57.2957795f;
+    if (!T.on) {
+        if (!onB || bail || mcAir || !gOk || ramp < 30.0f || T.vel.z < 20.0f || len(flat(n)) < 0.2f) return;
+        V3 E; float zTop;
+        const V3 h = norm(flat(mul(n, -1.0f)));
+        if (!StallLip(world, dp, h, 150.0f, E, zTop)) return;
+        T = StallT{ true, T.sigTold, T.nextT };
+        T.t0 = now; T.lastT = now; T.E = E; T.h = h; T.zTop = zTop; T.eOk = true; T.pPrev = dp; T.pPrevT = now; T.pOk = true;
+        static int nAtt = 0; T.n = ++nAtt; T.peakZ = T.ftMost = T.btMost = T.tailMost = T.noseMost = -1.0e9f; T.vMin = 1.0e9f;
+        Log("stall: #%d -- an attempt: riding up a %.0f deg ramp at %.0f cm/s, the lip %.0f cm ahead (level), %.0f cm over the deck", T.n, ramp, len(T.vel), dot(sub(E, dp), h), zTop - dp.z);
+    }
+    // the parts: the trucks (hangers +0x500 front, +0x4f0 back), the tips along the deck's long axis
+    V3 ft = dp, bt = dp; bool fOk = false, bOk = false;
+    { const uint8_t* c = *(const uint8_t* const*)(board + 0x500); if (c && PtrOk(c, SC_C2W + 0x20)) { ft = *(const V3*)(c + SC_C2W + 0x10); fOk = finite3(ft); } }
+    { const uint8_t* c = *(const uint8_t* const*)(board + 0x4f0); if (c && PtrOk(c, SC_C2W + 0x20)) { bt = *(const V3*)(c + SC_C2W + 0x10); bOk = finite3(bt); } }
+    V3 ax = qrot(dq, v3(1, 0, 0));
+    if (fOk && bOk && dot(sub(ft, bt), ax) < 0.0f) ax = mul(ax, -1.0f);         // +ax = toward the nose
+    const V3 nose = add(dp, mul(ax, HalfLen())), tail = sub(dp, mul(ax, HalfLen()));
+    const V3 E = T.E, h = T.h;
+    auto past = [&](V3 q) { return dot(sub(q, E), h); };
+    auto over = [&](V3 q) { return q.z - E.z; };
+    const float sp = len(T.vel), vz = T.vel.z;
+    const V3 uU = (len(flat(n)) > 0.05f) ? norm(sub(Zw, mul(n, n.z))) : h;      // up the ramp, in its plane
+    const float vAlong = dot(T.vel, uU);
+    const float pitchW = asinf(clampf(ax.z, -1.0f, 1.0f)) * 57.2957795f, pitchR = asinf(clampf(dot(ax, n), -1.0f, 1.0f)) * 57.2957795f;
+    int wb = 0;
+    for (int k = 0; k < 4; k++) if (*(const uint32_t*)(bm + WG_BM_WHEEL[k]) & 2u) wb |= 1 << k;
+    const bool tailFirst = len(flat(T.vel)) > 20.0f && dot(flat(T.vel), flat(ax)) < 0.0f;
+    const int crank = (sk[WG_SK_CRANK] & 1) ? 1 : 0, aCrank = anim[WG_AI_CRANK] ? 1 : 0, altC = g_alt.s.in, altN = g_alt.sn.in;
+    float lx = 0, ly = 0, rx = 0, ry = 0, lt = 0, rt = 0; unsigned btn = 0; bool pad = false;
+    if (g_xiGet && g_xiUser >= 0) { XiState s; memset(&s, 0, sizeof(s)); if (g_xiGet((uint32_t)g_xiUser, &s) == 0) { pad = true; lx = s.pad.lx / 32767.0f; ly = s.pad.ly / 32767.0f; rx = s.pad.rx / 32767.0f; ry = s.pad.ry / 32767.0f; lt = s.pad.lt / 255.0f; rt = s.pad.rt / 255.0f; btn = s.pad.buttons; } }
+    const float fP = fOk ? past(ft) : -999.0f, bP = bOk ? past(bt) : -999.0f, tP = past(tail), nP = past(nose);
+    Log("stall: #%d t %.2f v %.0f along %+.0f up %+.0f | ramp %.0f pitch %+.0f rel %+.0f | ft %+.0f/%+.0f bt %+.0f/%+.0f tail %+.0f/%+.0f nose %+.0f/%+.0f deck %+.0f | wheels %d%d%d%d bm %d mc %d/%d air %d | man %d nman %d cas %d acas %d grind %d lip %d primo %d | goofy %d sw %d tailfirst %d | pad %s L %+.2f %+.2f R %+.2f %+.2f LT %.2f RT %.2f LB %d RB %d | crank %d animcrank %d alt %d altnollie %d",
+        T.n, now - T.t0, sp, vAlong, vz, ramp, pitchW, pitchR, fP, fOk ? over(ft) : -999.0f, bP, bOk ? over(bt) : -999.0f, tP, over(tail), nP, over(nose), over(dp),
+        wb & 1, (wb >> 1) & 1, (wb >> 2) & 1, (wb >> 3) & 1, (int)bm[BM_MODE], (int)mc[WR_SMC_MODE], (int)mc[WR_SMC_CUSTOM], mcAir ? 1 : 0,
+        anim[WG_AI_MANUAL] ? 1 : 0, anim[WG_AI_NOSEMAN] ? 1 : 0, anim[WG_AI_CASPER] ? 1 : 0, anim[WG_AI_ANTICASPER] ? 1 : 0, anim[WG_AI_GRIND] ? 1 : 0, anim[WG_AI_LIP] ? 1 : 0, anim[WG_AI_PRIMO] ? 1 : 0,
+        anim[ALT_AI_GOOFY] ? 1 : 0, (int)g_switchNow, tailFirst ? 1 : 0, pad ? "on" : "none", lx, ly, rx, ry, lt, rt, (btn & 0x100) ? 1 : 0, (btn & 0x200) ? 1 : 0, crank, aCrank, altC, altN);
+    T.airN++; T.lastT = now;
+    T.peakZ = fmaxf(T.peakZ, fmaxf(over(dp), fmaxf(over(nose), over(tail))));
+    if (fOk) T.ftMost = fmaxf(T.ftMost, fP);
+    if (bOk) T.btMost = fmaxf(T.btMost, bP);
+    T.tailMost = fmaxf(T.tailMost, tP); T.noseMost = fmaxf(T.noseMost, nP); T.rampMax = fmaxf(T.rampMax, gOk ? ramp : 0.0f);
+    const bool nearTop = over(dp) > -60.0f;
+    if (nearTop) T.vMin = fminf(T.vMin, sp);
+    if (nearTop && sp < 40.0f) T.stillT += 1.0 / 12.0;
+    if (crank || aCrank) T.crSeen++;
+    if (altC) T.altSeen++;
+    if (altN) T.nolSeen++;
+    if (anim[WG_AI_MANUAL]) T.manSeen++;
+    if (anim[WG_AI_NOSEMAN]) T.noseSeen++;
+    if (anim[WG_AI_GRIND] || anim[WG_AI_LIP]) T.grindSeen++;
+    // the end
+    if (bail || !onB) StallSumLine(bail ? "BAIL" : "off the board", now);
+    else if (anim[WG_AI_GRIND] || anim[WG_AI_LIP]) StallSumLine(anim[WG_AI_LIP] ? "a lip trick began" : "a grind began", now);
+    else if (mcAir && over(dp) > -40.0f && T.airN > 1 && vz > 0.0f) { if (now - T.t0 > 0.3) StallSumLine("went AIRBORNE", now); }
+    else if (!mcAir && gOk && ramp < 12.0f && past(dp) > 30.0f) StallSumLine("went onto the deck", now);
+    else if (!mcAir && vz < -40.0f && over(dp) < -100.0f) StallSumLine("rolled back in", now);
+    else if (mcAir && vz < -40.0f && over(dp) < -100.0f) StallSumLine("fell back in, in the air", now);
+    else if (now - T.t0 > 5.0 || len(flat(sub(dp, E))) > 400.0f) StallSumLine("ended: 5 s or 4 m from the lip", now);
+}
+void SafeStallTick(void* mesh) {
+    __try { StallTick(mesh); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { static LONG n = 0; if (InterlockedIncrement(&n) <= 5) Log("stall: a fault reading the game -- this sample skipped"); g_stallSt.on = false; }
+}
+// (grindalt, build 279) THE GRIND LOG: LOGGING ONLY ("feelers" for the alt crouch's grinds: flip out of a grind with the alt
+// crouch, choose the grind at entry with a crouch). GrindLog=1 (HJN_Set("grindlog", 0/1); 0 = nothing here runs, SafeWallTick does
+// not even call in). Looked at ~30 times a second: the anim instance's IsGrinding (0x33c) or lip (0x33d) flag rising = an ENTRY line
+// ("grind: ENTER"), then ~4 "grind:" lines a second, a falling flag = an EXIT line ("grind: EXIT ... how"), and for 0.6 s after it
+// the flip trick the game decides ("grind: after exit"). An alt crouch / alt nollie crouch pressed during a grind writes its own
+// line ("grind: ALT crouch pressed"). The game's fields read (Epic's exe 69ca6d05, from the PDB):
+//   skater +0x6c8 TargetGrindDefinition, +0x6d0 CurrentGrindDefinition (ASkaterCharacterBase::Set*GrindDefinition 0x1006780 /
+//   0x1004820; +0x708 = the current definition's +0x38), +0x653 EGrindDetectionMode (SetGrindDetectionMode 0x1004a90), +0x651 bit 0
+//   (UpdateGrindCrankRelativeAngle 0x1038d50 tests it); the board's USkateboardExMovementComponent +0x770 ESkaterApproachType
+//   (GetGrindApproachType 0xfbccf0), +0x771 EGrindType (GetGrindType 0xfbd4f0), +0x772 EGrindExitSideOverride (0xfbd4c0), +0x6a0
+//   the last grind rotation rate (0xfbd9d0), +0x4f4 the grind move direction (0xfbd4e0), +0x6b0 bit 1 IsOnGrind / bit 3
+//   IsDetectingGrind (0xfc3a90 / 0xfc34e0); the flip tricks handler's pending trick (+0xb8), late-flip armed (+0x61) and crank
+//   clock (+0x38). The game picks the grind in GrindsHandler::GetGrindDefinitionClosestToDirection (0x1052ad0: the stick
+//   direction, the catch-orient state, the approach type). Read only: nothing of the game's is written. Epic's exe only.
+volatile LONG g_grindLog = 0;            // HJN_Set("grindlog", 0/1): the ini's GrindLog
+struct GrindLogT {
+    bool on, sigTold, altWas, nolWas; double nextT, nextLine, t0, exitT; int n, lines; V3 pPrev; double pPrevT; bool pOk; V3 vel;
+    const uint8_t* defAt; const uint8_t* pendWas; bool watch; char name[64];
+};
+GrindLogT g_grSt = {};
+void GrDefName(const uint8_t* def, char* s, int cap) {
+    s[0] = 0;
+    if (!def) { snprintf(s, cap, "none"); return; }
+    if (!PtrOk(def, 0x40)) { snprintf(s, cap, "?"); return; }
+    wchar_t w[64]; int m = 0;
+    const uint32_t k = ((FNameToStrFn)(Exe() + RVA_FNAME_TOSTR_BUF))(def + 0x18, w, 64);   // UObject's FName
+    for (uint32_t j = 0; j < k && j < 63 && m < cap - 1; j++) { const wchar_t ch = w[j]; s[m++] = (ch > 31 && ch < 127) ? (char)ch : '?'; }
+    s[m] = 0;
+}
+void GrFlipName(const uint8_t* def, char* s, int cap) {
+    s[0] = 0;
+    if (!def) { snprintf(s, cap, "none"); return; }
+    if (!PtrOk(def, ALT_FTD_NAME + 8)) { snprintf(s, cap, "?"); return; }
+    wchar_t w[64]; int m = 0;
+    const uint32_t k = ((FNameToStrFn)(Exe() + RVA_FNAME_TOSTR_BUF))(def + ALT_FTD_NAME, w, 64);   // UFlipTrickDefinition::Name
+    for (uint32_t j = 0; j < k && j < 63 && m < cap - 1; j++) { const wchar_t ch = w[j]; s[m++] = (ch > 31 && ch < 127) ? (char)ch : '?'; }
+    s[m] = 0;
+}
+void GrindLogTick(void* mesh) {
+    GrindLogT& T = g_grSt;
+    if (!g_grindLog || !g_hooked) { T.on = false; T.watch = false; return; }
+    if (g_sigMode) { if (!T.sigTold) { T.sigTold = true; Log("grind: another build of the game -- the grind log reads unsigned addresses and stands down"); } return; }
+    const double now = NowS();
+    if (now < T.nextT) return;
+    T.nextT = now + 1.0 / 30.0;
+    uint8_t* sk = (uint8_t*)g_skater;
+    uint8_t* mc = (sk && PtrOk(sk, 0xa40)) ? *(uint8_t**)(sk + SK_MC) : nullptr;
+    uint8_t* board = (sk && PtrOk(sk, 0xa40)) ? *(uint8_t**)(sk + SK_BOARD) : nullptr;
+    uint8_t* bm = BoardMC();
+    const uint8_t* anim = (const uint8_t*)g_anim;
+    if (!mc || !PtrOk(mc, 0xe28) || !board || !PtrOk(board, 0x530) || !bm || !PtrOk(bm, 0x1700) || !anim || !PtrOk(anim, 0x600) || mesh != g_mesh) { T.on = false; return; }
+    Q4 dq; V3 dp;
+    if (!WrDeckWorld(board, dq, dp)) { T.pOk = false; return; }
+    if (T.pOk && now - T.pPrevT > 0.02 && now - T.pPrevT < 0.3) { const V3 st = sub(dp, T.pPrev); if (len(st) < 200.0f) T.vel = mul(st, 1.0f / (float)(now - T.pPrevT)); }
+    else if (!T.pOk) T.vel = v3(0, 0, 0);
+    T.pPrev = dp; T.pPrevT = now; T.pOk = true;
+    const bool grind = anim[WG_AI_GRIND] != 0, lip = anim[WG_AI_LIP] != 0, onB = mc[MC_ONBOARD] != 0, bail = (sk[WR_SK_FLAGS] & 2) || g_bail;
+    const bool mcAir = onB && mc[WR_SMC_MODE] == 6 && mc[WR_SMC_CUSTOM] == 2;
+    const uint8_t* cur = *(const uint8_t* const*)(sk + 0x6d0);
+    const uint8_t* tgt = *(const uint8_t* const*)(sk + 0x6c8);
+    const int gType = bm[0x771], gAppr = bm[0x770], gExit = bm[0x772], gBits = bm[0x6b0], gMode = sk[0x653], b651 = sk[0x651];
+    const float rotRate = *(const float*)(bm + 0x6a0);
+    V3 rd = *(const V3*)(bm + 0x4f4); if (!finite3(rd)) rd = v3(0, 0, 0);
+    const V3 ax = qrot(dq, v3(1, 0, 0)), up = qrot(dq, v3(0, 0, 1));
+    const float pitchW = asinf(clampf(ax.z, -1.0f, 1.0f)) * 57.2957795f;
+    const V3 rf = flat(rd), af = flat(ax);
+    const float yawRail = (len(rf) > 0.05f && len(af) > 0.05f) ? atan2f(rf.x * af.y - rf.y * af.x, dot(rf, af)) * 57.2957795f : -999.0f;   // deck nose vs the rail's move direction, deg
+    const float pitchRail = (len(rd) > 0.05f) ? asinf(clampf(dot(ax, norm(rd)), -1.0f, 1.0f)) * 57.2957795f : -999.0f;
+    const int crank = (sk[WG_SK_CRANK] & 1) ? 1 : 0, aCrank = anim[WG_AI_CRANK] ? 1 : 0, altC = g_alt.s.in ? 1 : 0, altN = g_alt.sn.in ? 1 : 0;
+    float lx = 0, ly = 0, rx = 0, ry = 0, lt = 0, rt = 0; unsigned btn = 0; bool pad = false;
+    if (g_xiGet && g_xiUser >= 0) { XiState s; memset(&s, 0, sizeof(s)); if (g_xiGet((uint32_t)g_xiUser, &s) == 0) { pad = true; lx = s.pad.lx / 32767.0f; ly = s.pad.ly / 32767.0f; rx = s.pad.rx / 32767.0f; ry = s.pad.ry / 32767.0f; lt = s.pad.lt / 255.0f; rt = s.pad.rt / 255.0f; btn = s.pad.buttons; } }
+    const uint8_t* fth = LateHandler();
+    const uint8_t* pend = (fth && PtrOk(fth, 0xc0)) ? *(const uint8_t* const*)(fth + 0xb8) : nullptr;
+    const int lateArmed = (fth && PtrOk(fth, 0xc0)) ? (int)fth[0x61] : -1;
+    const float crankClock = (fth && PtrOk(fth, 0xc0)) ? *(const float*)(fth + 0x38) : -1.0f;
+    char cn[64], tn[64], pn[64]; GrDefName(cur, cn, 64); GrDefName(tgt, tn, 64); GrFlipName(pend, pn, 64);
+    char in[200];
+    snprintf(in, sizeof(in), "crank %d animcrank %d alt %d altnollie %d | pad %s L %+.2f %+.2f R %+.2f %+.2f LT %.2f RT %.2f L3 %d R3 %d LB %d RB %d A %d",
+        crank, aCrank, altC, altN, pad ? "on" : "none", lx, ly, rx, ry, lt, rt, (btn & 0x40) ? 1 : 0, (btn & 0x80) ? 1 : 0, (btn & 0x100) ? 1 : 0, (btn & 0x200) ? 1 : 0, (btn & 0x1000) ? 1 : 0);
+    if (!T.on && (grind || lip)) {
+        static int nG = 0;
+        T.on = true; T.n = ++nG; T.t0 = now; T.nextLine = now + 0.25; T.lines = 0; T.watch = false; T.defAt = cur; T.altWas = altC; T.nolWas = altN;
+        snprintf(T.name, sizeof(T.name), "%s", cn);
+        Log("grind: #%d ENTER %s | def \"%s\" (%p) target \"%s\" +708 %llx | type %d approach %d exitside %d bits %02x detmode %d b651 %02x rot %.1f | v %.0f up %+.0f | pitch %+.0f vs rail: yaw %+.0f pitch %+.0f up.z %.2f | goofy %d sw %d | %s | pending flip \"%s\" late %d crankclk %.2f",
+            T.n, lip ? "LIP" : "GRIND", cn, (const void*)cur, tn, (unsigned long long)*(const uint64_t*)(sk + 0x708), gType, gAppr, gExit, gBits, gMode, b651, rotRate,
+            len(T.vel), T.vel.z, pitchW, yawRail, pitchRail, up.z, anim[ALT_AI_GOOFY] ? 1 : 0, (int)g_switchNow, in, pn, lateArmed, crankClock);
+        return;
+    }
+    if (T.on && !(grind || lip)) {
+        const char* how = bail ? "BAIL" : !onB ? "off the board" : pend ? "FLIP OUT (a flip trick decided)" : (mcAir && T.vel.z > 30.0f) ? "OLLIE OUT (in the air, rising)"
+            : mcAir ? "off the end / fell off (in the air, not rising)" : "rolled off onto the ground";
+        Log("grind: #%d EXIT after %.2f s -- %s | def was \"%s\" now \"%s\" | type %d bits %02x | v %.0f up %+.0f | movement %d/%d air %d bm %d | %s | pending flip \"%s\" late %d crankclk %.2f",
+            T.n, now - T.t0, how, T.name, cn, gType, gBits, len(T.vel), T.vel.z, (int)mc[WR_SMC_MODE], (int)mc[WR_SMC_CUSTOM], mcAir ? 1 : 0, (int)bm[BM_MODE], in, pn, lateArmed, crankClock);
+        T.on = false; T.watch = true; T.exitT = now; T.pendWas = pend;
+        return;
+    }
+    if (T.watch && !T.on) {
+        if (pend && pend != T.pendWas) { Log("grind: #%d after exit +%.2f s: the game decided flip \"%s\" | %s", T.n, now - T.exitT, pn, in); T.pendWas = pend; }
+        if (now - T.exitT > 0.6) T.watch = false;
+        return;
+    }
+    if (!T.on) return;
+    if (altC && !T.altWas) Log("grind: #%d ALT crouch pressed during the grind (t %.2f) | def \"%s\" type %d | game crank %d animcrank %d late %d pending \"%s\" | %s", T.n, now - T.t0, cn, gType, crank, aCrank, lateArmed, pn, in);
+    if (altN && !T.nolWas) Log("grind: #%d ALT NOLLIE crouch pressed during the grind (t %.2f) | def \"%s\" type %d | game crank %d animcrank %d late %d pending \"%s\" | %s", T.n, now - T.t0, cn, gType, crank, aCrank, lateArmed, pn, in);
+    T.altWas = altC; T.nolWas = altN;
+    if (cur != T.defAt) { Log("grind: #%d the grind changed (t %.2f): \"%s\" -> \"%s\" type %d | %s", T.n, now - T.t0, T.name, cn, gType, in); T.defAt = cur; snprintf(T.name, sizeof(T.name), "%s", cn); }
+    if (now < T.nextLine || T.lines >= 240) return;
+    T.nextLine = now + 0.25; T.lines++;
+    Log("grind: #%d t %.2f \"%s\" type %d bits %02x rot %.1f | v %.0f | pitch %+.0f yaw %+.0f prail %+.0f | %s | pending \"%s\" late %d crankclk %.2f",
+        T.n, now - T.t0, cn, gType, gBits, rotRate, len(T.vel), pitchW, yawRail, pitchRail, in, pn, lateArmed, crankClock);
+}
+void SafeGrindLogTick(void* mesh) {
+    __try { GrindLogTick(mesh); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { static LONG n = 0; if (InterlockedIncrement(&n) <= 5) Log("grind: a fault reading the game -- this sample skipped"); g_grSt.on = false; g_grSt.watch = false; }
+}
+// (grindmirror, build 282) THE ALT CROUCH'S GRINDS = THE STICKS' VERTICAL AXIS MIRRORED. AltGrinds (HJN_Set("altgrinds", 0/1); 0 = nothing
+// here runs: AltTick's one call is gated on the key, the alt set's "down" vote reads g_agMirOn, which only AgMirror raises). Needs AltFlips
+// (it runs at the end of the alt set's tick, on the alt set's checks). Epic's exe only (the stick buffer is the alt set's, PC+0x728).
+// Builds 280/281 forced the game's grind picker to a nosegrind and made a grind ride for the alt crouch's machine. In game (native281.log)
+// the wish latched in the air and dropped, every grind began as the game's own with "no alt crouch", and the flip-out press found "NO
+// flick ... the grind ended first". The user's design (27 Oct): "I would just mirror the vertical axis of the stick. Normally for a nose
+// grind I push UP on the front-foot stick, but all the alt crouches are DOWN. So I push down to land in the nose grind. Once I land in the
+// nose grind I'm already in the alt crouch, and I can just flip out. You're not really in an alt crouch in the grind -- you're just in the
+// grind." So the game does everything:
+//  - IN THE AIR (the board falling, no pop pending) and IN A GRIND (the anim's IsGrinding, or a grind definition targeted / current at
+//    skater+0x6c8 / +0x6d0 with the board not riding the ground; not a lip trick) an alt crouch -- the back stick UP or the front stick
+//    DOWN, within 40 deg of straight and past AltFlipEngage, or the alt set's own crouch still carried from its pop -- turns THE MIRROR
+//    ON: both sticks are handed to the game with y -> -y and x as it is (a flick's side stays its side), written where the alt set writes
+//    its crouch (after the engine wrote this frame's values, before the game's tick reads them). The game's own picker then sees its nose
+//    grind's input (the front stick up), its own crouch in the grind (its crank: its flip-out armed), its own flick; it decides the flip.
+//  - A stick held out the other way as the mirror comes on (a flick's follow-through) is left raw until it has been back inside
+//    AltFlipRelease: no jump the game could read as a flick. As the mirror goes off a stick still out stays mirrored until it is back in
+//    the middle, unless it is the one pushed the game's way.
+//  - OFF: a stick pushed the GAME's way (the back stick down / the front stick up, the same cone and engage) for 0.1 s with no stick the
+//    alt way; the board back on the ground with no grind for 0.15 s (nothing is written meanwhile: the ground's sticks are never turned);
+//    at once on a bail, off the board, the Lua's window shut (a mod trick of its own, the replay), a stick mode other than front/back- or
+//    left/right-foot, AltStall's blunt busy (it reads the sticks itself), the key off. In the air a grab or a held bumper stands it aside
+//    (the sticks raw, the state kept); in a grind the bumpers do not (GrindGrabs: the grind is not turned by a raw stick).
+//  - THE ALT SET STANDS ASIDE IN A GRIND: the grind no longer rides for its crouch (280's grind-riding line is gone from AltRidingWhy: "grinding"),
+//    so it neither crouches nor takes the flip-out there (AltTake needs its crouch's window): the flip-out is the game's own trick, with
+//    the game's name. Wherever the alt set writes a stick itself (its crouch carried, a dolphin's front stick, the monster's masks, the
+//    underflip's second flick) its write stands for that pose. Its "the buffer's down" vote skips the poses while the mirror is on.
+//  - The grind picker's hook (280) stays for AltStall's blunt only (AsBluntArm puts it in); AltGrinds neither installs it nor changes
+//    its answer.
+// "altgrind:" lines: the mirror ON / OFF and why; the sticks physical -> handed 4 times a second while it writes; a grind's start (the
+// game's definition), its settled / changed definition, its end and how; the game's crank in a grind (set / let go, its clock); the flip
+// the game decided and the trick it took in or just out of a grind.
+typedef const uint8_t* (*GrindPickFn)(void* gh, void* idb, uint8_t cos, uint8_t appr, const void* dir);
+constexpr uintptr_t RVA_GRIND_PICK = 0x1052ad0;   // const UGrindOrSlideDefinition* GrindsHandler::GetGrindDefinitionClosestToDirection(const UInputsDatabase&, ECatchOrientState, ESkaterApproachType, const FVector2D&)
+GrindPickFn o_GrindPick = nullptr; uint8_t* g_agTramp = nullptr;
+struct AgT {
+    bool tried, hookOk;                                                                 /* the grind picker's hook (AltStall's blunt; AgInstall) */
+    bool on, mb, mf, wasLeft, grWas; double lastT, offT, normT, onT, sayT, grT, grEndT;  /* the mirror on; the back / front stick handed over mirrored; its clocks */
+    float* bw; float* fw; float bwx, bwy, bpx, bpy, fwx, fwy, fpx, fpy; double bwT, fwT; /* our last writes and the physical values under them (a second pose in one frame) */
+    const uint8_t* curWas; int crankWas; uintptr_t pendWas, trickWas; char grNm[64];    /* the grind watched */
+    LONG ons, offs, says, grinds, cranks, flips;
+};
+AgT g_ag = {};
+bool AgHas(const char* s, const char* sub) {   // case-insensitive substring (sub in lower case)
+    for (; s && *s; s++) { int i = 0; while (sub[i] && s[i] && ((s[i] >= 'A' && s[i] <= 'Z') ? (char)(s[i] + 32) : s[i]) == sub[i]) i++; if (!sub[i]) return true; }
+    return false;
+}
+extern volatile LONG g_asBluntPick; extern volatile LONG g_asBluntGame; const uint8_t* SafeAsBluntPick(void* gh, const uint8_t* r);   /* (blunt 281) AltStall's blunt: the game's grind picker answers Blunt */
+extern volatile LONG g_asNsSlide; bool AsFgPickOn(); const uint8_t* SafeAsFgPick(void* gh, const uint8_t* r);   /* (forcegrind 287) AltNoStallSlide: the picker answers the nose slide */
+const uint8_t* hkGrindPick(void* gh, void* idb, uint8_t cos, uint8_t appr, const void* dir) {
+    const uint8_t* r = ((GrindPickFn)g_agTramp)(gh, idb, cos, appr, dir);
+    if (g_asNsSlide && AsFgPickOn() && g_altStall && g_hooked && !g_sigMode && gh) { const uint8_t* b = SafeAsFgPick(gh, r); if (b != r) return b; }   /* (forcegrind 287) the no stall's nose slide */
+    if (g_asBluntPick && g_altStall && g_hooked && !g_sigMode && gh) { const uint8_t* b = SafeAsBluntPick(gh, r); if (b != r) return b; }   /* (blunt 281) the blunt first; AltGrinds not asked then */
+    return r;   /* (grindmirror 282) AltGrinds no longer changes the game's pick: the game picks from the sticks it is handed (the note above) */
+}
+void AgInstall() {   /* (grindmirror 282) put in by AltStall's blunt only (AsBluntArm) */
+    AgT& G = g_ag;
+    if (G.tried || !g_hooked) return;
+    G.tried = true;
+    if (g_sigMode) { Log("altstall: another build of the game -- the grind picker is not hooked (its address is Epic's exe's): no blunt hand-over"); return; }
+    static const uint8_t ex[15] = { 0x48, 0x8B, 0xC4, 0x44, 0x88, 0x48, 0x20, 0x44, 0x88, 0x40, 0x18, 0x48, 0x89, 0x50, 0x10 };   // mov rax,rsp / mov [rax+20],r9b / mov [rax+18],r8b / mov [rax+10],rdx
+    if (!g_trampPage) g_trampPage = (uint8_t*)VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!g_trampPage || g_trampUsed + 15 + 14 > 4096) { Log("altstall: no room for the grind picker's trampoline -- no blunt hand-over"); return; }
+    g_agTramp = g_trampPage + g_trampUsed;   // where DetourInstall puts it (written before the jump goes in: the hook never runs without it)
+    o_GrindPick = (GrindPickFn)DetourInstall(Exe() + RVA_GRIND_PICK, (const void*)&hkGrindPick, 15, ex, sizeof(ex), "GrindsHandler::GetGrindDefinitionClosestToDirection (AltStall: the blunt's hand-over)");
+    G.hookOk = o_GrindPick != nullptr;
+    if (!G.hookOk) g_agTramp = nullptr;
+    Log(G.hookOk ? "altstall: the grind picker hooked -- it answers the blunt while one is armed / held / handed over (AltGrinds does not touch its pick)"
+                 : "altstall: the grind picker NOT hooked (its bytes are not the ones expected) -- no blunt hand-over");
+}
+void AgMirOff(AgT& G, const char* why, double now) {
+    if (!G.on) return;
+    G.on = false; G.normT = 0.0; G.offT = 0.0; g_agMirOn = 0;
+    if (InterlockedIncrement(&G.offs) <= 400) Log("altgrind: mirror OFF -- %s (it was on %.2f s)", why, now - G.onT);
+}
+void AgSet(double v) {
+    const LONG o = (v >= 0.5) ? 1 : 0;
+    if (InterlockedExchange(&g_altGrinds, o) != o)
+        Log("alt grinds %s (AltGrinds=%ld)%s", o ? "ON" : "off", (long)o, o ? ": in the air and in a grind an alt crouch (the back stick UP / the front stick DOWN) hands the game BOTH sticks upside down (y mirrored, x kept): its own nosegrind, its crouch and its flip-out ('altgrind:' lines; needs AltFlips)" : "");
+    if (!o) { g_ag.on = false; g_ag.mb = false; g_ag.mf = false; g_agMirOn = 0; }
+}
+// (grindalt4, build 285) THE ALT CROUCH ONLY ONCE IN A GRIND. AltGrindsInGrind (HJN_Set("altgrindsingrind", 0/1); 0 = nothing here runs:
+// AgMirror and AgArmStep turn here only with the key on, AgTake's extra line and AltTick's heel line are gated on it) replaces 282's mirror
+// and 283's arm. The user on 284 (28 Oct): the mirror in the air "is causing a lot of problems outside of it" (249 mirror ONs, most in the
+// air), and the dolphin out of a 5-0 was the game's LOW POP ollie (native284.log 17:28:26: the back stick held UP, mirrored to the game's
+// crouch; the front stick flicked UP, mirrored DOWN: RGS_ShittyOllie, "left as the game's own"). His design (28 Oct):
+//  - NOTHING IN THE AIR or on the ground: no stick is written unless the game is IN a grind (AgMirror's grind: not a lip trick). He gets into
+//    the grind with the game's own sticks (the back stick DOWN = 5-0 ...).
+//  - IN THE GRIND each stick's ALT half is handed to the game as the game's own: the back stick UP (the alt crouch's 40 deg cone, past
+//    AltFlipEngage) as DOWN -- the game keeps its grind crouch --, the front stick DOWN as UP (x kept, y turned). The game's own halves (back
+//    DOWN, front UP) and the sides go through raw. Once handed over a stick stays so until its alt part is back under 0.08 (where y -> -y meets
+//    the raw stick: no jump), so a varial's scoop swept from the alt way to the side reads as the game's own scoop. Down -> neutral -> up into
+//    the alt crouch: the game sees crouch -> neutral -> crouch.
+//  - ARMED (needs AltGrindFlipOut): the alt crouch (back UP) arms the ollie set (0), the alt nollie crouch (front DOWN) the nollie set (1);
+//    kept while its stick is handed over and 0.25 s after (AgArmSet's window); DISARMED at once when its stick is pushed the game's way (the
+//    game's own crouch: its own flip-out), on a hard off (AgMirror's: mode, window, bail, off the board, the blunt) or an alt trick running.
+//  - THE FLIP-OUT = THE GROUND'S ALT SET. Armed 0: the front stick's DOWN flick (handed over as UP from 0.12, as AltFrontStep pulls) and its
+//    UP flick (raw) are both the game's ollie flick; the claim (AgTake -> AltTake) tells them apart by the PULL (g_agArmPull = the flick stick
+//    past half its throw the alt way; a game-way or side flick past half clears it): AltFlickTrick's rule, so with AltFrontSwap=1 DOWN = the
+//    Monster, UP = the Dolphin (its porpoise lean read as the ground does and handed straight up), the varial scoops Nightmare / Daydream, the
+//    side flicks the underflips -- never the low pop ollie. Armed 1 by symmetry: the back stick UP (handed DOWN, the game's nollie flick) the
+//    nollie dolphin, DOWN (raw) the nollie monster. No pull starts within 0.15 s of a game-way flick past half (its spring-back).
+//  - A stick handed over as the grind ends with the CLAIMED trick running stays so until it is back in the middle, 0.3 s at most (the
+//    flick's follow-through through the pop); nothing else is written out of a grind.
+// "altgrind:" lines: a stick handed over (capped), the sticks 4 times a second while written, ARMED / DISARMED (why), the flick read (its
+// way), the flip-out claimed (AgTake: the physical flick, what the game was handed, its definition, the kind) or NOT claimed (why).
+// (grindfix5, build 286) A PLAIN 5-0's FLIP-OUT STAYS THE GAME'S. Build 285 in a 5-0 with the back stick held DOWN (the game's own crouch,
+// 1.38 s) then the front stick DOWN: the front was handed over as UP, armed the alt NOLLIE set and the game's ollie was claimed as a MONSTER
+// (n.log 21:00:11, 21:00:18, 21:03:35, 21:03:55, 21:05:25) -- without the hand-over that is his normal 5-0 exit, the game's low pop. Now a
+// stick's alt half is NOT handed over while the OTHER stick holds the game's own crouch (front DOWN while the back holds DOWN; back UP while
+// the front holds the nollie crouch UP) and the other is not itself handed over; once refused that stick stays raw until it is back near
+// the middle (under 0.2), and out of the grind. AltGrindsInGrind's path only (AgInGrind). 'altgrind:' line: "... NOT handed over".
+void AgRefuse(const AgT& G, int st, float bx, float by, float fx, float fy) {
+    if (st) g_agg.rf = true; else g_agg.rb = true;
+    if (InterlockedIncrement(&g_agg.refs) <= 300)
+        Log("altgrind: in the grind \"%s\": the %s stick %s (%+.2f, %+.2f) NOT handed over -- the %s stick holds the game's own %s (%+.2f, %+.2f): left raw (the game's own flip-out%s) until it is back near the middle | armed %d",
+            G.grNm, st ? "front" : "back", st ? "DOWN" : "UP", st ? fx : bx, st ? fy : by, st ? "back" : "front", st ? "crouch (DOWN)" : "nollie crouch (UP)", st ? bx : fx, st ? by : fy, st ? ": a plain grind's low pop" : "", g_agArm);
+}
+void AgInGrind(AgT& G, AltT& A, float* bp, float* fp, float bx, float by, float fx, float fy, bool bAlt, bool fAlt, bool grind, const char* hard, uintptr_t trick, double now, bool& bAltW, bool& fAltW) {
+    const AltTrick& T = A.t;
+    const float e = g_altCfg.engage;
+    const float u = -A.downSign * by, fd = A.downSign * fy;          /* the back stick's up, the front stick's down: the alt halves */
+    const float bmag = sqrtf(bx * bx + by * by), fmag = sqrtf(fx * fx + fy * fy);
+    bAltW = AltInCone(bx, u) && u >= e; fAltW = AltInCone(fx, fd) && fd >= e;
+    g_agg.bGame = AltInCone(bx, -u) && -u >= e; g_agg.fGame = AltInCone(fx, -fd) && -fd >= e; g_agg.hard = hard;
+    const bool carry = !grind && T.phase == 2 && trick && trick == g_agClaim && (G.grWas || (G.grEndT > 0.0 && now - G.grEndT < 0.3));
+    if (hard || (!grind && !carry)) { G.mb = false; G.mf = false; g_agg.rb = false; g_agg.rf = false; g_agMirOn = (g_agArm >= 0) ? 1 : 0; return; }   /* out of a grind: nothing written */   /* (grindfix5 286) the refusals end with the grind */
+    const bool quiet = g_agg.gameT > 0.0 && now - g_agg.gameT < 0.15;
+    const bool mbWas = G.mb, mfWas = G.mf;
+    if (g_agg.rb && bmag < 0.2f) g_agg.rb = false;   /* (grindfix5 286) a refused stick back near the middle (the note at AgRefuse) */
+    if (g_agg.rf && fmag < 0.2f) g_agg.rf = false;
+    if (G.mb && u < 0.08f) G.mb = false;
+    else if (!G.mb && !carry && !g_agg.rb && AltInCone(bx, u) && (u >= e || (G.mf && u >= 0.12f && !quiet))) { if (!G.mf && g_agg.fGame) AgRefuse(G, 0, bx, by, fx, fy); else G.mb = true; }   /* (grindfix5 286) not while the front holds the game's nollie crouch */
+    if (G.mf && fd < 0.08f) G.mf = false;
+    else if (!G.mf && !carry && !g_agg.rf && AltInCone(fx, fd) && (fd >= e || (G.mb && fd >= 0.12f && !quiet))) { if (!G.mb && g_agg.bGame) AgRefuse(G, 1, bx, by, fx, fy); else G.mf = true; }   /* (grindfix5 286) not while the back holds the game's crouch: a plain 5-0's low pop */
+    if (((G.mb && !mbWas) || (G.mf && !mfWas)) && InterlockedIncrement(&g_agg.ons) <= 400)
+        Log("altgrind: in the grind \"%s\": the %s stick %s (%+.2f, %+.2f) handed to the game as %s (y turned, x kept) | armed %d",
+            G.grNm, (G.mb && !mbWas) ? "back" : "front", (G.mb && !mbWas) ? "UP" : "DOWN", (G.mb && !mbWas) ? bx : fx, (G.mb && !mbWas) ? by : fy,
+            (G.mb && !mbWas) ? (G.mf ? "DOWN (the game's nollie flick)" : "DOWN (the game's grind crouch)") : (G.mb ? "UP (the game's ollie flick)" : "UP (the game's nollie crouch)"), g_agArm);
+    bool wrote = false;
+    if (G.mb && !bAlt) {
+        bp[0] = bx; bp[1] = -by; wrote = true;
+        G.bw = bp; G.bwx = bp[0]; G.bwy = bp[1]; G.bpx = bx; G.bpy = by; G.bwT = now;
+        A.wrote = true; A.wp = bp; A.wx = bp[0]; A.wy = bp[1]; A.px = bx; A.py = by; A.tWrote = now;   /* the alt set's next pose in this frame reads the physical values back */
+    }
+    if (G.mf && !fAlt) {
+        fp[0] = fx; fp[1] = -fy; wrote = true;
+        G.fw = fp; G.fwx = fp[0]; G.fwy = fp[1]; G.fpx = fx; G.fpy = fy; G.fwT = now;
+    }
+    if (g_agArm >= 0 && !carry) {   /* the armed set's flick: its porpoise lean (handed straight), its way read */
+        const int st = g_agArm;
+        const bool pOk = g_altPor != 0 && g_altDolOn != 0 && g_altDolIn != 2 && g_altDolFwd != 0;
+        if (st == 0 && pOk && g_altSwap != 0 && !G.mf && !fAlt && AltPorStep(g_agg.por, true, fx, -fd, g_agg.heel[0], (float)g_altPorLean)) {
+            fp[0] = 0.0f; fp[1] = fy; wrote = true;
+            G.fw = fp; G.fwx = fp[0]; G.fwy = fp[1]; G.fpx = fx; G.fpy = fy; G.fwT = now;
+        }
+        if (st == 1 && pOk && g_altNol != 0 && G.mb && !bAlt && AltPorStep(g_agg.por, true, bx, u, g_agg.heel[1], (float)g_altPorLean)) {
+            bp[0] = 0.0f; wrote = true;
+            G.bwx = bp[0]; A.wx = bp[0];
+        }
+        if (st == 0) A.por = g_agg.por; else A.porn = g_agg.por;   /* AltTake reads the lean there (the ground's block forgets it every pose in a grind) */
+        const float a = st ? u : fd, x = st ? bx : fx, mag = st ? bmag : fmag;
+        const bool mapped = st ? G.mb : G.mf;
+        const int w = (mapped && AltInCone(x, a) && a >= 0.5f) ? 1 : (AltInCone(x, -a) && -a >= 0.5f) ? 2 : (mag >= 0.5f && !AltInCone(x, a) && !AltInCone(x, -a)) ? 3 : 0;
+        if (w == 2) g_agg.gameT = now;
+        if (w && (w != g_agg.flk || mag > g_agg.most)) {
+            if (w != g_agg.flk && InterlockedIncrement(&g_agg.flicks) <= 300)
+                Log("altgrind: in the grind \"%s\": the %s stick flicked %s (%+.2f, %+.2f)%s", G.grNm, st ? "back" : "front",
+                    w == 1 ? (st ? "UP: the alt way (handed over as DOWN) -- the pull" : "DOWN: the alt way (handed over as UP) -- the pull") : w == 2 ? (st ? "DOWN: the game's own way (raw)" : "UP: the game's own way (raw)") : "to the side (raw)",
+                    st ? bx : fx, st ? by : fy, w == 3 ? "" : (AltFlickTrick(st, w == 1, g_altSwap) == ALT_FK_MONSTER ? ": an ollie out of it is the MONSTER" : ": an ollie out of it is the DOLPHIN"));
+            g_agg.flk = w; g_agg.pull = (w == 1); g_agg.most = mag;
+            g_agg.px = x; g_agg.py = st ? by : fy; g_agg.hx = st ? bp[0] : fp[0]; g_agg.hy = st ? bp[1] : fp[1];
+        }
+        g_agArmPull = g_agg.pull;
+    }
+    g_agMirOn = (G.mb || G.mf || g_agArm >= 0) ? 1 : 0;   /* the alt set's "down" vote skips these poses; AgArmSet answers */
+    if (wrote && now - G.sayT >= 0.25 && InterlockedIncrement(&G.says) <= 4000) {
+        G.sayT = now;
+        Log("altgrind: %s \"%s\" | back (%+.2f, %+.2f) -> (%+.2f, %+.2f)%s | front (%+.2f, %+.2f) -> (%+.2f, %+.2f)%s | armed %d, pull %d",
+            grind ? "in the grind" : "the flick's follow-through out of", G.grNm, bx, by, bp[0], bp[1], bAlt ? " (the alt set's own)" : G.mb ? "" : " (raw)",
+            fx, fy, fp[0], fp[1], fAlt ? " (the alt set's own)" : G.mf ? "" : " (raw)", g_agArm, g_agArmPull ? 1 : 0);
+    }
+}
+void AgArmIn(AgT& G, const AltT& A, bool grind, bool bAltW, bool fAltW, uintptr_t trick, bool nearG, bool modeOk, bool winOpen, double now) {   /* (grindalt4 285) AltGrindsInGrind's arm (the note at AgInGrind) */
+    const AltTrick& T = A.t;
+    static LONG nArm = 0, nNot = 0;
+    if (trick && trick != G.trickWas && trick != g_agClaim && nearG && InterlockedIncrement(&nNot) <= 300) {
+        char nm[100]; AltDefName(trick, nm, sizeof(nm));
+        const char* why = !g_altCfg.on ? "AltFlips is off" : !modeOk ? "the stick mode is not front/back- or left/right-foot" : !winOpen ? "the Lua's window shut" : T.phase == 2 ? "an alt trick of the set's own was running"
+                        : AgArmSet(now) < 0 ? "the alt set was not armed (no alt crouch held in the grind in the last 0.25 s: the game's own crouch, its own flip-out)" : "its start was not a pop or a new definition (the trick clock only)";
+        Log("altgrind: the flip-out \"%s\" NOT claimed by the alt set -- %s | in-grind mode, armed %d, the flick read %d (1 alt, 2 the game's, 3 side, 0 none)", nm, why, g_agArm, g_agg.flk);
+    }
+    if (g_agArm >= 0) {
+        const char* why = g_agg.hard ? g_agg.hard : (g_agArm == 0 && g_agg.bGame) ? "the back stick pushed DOWN (the game's own crouch: its own flip-out)" : (g_agArm == 1 && g_agg.fGame) ? "the front stick pushed UP (the game's own nollie crouch: its own flip-out)"
+                        : (grind && T.phase == 2) ? "an alt trick of the set's own in the grind" : (now - g_agArmT > 0.25) ? (grind ? "the alt crouch let go for 0.25 s" : "0.25 s past the grind with no flip-out taken") : nullptr;
+        if (why) {
+            if (InterlockedIncrement(&nArm) <= 400) Log("altgrind: alt set DISARMED -- %s (in-grind mode)", why);
+            g_agArm = -1; g_agArmT0 = 0.0;
+        }
+    }
+    if (grind && T.phase != 2 && !g_agg.hard) {
+        int st = g_agArm;
+        if (!((st == 0 && G.mb) || (st == 1 && G.mf))) st = bAltW ? 0 : fAltW ? 1 : st;
+        if (st >= 0 && ((st == 0 && G.mb) || (st == 1 && G.mf))) {
+            if (st != g_agArm) {
+                if (g_agArm < 0) g_agArmT0 = now;
+                g_agg.pull = false; g_agg.flk = 0; g_agg.most = 0.0f; g_agg.por = AltPor{};
+                if (InterlockedIncrement(&nArm) <= 400)
+                    Log("altgrind: alt set ARMED in the grind \"%s\" (t %.2f, in-grind mode): the alt %scrouch's set -- the game is handed its own %s; the %s stick's flicks: %s",
+                        G.grNm, now - G.grT, st ? "NOLLIE " : "", st ? "nollie crouch (the front stick UP)" : "grind crouch (the back stick DOWN)", st ? "back" : "front",
+                        st ? "UP (handed DOWN) and DOWN (raw) are both the game's nollie flick: UP the nollie dolphin, DOWN the nollie monster" : (g_altSwap ? "DOWN (handed UP) and UP (raw) are both the game's ollie flick: DOWN the monster, UP the dolphin" : "DOWN (handed UP) and UP (raw) are both the game's ollie flick: DOWN the dolphin, UP the monster"));
+            }
+            g_agArm = st; g_agArmT = now;
+        }
+    }
+    if (g_agArm < 0) { g_agArmPull = false; g_agg.pull = false; }
+    g_agMirOn = (G.mb || G.mf || g_agArm >= 0) ? 1 : 0;
+}
+void AgInSet(double v) {   /* (grindalt4 285) HJN_Set("altgrindsingrind") */
+    const LONG o = (v >= 0.5) ? 1 : 0;
+    if (InterlockedExchange(&g_agInGrind, o) != o) {
+        Log("alt grinds: the alt crouch only in a grind %s (AltGrindsInGrind=%ld)%s", o ? "ON" : "off", (long)o,
+            o ? ": nothing in the air; in a grind the back stick UP is handed to the game as DOWN, the front stick DOWN as UP, and the flip-out is the ground's alt set ('altgrind:' lines; needs AltGrinds, AltGrindFlipOut and AltFlips)" : ": build 284's mirror");
+        g_ag.on = false; g_ag.mb = false; g_ag.mf = false; g_agMirOn = 0; g_agArm = -1; g_agArmPull = false; g_agg.pull = false; g_agg.flk = 0;
+    }
+}
+// (grindalt3, build 283) THE ALT FLIP OUT OF AN ALT CROUCH'S GRIND. AltGrindFlipOut (HJN_Set("altgrindflipout", 0/1); 0 = nothing here
+// runs: AgArmStep is called only with the key on; AgArmSet answers -1, so AltSetNow, AltPulledIn and the take's third branch answer as build
+// 282 did). Needs AltGrinds (the mirror) and AltFlips. The user on 282 (27 Oct): "the alt crouch gets me into the grind, but I can't ALT flip
+// out. I can only normal flip out." native282.log 22:35:15: the game decided "NLS_Kickflip" in "GRIND_FS_Nosegrind" with the mirror ON
+// and the alt set standing aside in the grind (AltRidingWhy: "grinding"): the game's own nollie kickflip came out. With the key on:
+//  - ARMED: while the mirror is ON in a grind (AgMirror's grind: the anim's IsGrinding or a grind definition, not a lip trick) and no alt
+//    trick of the set's own is in the air, the alt set is armed as if its crouch were held: the ALT crouch's set (0) while the back stick
+//    is held UP, the ALT NOLLIE crouch's (1) while the front stick is held DOWN (the set armed kept while its own stick is held; with
+//    neither held the last one held while the mirror was on, else the nollie set if its crouch was carried, else the ollie set). Kept
+//    0.25 s past the grind's last pose (the ground's let-go window); gone at once with the mirror.
+//  - The game decides its flip-out from the sticks it is handed (its pop out of the grind). AltSetNow answers the armed set, so what the
+//    ground does to a decided trick before its start happens here too (the monster's flick read, the dolphin's varial flip, the nollie
+//    set's varials); at the trick's start (its pop pending or a new definition -- not the trick clock, which a grind may reset) AgTake
+//    takes it as AltTake takes a ground alt pop: the armed set, its "pulled" flick = the flick stick handed over turned (under the mirror
+//    the game's own flick is the stick's other way: the ground's pulled flick) -> monster / dolphin / nightmare / daydream / the kick-heel
+//    underflip / the shuv-it underflip by the ground's rules (AltKindFor, AltFlickTrick, AltUnderKindFor). The crouch is not carried
+//    into the trick (the mirror goes on handing the sticks over in the air, as in 282).
+//  - The normal crouch in the grind (the mirror off) arms nothing: the game's flip-out as before.
+// "altgrind:" lines: ARMED / DISARMED (why); the flip-out CLAIMED by the alt set as kind N (AgTake), or NOT claimed (why).
+void AgArmStep(AgT& G, const AltT& A, bool grind, bool bAltW, bool fAltW, uintptr_t trick, bool nearG, bool modeOk, bool winOpen, double now) {
+    if (g_agInGrind) { AgArmIn(G, A, grind, bAltW, fAltW, trick, nearG, modeOk, winOpen, now); return; }   /* (grindalt4 285) AltGrindsInGrind (the note at AgInGrind) */
+    const AltTrick& T = A.t;
+    static LONG nArm = 0, nNot = 0;
+    if (trick && trick != G.trickWas && trick != g_agClaim && nearG && InterlockedIncrement(&nNot) <= 300) {
+        char nm[100]; AltDefName(trick, nm, sizeof(nm));
+        const char* why = !G.on ? "the mirror is off (the game's own crouch): the game's flip-out" : !g_altCfg.on ? "AltFlips is off" : !modeOk ? "the stick mode is not front/back- or left/right-foot"
+                        : !winOpen ? "the Lua's window shut" : T.phase == 2 ? "an alt trick of the set's own was running" : AgArmSet(now) < 0 ? "the alt set was not armed (no grind pose with the mirror on in the last 0.25 s)"
+                        : "its start was not a pop or a new definition (the trick clock only)";
+        Log("altgrind: the flip-out \"%s\" NOT claimed by the alt set -- %s | mirror %s, armed %d", nm, why, G.on ? "ON" : "off", g_agArm);
+    }
+    if (!G.on) {
+        if (g_agArm >= 0 && InterlockedIncrement(&nArm) <= 400) Log("altgrind: alt set DISARMED -- the mirror went off");
+        g_agArm = -1; g_agArmLast = -1; g_agArmT0 = 0.0; g_agArmPull = false;
+        return;
+    }
+    if (bAltW != fAltW) g_agArmLast = bAltW ? 0 : 1;
+    if (grind && T.phase != 2) {
+        int st = g_agArm;
+        if (!((st == 0 && bAltW) || (st == 1 && fAltW))) st = bAltW ? 0 : fAltW ? 1 : (st >= 0) ? st : (g_agArmLast >= 0) ? g_agArmLast : (A.sn.in != 0) ? 1 : 0;
+        g_agArmPull = (st == 1) ? G.mb : G.mf;
+        if (st != g_agArm) {
+            if (g_agArm < 0) g_agArmT0 = now;
+            if (InterlockedIncrement(&nArm) <= 400)
+                Log("altgrind: alt set ARMED in the grind \"%s\" (t %.2f): the alt %scrouch's set (%s) -- the game's flip-out will be taken as an alt pop from it; its %s stick %s",
+                    G.grNm, now - G.grT, st ? "NOLLIE " : "", (st == 0 && bAltW) || (st == 1 && fAltW) ? "its stick held" : "its stick let go: the last one held", st ? "back" : "front", g_agArmPull ? "handed over turned" : "raw");
+        }
+        g_agArm = st; g_agArmT = now;
+    }
+    else if (g_agArm >= 0 && now - g_agArmT > 0.25) {
+        if (InterlockedIncrement(&nArm) <= 400) Log("altgrind: alt set DISARMED -- %s", grind ? "an alt trick of the set's own in the grind" : "0.25 s past the grind with no flip-out taken");
+        g_agArm = -1; g_agArmT0 = 0.0;
+    }
+}
+// one pose, at the end of the alt set's stick section (after every write of its own); A / T are the alt set's, the sticks its buffer
+void AgMirror(AltT& A, uint8_t* pc, const uint8_t* sk, const uint8_t* mc, const uint8_t* bm, const uint8_t* anim, const uint8_t* fth, bool backLeft, bool modeOk, bool winOpen, double now) {
+    AgT& G = g_ag;
+    const AltTrick& T = A.t;
+    if (!g_hooked || g_sigMode) return;
+    if (G.lastT > 0.0 && now - G.lastT > 0.25) { AgMirOff(G, "the alt set's tick had stopped (AltFlips off, no skater, a pause)", now); G.mb = false; G.mf = false; G.grWas = false; }
+    G.lastT = now;
+    float* bp = (float*)(pc + ALT_PC_STICKS) + (backLeft ? 0 : 2);
+    float* fp = (float*)(pc + ALT_PC_STICKS) + (backLeft ? 2 : 0);
+    /* the physical values: under the alt set's own write of this pose, under our own last write still in the buffer, else the buffer as the engine wrote it */
+    const bool bAlt = A.wrote && A.wp == bp && A.tWrote == now;
+    const bool fAltF = A.fwrote && A.fwp == fp && A.ftWrote == now, fAltU = A.uFw && A.uFwp == fp && A.uFwT == now;
+    const bool fAlt = fAltF || fAltU || (T.phase == 2 && T.kind == 1 && T.mStep <= 1 && bm[BM_MODE] == 3);   /* + the monster's front-stick mask in its air (review F4) */
+    float bx = bp[0], by = bp[1], fx = fp[0], fy = fp[1];
+    if (bAlt) { bx = A.px; by = A.py; }
+    else if (G.bw == bp && now - G.bwT < 0.25 && bx == G.bwx && by == G.bwy) { bx = G.bpx; by = G.bpy; }
+    if (fAltF) { fx = A.fpx; fy = A.fpy; }
+    else if (fAltU) { fx = A.uFpx; fy = A.uFpy; }
+    else if (!fAlt && G.fw == fp && now - G.fwT < 0.25 && fx == G.fwx && fy == G.fwy) { fx = G.fpx; fy = G.fpy; }
+    if (!std::isfinite(bx) || !std::isfinite(by) || !std::isfinite(fx) || !std::isfinite(fy)) return;
+    const uint8_t* tgt = *(const uint8_t* const*)(sk + 0x6c8);
+    const uint8_t* cur = *(const uint8_t* const*)(sk + 0x6d0);
+    const bool popPend = (sk[ALT_SK_FLAGS] & 0x04) != 0, lip = anim[ALT_AI_LIPTRICK] != 0;
+    const bool grind = !lip && (anim[ALT_AI_GRIND] != 0 || ((cur || tgt) && bm[BM_MODE] != 1));
+    const bool air = bm[BM_MODE] == 3 && !popPend;
+    const bool bail = (sk[ALT_SK_FLAGS] & 2) || g_bail;
+    const char* hard = !modeOk ? "the stick mode is not front/back- or left/right-foot" : !winOpen ? "the Lua's window shut (a mod trick of its own, the replay, AltFlips off)"
+                     : bail ? "a bail" : (g_offBoard || !mc[MC_ONBOARD]) ? "off the board" : g_asBluntPick ? "AltStall's blunt is busy (it reads the sticks itself)" : nullptr;
+    bool wrote = false, bAltW = false, fAltW = false;
+    if (g_agInGrind) AgInGrind(G, A, bp, fp, bx, by, fx, fy, bAlt, fAlt, grind, hard, *(const uintptr_t*)(sk + ALT_SK_TRICK), now, bAltW, fAltW);   /* (grindalt4 285) AltGrindsInGrind: nothing in the air (the note at AgInGrind) */
+    else if (hard) { AgMirOff(G, hard, now); G.mb = false; G.mf = false; }
+    else if (!air && !grind) {
+        G.mb = false; G.mf = false;                                    /* the ground's sticks are never turned */
+        if (G.on) { if (G.offT <= 0.0) G.offT = now; else if (now - G.offT >= 0.15) AgMirOff(G, "back on the ground with no grind for 0.15 s", now); }
+    }
+    else {
+        G.offT = 0.0;
+        if (backLeft != G.wasLeft) { G.wasLeft = backLeft; G.mb = false; G.mf = false; }   /* the sticks swapped roles (the stance): each re-armed from the middle */
+        const float e = g_altCfg.engage, rel = g_altCfg.release;
+        const float u = -A.downSign * by, fd = A.downSign * fy;          /* the back stick's up, the front stick's down: the alt crouches' ways */
+        const float bmag = sqrtf(bx * bx + by * by), fmag = sqrtf(fx * fx + fy * fy);
+        bAltW = AltInCone(bx, u) && u >= e; fAltW = AltInCone(fx, fd) && fd >= e;
+        const bool bGame = AltInCone(bx, -u) && -u >= e, fGame = AltInCone(fx, -fd) && -fd >= e;
+        const bool carried = A.s.in != 0 || A.sn.in != 0;
+        const bool grab = air && !grind && (sk[SK_GRAB] != 0 || (pc[PC_BUMPERS] & 0x06));
+        if (!grab) {
+            if (bAltW || fAltW || carried) {
+                G.normT = 0.0;
+                if (!G.on) {
+                    G.on = true; g_agMirOn = 1; G.onT = now; G.sayT = 0.0;
+                    if (InterlockedIncrement(&G.ons) <= 400)
+                        Log("altgrind: mirror ON -- %s, %s | physical back (%+.2f, %+.2f) front (%+.2f, %+.2f) | the game is handed y mirrored, x as it is (a stick held out the other way waits for the middle)",
+                            bAltW ? "the back stick UP (the alt crouch's way)" : fAltW ? "the front stick DOWN (the alt nollie crouch's way)" : "the alt set's crouch carried from its pop",
+                            grind ? "in a grind" : "in the air", bx, by, fx, fy);
+                }
+            }
+            else if (G.on && (bGame || fGame)) {
+                if (G.normT <= 0.0) G.normT = now;
+                else if (now - G.normT >= 0.1) AgMirOff(G, bGame ? "the back stick pushed DOWN (the game's own way) for 0.1 s" : "the front stick pushed UP (the game's own way) for 0.1 s", now);
+            }
+            else G.normT = 0.0;
+        }
+        if (G.on) { if (!G.mb && (bAltW || bmag < rel)) G.mb = true; if (!G.mf && (fAltW || fmag < rel)) G.mf = true; }
+        else { if (G.mb && (bGame || bmag < rel)) G.mb = false; if (G.mf && (fGame || fmag < rel)) G.mf = false; }
+        if (!grab) {
+            if (G.mb && !bAlt) {
+                bp[0] = bx; bp[1] = -by; wrote = true;
+                G.bw = bp; G.bwx = bp[0]; G.bwy = bp[1]; G.bpx = bx; G.bpy = by; G.bwT = now;
+                A.wrote = true; A.wp = bp; A.wx = bp[0]; A.wy = bp[1]; A.px = bx; A.py = by; A.tWrote = now;   /* the alt set's next pose in this frame reads the physical values back */
+            }
+            if (G.mf && !fAlt) {
+                fp[0] = fx; fp[1] = -fy; wrote = true;
+                G.fw = fp; G.fwx = fp[0]; G.fwy = fp[1]; G.fpx = fx; G.fpy = fy; G.fwT = now;
+            }
+        }
+    }
+    /* what the game was handed this pose, the grind it rides, its crank, the flip it decides */
+    const bool fOk = fth && PtrOk(fth, ALT_FTH_PENDING + 8);
+    const uintptr_t pend = fOk ? *(const uintptr_t*)(fth + ALT_FTH_PENDING) : 0;
+    const float clk = fOk ? ReadF(fth, ALT_FTH_CRANK) : -1.0f;
+    const int crank = (sk[ALT_SK_CRANK] & 1) ? 1 : 0, aCrank = anim[ALT_AI_CRANKING] ? 1 : 0;
+    const uintptr_t trick = *(const uintptr_t*)(sk + ALT_SK_TRICK);
+    if (wrote && now - G.sayT >= 0.25 && InterlockedIncrement(&G.says) <= 4000) {
+        G.sayT = now;
+        Log("altgrind: mirror %s, %s %s | back (%+.2f, %+.2f) -> (%+.2f, %+.2f)%s | front (%+.2f, %+.2f) -> (%+.2f, %+.2f)%s | crank bit %d animcrank %d clock %.2f",
+            G.on ? "ON" : "going off", grind ? "in the grind" : "in the air", grind ? G.grNm : "-", bx, by, bp[0], bp[1], bAlt ? " (the alt set's own)" : G.mb ? "" : " (raw)",
+            fx, fy, fp[0], fp[1], fAlt ? " (the alt set's own)" : G.mf ? "" : " (raw)", crank, aCrank, clk);
+    }
+    if (grind && !G.grWas) {
+        G.grT = now; GrDefName(cur ? cur : tgt, G.grNm, 64); G.crankWas = -1;
+        if (InterlockedIncrement(&G.grinds) <= 300)
+            Log("altgrind: grind began: \"%s\" (the game's own pick) | mirror %s | the game was handed back (%+.2f, %+.2f) front (%+.2f, %+.2f), physical back (%+.2f, %+.2f) front (%+.2f, %+.2f)",
+                G.grNm, G.on ? "ON" : "off", bp[0], bp[1], fp[0], fp[1], bx, by, fx, fy);
+    }
+    else if (grind && cur && cur != G.curWas) {
+        char cn[64]; GrDefName(cur, cn, 64);
+        if (InterlockedIncrement(&G.grinds) <= 300) Log("altgrind: in the grind (t %.2f): the game's grind is \"%s\" (was \"%s\") | mirror %s", now - G.grT, cn, G.grNm, G.on ? "ON" : "off");
+        snprintf(G.grNm, sizeof(G.grNm), "%s", cn);
+    }
+    if (!grind && G.grWas) {
+        G.grEndT = now;
+        if (InterlockedIncrement(&G.grinds) <= 300)
+            Log("altgrind: grind ended: \"%s\" after %.2f s -- %s | mirror %s", G.grNm, now - G.grT,
+                bail ? "a bail" : pend ? "a flip decided" : popPend ? "a pop" : bm[BM_MODE] == 3 ? "in the air" : "on the ground", G.on ? "ON" : "off");
+    }
+    if (grind) {
+        const int c = (crank || aCrank) ? 1 : 0;
+        if (c != G.crankWas) {
+            if ((G.crankWas >= 0 || c) && InterlockedIncrement(&G.cranks) <= 600)
+                Log("altgrind: in the grind \"%s\" (t %.2f): the game's crank %s -- crank bit %d animcrank %d crank clock %.2f | mirror %s | the game was handed back (%+.2f, %+.2f) front (%+.2f, %+.2f)",
+                    G.grNm, now - G.grT, c ? "SET (its flip-out armed: flick)" : "let go", crank, aCrank, clk, G.on ? "ON" : "off", bp[0], bp[1], fp[0], fp[1]);
+            G.crankWas = c;
+        }
+    }
+    const bool nearG = grind || (G.grEndT > 0.0 && now - G.grEndT < 0.6);
+    if (pend && pend != G.pendWas && nearG && InterlockedIncrement(&G.flips) <= 300) {
+        char pn[64]; GrFlipName((const uint8_t*)pend, pn, 64);
+        Log("altgrind: the game DECIDED the flip \"%s\" %s \"%s\" | mirror %s | crank bit %d animcrank %d | the game was handed back (%+.2f, %+.2f) front (%+.2f, %+.2f)",
+            pn, grind ? "in the grind" : "just out of the grind", G.grNm, G.on ? "ON" : "off", crank, aCrank, bp[0], bp[1], fp[0], fp[1]);
+    }
+    if (trick && trick != G.trickWas && nearG && InterlockedIncrement(&G.flips) <= 300) {
+        char nm[100]; AltDefName(trick, nm, sizeof(nm));
+        Log("altgrind: the game's trick now \"%s\" (%s \"%s\", %.2f s %s) | the alt set's trick phase %d | mirror %s", nm, grind ? "in the grind" : "out of the grind", G.grNm,
+            grind ? now - G.grT : now - G.grEndT, grind ? "into it" : "after its end", T.phase, G.on ? "ON" : "off");
+    }
+    if (g_agFlipOut) AgArmStep(G, A, grind, bAltW, fAltW, trick, nearG, modeOk, winOpen, now);   /* (grindalt3 283) AltGrindFlipOut: the alt set armed in the grind (the note at AgArmStep) */
+    G.pendWas = pend; G.trickWas = trick;
+    G.grWas = grind; G.curWas = cur;
+}
+
+// (altstall, build 276) THE ALT STALLS. AltStall (HJN_Set("altstall", 0..2); 0 = nothing here runs, the pose hook does not even call
+// in). Riding UP a transition to a lip (the stall log's attempt test: on the board, not in the air, the deck rising faster than 20
+// cm/s, the ground under it steeper than 30 deg, a lip within 150 cm ahead) WITH AN ALT CROUCH HELD (the alt crouch or the alt
+// nollie crouch, g_alt.s.in / g_alt.sn.in) arms it. 1 = NO STALL: as the LEADING truck comes over the coping (riding tail first,
+// the back truck) the board is caught there, laid as the drop-in's set-down lays it: that truck 8 cm onto the deck at its height,
+// the leading end down by the drop-in's pitch (DropInPitch, 25: the trailing end up out over the ramp), until the crouch is let go
+// (then a push back down the ramp: dropped in), 8 s at the most. 2 = BLUNT STALL: as the TRAILING truck reaches the coping its wheels
+// are held on it (3 cm before the edge) with the leading end pitched 65 deg up over the deck (the tail down the ramp's face) until
+// the crouch is let go (a small pop back in) or 3 s. The hold is the wallie's way (WgWallieStep): every part of the board given one
+// velocity toward the hold's place and one turn toward its pitch, every pose -- NOT the drop-in's set-down (that is a board in the
+// hand, on foot: it cannot be armed while riding). Too slow (rolled back before the lip), too fast (over 400 cm/s at the lip) or
+// in the air: nothing is done. "altstall:" lines say every arming, catch, release and why not. Epic's exe only.
+volatile LONG g_altStall = 0;            // HJN_Set("altstall", 0..2): the ini's AltStall
+float g_asPitch = 25.0f;                 // HJN_Set("altstallpitch"): the drop-in's DropInPitch (the no stall's lie)
+float AltStallHoldS(int mode) { return mode ? 20.0f : 0.0f; }   /* (stall2 277) the safety timeout only: the stall holds whatever the sticks do */
+// (stall2, build 277) THE NEW EXIT and THE WHEELS ON THE COPING. Build 276's no stalls were all "let go" 0.10 s after the catch: the
+// hold lifted every wheel (wheels 0000), the game called that the air (bm 3, movement 6/2) and the alt set ended its crouch as "not riding"
+// (ALT_E_NOTRIDING) -- the crouch was never let go by the hand. Now: the catch still wants the alt crouch held (the alt set's flag, or the
+// physical stick read here); once caught THE STALL HOLDS (letting go does nothing; 20 s safety, a bail or off the board end it). The sticks
+// must be seen back in the middle once; then a crouch PRESSED AND LET GO exits: the alt crouch / alt nollie crouch = the alt pop (the
+// alt set is told the skater rides while the stall waits -- AltStallRide -- so its crouch, its mirror and its window take the pop and an
+// alt flip can come out), the normal crouch / nollie crouch = the game's own pop. On the exit the hold lets go and the board is given a
+// push back down the transition and a little up. The hold's anchor is now the held truck's WHEEL PAIR (their origins sit at the tread):
+// set g_sdWheelR (the drop-in's measure) over the lip top, 3 cm past the edge: no stall the leading wheels, blunt the trailing wheels.
+float g_asStk[4] = {}; float g_asEng = 0.5f, g_asRel = 0.25f; double g_asStkT = 0.0;   /* (stall2 277) the physical sticks: back up-ness, back x, front down-ness, front x (the alt set's frames) */
+void AsStick(float bx, float by, float fx, float fy, float downSign, float eng, float rel, double now) {
+    if (!std::isfinite(bx) || !std::isfinite(by) || !std::isfinite(fx) || !std::isfinite(fy)) return;
+    g_asStk[0] = -downSign * by; g_asStk[1] = bx; g_asStk[2] = downSign * fy; g_asStk[3] = fx; g_asEng = eng; g_asRel = rel; g_asStkT = now;
+}
+// which crouch the sticks show: 0 none (both in the middle), 1 alt crouch, 2 alt nollie crouch, 3 crouch, 4 nollie crouch, -1 out but none of these
+int AltStallCrouch(float uB, float xB, float dF, float xF, float eng, float rel) {
+    if (uB >= eng && fabsf(xB) <= 0.839f * uB) return 1;
+    if (dF >= eng && fabsf(xF) <= 0.839f * dF) return 2;
+    if (uB <= -0.5f && fabsf(xB) <= 0.839f * -uB) return 3;
+    if (dF <= -0.5f && fabsf(xF) <= 0.839f * -dF) return 4;
+    if (sqrtf(uB * uB + xB * xB) < rel && sqrtf(dF * dF + xF * xF) < rel) return 0;
+    return -1;
+}
+// the exit machine (st 2 = held, waiting for the middle; 3 = waiting for a crouch; 4 = a crouch pressed): -> the crouch that exits (1..4) or 0
+int AltStallExitStep(int& st, int& kind, int c) {
+    if (st == 2) { if (c == 0) st = 3; return 0; }
+    if (st == 3) { if (c >= 1) { st = 4; kind = c; } return 0; }
+    if (st == 4 && c == 0) return kind;
+    return 0;
+}
+const char* AltStallCrouchName(int k) { return k == 1 ? "the ALT crouch: the alt pop" : k == 2 ? "the ALT NOLLIE crouch: the alt pop" : k == 3 ? "the crouch: the game's own pop" : k == 4 ? "the nollie crouch: the game's own pop" : "?"; }
+struct AltStallT {
+    int st, mode, n, lead, kind; bool sigTold; double nextT, t0, tCatch, lastT, noAltT, pPrevT; bool pOk; V3 pPrev, vel, E, h, goal; float zTop, tgt;
+    int postN, postSt; double postT, holdLogT; bool postAir, postAlt, postOff; LONG postAlt0; float zLip; bool popArm; int gN; float rampDeg; double airT;
+    int lean; float leanR; LONG nuaN; int crankUses; V3 vC; float decT; double carryUntil, cPrevT; V3 cOff, cPrev; int carryN; double carryLogT; float cZ0; float tip;   /* (lockgrind6 293) tip: the held point, cm along the deck from its middle toward the leading end (< 0 the trailing), 0 = the wheels */   /* (stall5 280) the rider's lean, the no stall's ease in, the exit's carry */   /* (stall3 278) the exit's outcome watch, the 0.5 s hold lines, the lip finder's own top */
+};
+AltStallT g_as = {};
+extern volatile ULONGLONG g_noBailUntil; extern int g_noBailHook;   /* (stall3 278) the no-bail window, held open while a stall is caught */
+// (stall3, build 278) AltStall is now 0 off / 1 on (an ini's 2 counts as 1) and THE CROUCH CHOOSES: armed with the ALT crouch = a NO
+// STALL, with the ALT NOLLIE crouch = a BLUNT STALL. Build 277's log: every caught stall stood still (v 0, wheels 0011, bm 1, mc 6/1,
+// air 0) until a stick was flicked with the game's crouch still held (crank 1 all through the hold: the alt crouches are the game's
+// crouches too) -- then the GAME popped (mc 6/2, air 1, crank 0) while the hold still gripped the board and pulled it back to the
+// coping: the skater left it ("off the board" 8 times, "slipped 45 cm" once). Now a game pop seen during the hold IS an exit: the hold
+// lets go at once WITHOUT its own push, so the game's pop carries the board. The impact bail is passed over while caught (the one bail
+// came 0.08 s after a 389 cm/s catch). The wheels' goal height is the coping's real top under them (rays down across the edge: the
+// held wheels rested 2-4 cm over the lip finder's top, short of the edge, pressed into the coping's face) plus the wheel radius.
+bool AltStallRide() { return g_altStall != 0 && !g_sigMode && g_hooked && g_as.st >= 3; }   /* the alt set takes a waiting stall as riding (its crouch may come) */
+int AltStallMode(double v) { return v < 0.5 ? 0 : 1; }   /* (stall3 278) 0 off, 1 on (2, an older ini's blunt, is on) */
+int AltStallKind(bool altIn, bool nolIn, int crouch) { return altIn ? 2 : nolIn ? 1 : crouch == 1 ? 2 : crouch == 2 ? 1 : 0; }   /* (blunt 281) SWAPPED: 1 no stall (the ALT NOLLIE crouch, the front foot), 2 blunt (the ALT crouch, the back foot), 0 neither */
+// (stall3 278) the coping's top under the held wheels: rays straight down at -4..+4 cm across the edge; the highest hit within 15 cm
+// over (5 under) the lip finder's top, else the lip finder's top
+float AltStallTop(const void* world, V3 E, V3 h, float zTop, int* hits) {
+    float top = zTop; int n = 0;
+    if (!world) { if (hits) *hits = 0; return top; }
+    for (int i = -4; i <= 4; i += 2) {
+        V3 p = add(E, mul(h, (float)i)); RayHit g;
+        if (!Ray(world, v3(p.x, p.y, zTop + 40.0f), v3(p.x, p.y, zTop - 20.0f), g) || !finite3(g.p)) continue;
+        if (g.p.z < zTop - 5.0f || g.p.z > zTop + 15.0f) continue;
+        n++; if (g.p.z > top) top = g.p.z;
+    }
+    if (hits) *hits = n;
+    return top;
+}
+// the held truck's wheel pair (both, in the exe) -> their middle; else the hanger's place
+bool AltStallWheels(const uint8_t* board, bool front, V3& out) {
+    V3 s = v3(0, 0, 0); int n = 0;
+    for (int k = front ? 5 : 3; k <= (front ? 6 : 4); k++) {
+        const uint8_t* c = *(const uint8_t* const*)(board + WG_PART[k]);
+        if (!c || !PtrOk(c, SC_C2W + 0x30) || !WrInExe(*(void* const*)c)) continue;
+        const V3 p = *(const V3*)(c + SC_C2W + 0x10);
+        if (!finite3(p)) continue;
+        s = add(s, p); n++;
+    }
+    if (n == 2) { out = mul(s, 0.5f); return true; }
+    const uint8_t* hg = *(const uint8_t* const*)(board + (front ? 0x500 : 0x4f0));
+    if (!hg || !PtrOk(hg, SC_C2W + 0x20)) return false;
+    out = *(const V3*)(hg + SC_C2W + 0x10);
+    return finite3(out);
+}
+// (lockgrind6 293) the game's grind contact parts: EGCP_BoardBottomNose / BoardBottomTail = the deck's place +-35 cm along its length
+// (USkateboardExMovementComponent::ValidateDistanceToGrindEdgeForContactParts 0xfe2470); the blunt's is the tail (4), the nose slide's the nose (1)
+float AltStallTipCm(int mode, bool bluntGame, bool noseSlide) { return (mode == 2 && bluntGame) ? -35.0f : (mode == 1 && noseSlide) ? 35.0f : 0.0f; }   /* the blunt: the trailing end's, the nose slide: the leading end's */
+bool AltStallTip(const uint8_t* board, int lead, float tip, V3& out) {
+    Q4 dq; V3 dw;
+    if (!board || !WrDeckWorld(board, dq, dw)) return false;
+    V3 ax = qrot(dq, v3(1.0f, 0.0f, 0.0f));
+    const uint8_t* fc = *(const uint8_t* const*)(board + 0x500); const uint8_t* bc = *(const uint8_t* const*)(board + 0x4f0);
+    if (!fc || !bc || !PtrOk(fc, SC_C2W + 0x20) || !PtrOk(bc, SC_C2W + 0x20)) return false;
+    if (dot(sub(*(const V3*)(fc + SC_C2W + 0x10), *(const V3*)(bc + SC_C2W + 0x10)), ax) < 0.0f) ax = mul(ax, -1.0f);   /* +ax = toward the nose */
+    out = add(dw, mul(ax, (lead < 0 ? -1.0f : 1.0f) * tip));
+    return finite3(out);
+}
+bool AltStallAnchor(const uint8_t* board, bool front, V3& out) { return g_as.tip != 0.0f ? AltStallTip(board, g_as.lead, g_as.tip, out) : AltStallWheels(board, front, out); }   /* (lockgrind6 293) */
+// one pose of the hold: the anchor (the held truck's wheel pair) driven to goal, the leading end's pitch to tgt (deg); -> parts written
+int AltStallStep(const uint8_t* board, bool front, int lead, V3 goal, float tgt, V3& anchorOut, float bl = 1.0f, V3 vc = v3(0.0f, 0.0f, 0.0f), float cap = 400.0f, float wCap = 400.0f) {   /* (lockpin 295) wCap: the turn's top rate, deg/s */   /* (stall5 280) bl < 1: blended from vc (the catch's velocity) */
+    void* part[7]; V3 pos[7], ang[7]; bool angOk[7]; int n = 0;
+    Q4 dq; V3 dw;
+    if (!WrDeckWorld(board, dq, dw)) return 0;
+    const uint8_t* deck = *(const uint8_t* const*)(board + BD_DECK);
+    for (int k = 0; k < 7; k++) {
+        uint8_t* c = *(uint8_t* const*)(board + WG_PART[k]);
+        if (!c || !PtrOk(c, SC_C2W + 0x30) || !WrInExe(*(void* const*)c)) continue;
+        const V3 p = *(const V3*)(c + SC_C2W + 0x10);
+        if (!finite3(p) || len(sub(p, dw)) > 120.0f) continue;
+        part[n] = c; pos[n] = p; angOk[n] = WallAngVel(c, ang[n]); n++;
+    }
+    V3 A;
+    if (n < 5 || part[0] != (const void*)deck || !angOk[0] || !AltStallAnchor(board, front, A)) return -n;   /* (lockgrind6 293) */
+    V3 ax = qrot(dq, v3(1.0f, 0.0f, 0.0f));
+    const uint8_t* fc = *(const uint8_t* const*)(board + 0x500); const uint8_t* bc = *(const uint8_t* const*)(board + 0x4f0);
+    if (!fc || !bc || !PtrOk(fc, SC_C2W + 0x20) || !PtrOk(bc, SC_C2W + 0x20)) return 0;
+    if (dot(sub(*(const V3*)(fc + SC_C2W + 0x10), *(const V3*)(bc + SC_C2W + 0x10)), ax) < 0.0f) ax = mul(ax, -1.0f);   // +ax = toward the nose
+    const V3 fw = mul(ax, lead < 0 ? -1.0f : 1.0f), axr = cross(fw, v3(0.0f, 0.0f, 1.0f));
+    if (!finite3(fw) || len(axr) < 0.05f) return 0;
+    const float pe = asinf(clampf(fw.z, -1.0f, 1.0f)) * 57.2957795f;
+    const float w = clampf((tgt - pe) * 10.0f, -wCap, wCap);               // deg/s about the horizontal across the deck: + lifts the leading end
+    const V3 om = mul(norm(axr), w * 0.0174532925f), dOm = sub(om, ang[0]);
+    V3 vA = mul(sub(goal, A), 12.0f);
+    if (len(vA) > cap) vA = mul(norm(vA), cap);
+    if (bl < 1.0f && finite3(vc)) vA = add(mul(vc, 1.0f - bl), mul(vA, bl));   /* (stall5 280) */
+    for (int i = 0; i < n; i++) {
+        WallSetVel(part[i], add(vA, cross(om, sub(pos[i], A))));
+        if (angOk[i]) WallSetAngVel(part[i], add(ang[i], dOm));
+    }
+    anchorOut = A;
+    return n;
+}
+void AltStallLetGo(const uint8_t* board, V3 v) {
+    for (int k = 0; k < 7; k++) {
+        uint8_t* c = *(uint8_t* const*)(board + WG_PART[k]);
+        if (!c || !PtrOk(c, SC_C2W + 0x30) || !WrInExe(*(void* const*)c)) continue;
+        WallSetVel(c, v);
+    }
+}
+// (stall4, build 279) THE POP BACK IN. Build 278: four exits by the game's pop left the skater "off the board" 0.13-0.93 s later -- the
+// pop fired with the board pitched +66 (the blunt) and still (v 0, its wheels on the coping): the skater rose 44 cm in 0.14 s, the board
+// stayed (deck 25 -> 28 cm over the ground), the feet let go (foot IK 0) and the game took him off it (mc 3/0). Now the exit's lie
+// (AltStallLevel: the no stall level, the blunt the ramp's slope, 15..45) is eased toward while an exit crouch is pressed, and on a game
+// pop the board is given the pop's lift and a push back down the ramp, turned toward that lie, its leftover spin replaced.
+float AltStallLevel(int mode, float ramp) { return mode == 1 ? 0.0f : clampf(ramp, 15.0f, 45.0f); }
+void AltStallExitShape(const uint8_t* board, int lead, float lv, V3 h, int n) {
+    const V3 v = add(mul(h, -100.0f), v3(0.0f, 0.0f, 220.0f));
+    Q4 dq; V3 dw;
+    if (!WrDeckWorld(board, dq, dw)) { AltStallLetGo(board, v); Log("altstall: #%d (stall4 279) the pop back in: the deck not read -- the push only", n); return; }
+    V3 ax = qrot(dq, v3(1.0f, 0.0f, 0.0f));
+    const uint8_t* fc = *(const uint8_t* const*)(board + 0x500); const uint8_t* bc = *(const uint8_t* const*)(board + 0x4f0);
+    if (fc && bc && PtrOk(fc, SC_C2W + 0x20) && PtrOk(bc, SC_C2W + 0x20) && dot(sub(*(const V3*)(fc + SC_C2W + 0x10), *(const V3*)(bc + SC_C2W + 0x10)), ax) < 0.0f) ax = mul(ax, -1.0f);
+    const V3 fw = mul(ax, lead < 0 ? -1.0f : 1.0f), axr = cross(fw, v3(0.0f, 0.0f, 1.0f));
+    const float pe = asinf(clampf(fw.z, -1.0f, 1.0f)) * 57.2957795f;
+    const float w = (finite3(fw) && len(axr) >= 0.05f) ? clampf((lv - pe) / 0.25f, -300.0f, 300.0f) : 0.0f;
+    const V3 om = (w != 0.0f) ? mul(norm(axr), w * 0.0174532925f) : v3(0.0f, 0.0f, 0.0f);
+    int k2 = 0;
+    for (int k = 0; k < 7; k++) {
+        uint8_t* c = *(uint8_t* const*)(board + WG_PART[k]);
+        if (!c || !PtrOk(c, SC_C2W + 0x30) || !WrInExe(*(void* const*)c)) continue;
+        const V3 p = *(const V3*)(c + SC_C2W + 0x10);
+        WallSetVel(c, finite3(p) && len(sub(p, dw)) < 120.0f ? add(v, cross(om, sub(p, dw))) : v); WallSetAngVel(c, om); k2++;
+    }
+    Log("altstall: #%d (stall4 279) the pop back in: %d parts given 100 cm/s down the ramp + 220 up, the leading end's pitch %+.0f -> %+.0f deg at %+.0f deg/s (the hold's spin replaced)", n, k2, pe, lv, w);
+}
+// (stall5, build 280) THE RIDER IN THE STALL. "one of the stalls worked, but it's like a crouched freeze. It should be like a blunt stall
+// like it does in the game" (build 279). Build 279's holds #1 (7 s) and #3: the sticks never left the arming crouch (crouch 2, step 2 all
+// through), so the game kept its crank and the graph its Crank State: a frozen crouch. The game's own stall (build 275's stall log, #8):
+// the back truck at the lip, wheels 1100, pitch +14, crank 1 -> 0 as the stick was let go -- he stood up into it. Now, held: the arming
+// crouch is used up every pose while it is still held (WgCrankUse; a flick of that crouch cannot pop the game any more -- only a NEW press,
+// step 4, can) and after NativeUpdateAnimation the anim reads IsCranking / CrankPocketRatio off and a manual toward the HELD end
+// (IsInManual when that is the back foot's end, IsInNoseManual when the front foot's; ManualRatio: blunt 0.70, no stall 0.35): the
+// game's graph leans him over the held truck. Only the board's wheels are held; nothing of the body. Step 4 (a new crouch press) gives
+// the game its crouch back for the pop.
+int AltStallLeanEnd(bool heldFront, bool sw) { return (heldFront != sw) ? 2 : 1; }   /* 1 IsInManual (the back foot's end), 2 IsInNoseManual */
+float AltStallLeanRatio(int mode) { return mode == 1 ? 0.35f : 0.70f; }
+float AltStallDecT(float sp) { return clampf(60.0f / (sp > 1.0f ? sp : 1.0f), 0.15f, 0.25f); }   /* the no stall's ease in: ~30 cm of travel at the most */
+float AltStallBlend(double th, float decT) { if (decT <= 0.0f || th >= decT) return 1.0f; const float u = (float)(th / decT); return u <= 0.0f ? 0.0f : u * u * (3.0f - 2.0f * u); }
+bool AltStallLeanOn(int st, int lean) { return lean != 0 && (st == 2 || st == 3); }
+void AltStallNua(uint8_t* a) {
+    AltStallT& T = g_as;
+    if (!g_altStall || g_sigMode || !g_hooked || !AltStallLeanOn(T.st, T.lean)) return;
+    a[0x497] = 0; *(float*)(a + 0x498) = 0.0f;   /* IsCranking off, CrankPocketRatio 0 */
+    a[0x32e] = T.lean == 1 ? 1 : 0; a[0x32f] = T.lean == 2 ? 1 : 0; *(float*)(a + 0x330) = T.leanR;   /* IsInManual / IsInNoseManual, ManualRatio */
+    T.nuaN++;
+}
+void SafeAltStallNua(void* anim) {
+    __try { AltStallNua((uint8_t*)anim); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { static LONG n = 0; if (InterlockedIncrement(&n) <= 3) Log("altstall: (stall5 280) a fault writing the rider's lean -- not written"); g_as.lean = 0; }
+}
+// (blunt 281) THE BLUNT HANDED TO THE GAME. Build 280's blunt was our own hold: "he's balancing but not locked in like a grind". The
+// game HAS the blunt: GRIND_FS_Blunt / GRIND_BS_Blunt (grind definitions; the 280 log's GrindLog saw "GRIND_FS_Salad" -> "GRIND_FS_Blunt"
+// on a coping, the stick moved mid-grind). How the game picks (PdbDis, Epic's exe 69ca6d05): InGame_Tick calls GrindsHandler::
+// CheckForGrindInput (0x1047830) while the board's movement says it detects / rides a grind; that asks GetGrindDefinitionClosestToDirection
+// (0x1052ad0, the hook AltGrinds put in: its candidates at gh+0x38, count +0x40, 0x20 apart, the definition first; ALL its definitions
+// at gh+0x28, count +0x30, 8 apart -- the picker's own loop reads [gh+0x28][i*8]) and hands the answer to SetTargetGrindDefinition
+// (skater+0x6c8), the current one after its settle (+0x6d0). The grind ITSELF is begun by the board: USkateboardExMovementComponent::
+// CheckForGrind (0xfb41d0; from PostPhysFalling always, from PostPhysSkateboarding only with two skater flags, +0x711 bit 1 and +0x918
+// bit 0): a sweep for a grind surface/edge (CheckForGrindSurface 0xf82980), SetGrindApproachType, ValidateGrind.
+// So: armed with the ALT crouch (the blunt) the picker is told to answer a Blunt -- among the game's candidates first, the side (FS/BS)
+// of the game's own pick kept (its approach), a nose blunt when riding up tail first; none there = from all its definitions (logged).
+// The blunt is still caught and held as in 280 (the fallback); the moment the game's grind begins (the anim's IsGrinding 0x33c, or a
+// current definition) OUR HOLD STOPS, no push: the game runs the grind -- its pop, its flip-out. The picker keeps answering Blunt for
+// that grind only (its stick no longer turns it into another grind), then lets go. "altstall:" lines: the picker's calls, candidates,
+// the forced definition, the hand-over, what ended the game's grind; and, held without the game taking it, why (the picker's count).
+volatile LONG g_asBluntPick = 0;   // 1 while the blunt wants the picker's Blunt (armed, held, handed over); only with AltStall on
+struct AsBluntT { LONG calls, lines, forced, full; const uint8_t* lastR; const uint8_t* lastD; int lastN; int nose; bool hand; double handT, logT, holdT; int n; const uint8_t* defWas; char nm[64]; };
+AsBluntT g_asb = {};
+int AsBluntSide(const char* nm) { return AgHas(nm, "_fs_") ? 1 : AgHas(nm, "_bs_") ? 2 : 0; }   // 1 frontside, 2 backside, 0 neither
+int AsBluntRank(const char* nm, int side, int nose) {   // 1 best .. 4, 0 not a blunt
+    if (!nm || !AgHas(nm, "blunt")) return 0;
+    const bool nb = AgHas(nm, "noseblunt"); const int s = AsBluntSide(nm);
+    const bool kindOk = nose ? nb : !nb, sideOk = !side || s == side;
+    return kindOk && sideOk ? 1 : kindOk ? 2 : sideOk ? 3 : 4;
+}
+const uint8_t* AsBluntIn(const uint8_t* data, int n, int stride, int side, int nose, char* nm, int cap) {   // the best blunt in a list of definitions
+    if (!data || n <= 0 || n > 512 || !PtrOk(data, (size_t)n * stride)) return nullptr;
+    const uint8_t* best = nullptr; int bestR = 9;
+    for (int i = 0; i < n; i++) {
+        const uint8_t* d = *(const uint8_t* const*)(data + (size_t)i * stride);
+        if (!d) continue;
+        char s[64]; GrDefName(d, s, 64);
+        const int r = AsBluntRank(s, side, nose);
+        if (r && r < bestR) { best = d; bestR = r; snprintf(nm, cap, "%s", s); }
+    }
+    return best;
+}
+const uint8_t* AsBluntPick(void* gh, const uint8_t* r) {
+    AsBluntT& B = g_asb;
+    const uint8_t* g = (const uint8_t*)gh;
+    if (!PtrOk(g, 0x48)) return r;
+    const uint8_t* sk = *(const uint8_t* const*)(g + 8);   // GrindsHandler's skater
+    if (!sk || sk != (const uint8_t*)g_skater) return r;
+    InterlockedIncrement(&B.calls);
+    char rn[64]; GrDefName(r, rn, 64);
+    if (r && (g_asBluntGame ? AsBluntRank(rn, 2, 0) == 1 : AsBluntRank(rn, 0, B.nose) != 0)) return r;   // the game's own pick is a blunt already (lockgrind 288: AltBluntGame keeps only its BS_Blunt)
+    const int side = g_asBluntGame ? 2 : AsBluntSide(rn);   /* (lockgrind 288) AltBluntGame: BS always (AsBluntIn falls back to FS only when no BS blunt) */   /* (bsblunt 286) no side: BS, as the real one */
+    char nm[64] = ""; int how = 1;
+    const uint8_t* cd = *(const uint8_t* const*)(g + 0x38); const int32_t cn = *(const int32_t*)(g + 0x40);
+    const uint8_t* d = AsBluntIn(cd, cn, 0x20, side, B.nose, nm, 64);
+    if (!d) { how = 2; d = AsBluntIn(*(const uint8_t* const*)(g + 0x28), *(const int32_t*)(g + 0x30), 8, side, B.nose, nm, 64); }
+    if (d) { InterlockedIncrement(&B.forced); if (how == 2) InterlockedIncrement(&B.full); }
+    if ((r != B.lastR || d != B.lastD || cn != B.lastN) && InterlockedIncrement(&B.lines) <= 120) {
+        char list[400]; int m = 0; list[0] = 0;
+        const int k = (cd && cn > 0 && cn <= 64 && PtrOk(cd, (size_t)cn * 0x20)) ? cn : 0;
+        for (int i = 0; i < k && i < 10 && m < 360; i++) { char s[64]; GrDefName(*(const uint8_t* const*)(cd + (size_t)i * 0x20), s, 64); m += snprintf(list + m, sizeof(list) - m, "%s%s", i ? ", " : "", s); }
+        Log("altstall: blunt pick (call %ld): the game's \"%s\" (%s), %d candidates [%s] -> %s%s%s (%s)", (long)B.calls, rn, side == 1 ? "FS" : side == 2 ? "BS" : "no side", (int)cn, list,
+            d ? "FORCED \"" : "none", d ? nm : "", d ? "\"" : "", !d ? "no blunt among its definitions: the game's kept" : how == 1 ? "among the game's own candidates" : "NOT a candidate here: from all its definitions");
+    }
+    B.lastR = r; B.lastD = d; B.lastN = cn;
+    return d ? d : r;
+}
+const uint8_t* SafeAsBluntPick(void* gh, const uint8_t* r) {
+    __try { return AsBluntPick(gh, r); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { static LONG n = 0; if (InterlockedIncrement(&n) <= 5) Log("altstall: a fault in the blunt's pick -- the game's grind kept"); return r; }
+}
+bool AsBluntGrindOn(const uint8_t* sk, const uint8_t* anim) { return anim[WG_AI_GRIND] != 0 || (PtrOk(sk, 0x710) && *(const uint8_t* const*)(sk + 0x6d0) != nullptr); }
+void AsBaInstall();   /* (bailangle 297) the board-angle bail's hook: defined with the lock */
+void AsBluntArm(int n, int lead) {   // the picker told to answer Blunt (the hook put in if AltGrinds has not)
+    AsBluntT& B = g_asb;
+    if (!g_ag.tried) AgInstall();   /* (blunt 281) the picker's hook, shared with AltGrinds */
+    if (g_asBluntGame) AsBaInstall();   /* (bailangle 297) */
+    B.nose = (lead < 0 && !g_asBluntGame) ? 1 : 0; /* (lockgrind 288) AltBluntGame: the Blunt, never the noseblunt (fakie too) */ B.calls = 0; B.forced = 0; B.full = 0; B.lastR = nullptr; B.lastD = nullptr; B.lastN = -1; B.hand = false; B.n = n; B.holdT = 0.0;
+    g_asBluntPick = g_ag.hookOk ? 1 : 0;
+    Log("altstall: #%d blunt try: the grind picker %s -- it answers a %s (the side of the game's own pick) while armed / held / handed over; the moment the game's grind begins our hold stops", n, g_ag.hookOk ? "HOOKED" : "NOT hooked (no hand-over: 280's hold only)", B.nose ? "NOSE BLUNT (riding up tail first)" : "BLUNT");
+}
+void AsBluntHandOver(int n, const uint8_t* sk, const uint8_t* anim, double now, double t0, const char* when) {
+    AsBluntT& B = g_asb;
+    const uint8_t* cur = PtrOk(sk, 0x710) ? *(const uint8_t* const*)(sk + 0x6d0) : nullptr; const uint8_t* tgt = PtrOk(sk, 0x710) ? *(const uint8_t* const*)(sk + 0x6c8) : nullptr;
+    char cn[64], tn[64]; GrDefName(cur, cn, 64); GrDefName(tgt, tn, 64);
+    B.hand = true; B.handT = now; B.logT = now; B.defWas = cur; snprintf(B.nm, sizeof(B.nm), "%s", cur ? cn : tn); B.n = n;
+    Log("altstall: #%d BLUNT HANDED TO THE GAME %s, %.2f s after the arming: the game's grind began (IsGrinding %d) \"%s\", target \"%s\" | picker calls %ld, forced %ld (%ld from all its definitions) -- our hold stopped, NO push: the game runs it (its pop, its flip-out)",
+        n, when, now - t0, anim[WG_AI_GRIND] ? 1 : 0, cn, tn, (long)B.calls, (long)B.forced, (long)B.full);
+}
+void AsBluntHandTick(const uint8_t* sk, const uint8_t* mc, const uint8_t* anim, double now, bool onB, bool bail, bool mcAir) {   // the handed-over grind watched to its end
+    AsBluntT& B = g_asb;
+    const uint8_t* cur = PtrOk(sk, 0x710) ? *(const uint8_t* const*)(sk + 0x6d0) : nullptr;
+    char cn[64]; GrDefName(cur, cn, 64);
+    if (cur && cur != B.defWas) { Log("altstall: #%d blunt: the game's grind is now \"%s\" (was \"%s\") at %.2f s", B.n, cn, B.nm, now - B.handT); B.defWas = cur; snprintf(B.nm, sizeof(B.nm), "%s", cn); }
+    const bool on = anim[WG_AI_GRIND] != 0 || cur != nullptr;
+    const char* end = bail ? "a BAIL" : !onB ? "off the board" : !on ? (mcAir ? "out into the air (the game's pop / flip-out)" : "rolled off onto the ground") : now - B.handT > 30.0 ? "30 s (the watch's limit)" : nullptr;
+    if (!end && now - B.logT >= 0.5) { B.logT = now; Log("altstall: #%d blunt: in the game's grind %.2f s: \"%s\" IsGrinding %d | mc %d/%d | picker calls %ld forced %ld", B.n, now - B.handT, cn, anim[WG_AI_GRIND] ? 1 : 0, mc[WR_SMC_MODE], mc[WR_SMC_CUSTOM], (long)B.calls, (long)B.forced); }
+    if (!end) return;
+    Log("altstall: #%d blunt: the game's grind ENDED after %.2f s -- %s (last \"%s\", mc %d/%d)", B.n, now - B.handT, end, B.nm, mc[WR_SMC_MODE], mc[WR_SMC_CUSTOM]);
+    B.hand = false; g_asBluntPick = 0;
+}
+void AsBluntHoldLog(int n, const uint8_t* sk, const uint8_t* anim, double now, double tCatch) {   // 0.5 s lines while 280's hold has the blunt: does the game's detection run at all
+    AsBluntT& B = g_asb;
+    if (now - B.holdT < 0.5) return;
+    B.holdT = now;
+    const uint8_t* cur = *(const uint8_t* const*)(sk + 0x6d0); const uint8_t* tgt = *(const uint8_t* const*)(sk + 0x6c8);
+    const uint8_t* bm = BoardMC(); const int bits = (bm && PtrOk(bm, 0x6b8)) ? bm[0x6b0] : -1;
+    char cn[64], tn[64]; GrDefName(cur, cn, 64); GrDefName(tgt, tn, 64);
+    Log("altstall: #%d blunt held %.2f s, the game has not taken it: picker calls %ld forced %ld | target \"%s\" current \"%s\" | IsGrinding %d detmode %d board bits %02x | skater +711 %02x +918 %02x",
+        n, now - tCatch, (long)B.calls, (long)B.forced, tn, cn, anim[WG_AI_GRIND] ? 1 : 0, (int)sk[0x653], bits & 0xff, (int)sk[0x711], (int)sk[0x918]);
+}
+void AsBluntNoTake(int n, const char* why) {
+    AsBluntT& B = g_asb;
+    if (!B.hand) { Log("altstall: #%d blunt: the game's grind never began (picker asked %ld times, forced %ld) -- 280's hold was the fallback, ended: %s", n, (long)B.calls, (long)B.forced, why ? why : "?"); g_asBluntPick = 0; }
+}
+// (bsblunt 286) THE BLUNT FORCED INTO THE GAME'S OWN BLUNT GRIND. "For the blunt stall, if you can just force it into the game's blunt
+// grind with zero side velocity, that's fine. That's perfect." Build 285's log: the hand-over never happened -- the picker was asked
+// 0 times in every hold: the game never looked for a grind while our hold kept the board on the coping. Why (PdbDis, Epic's exe):
+// USkateboardExMovementComponent::PostPhysSkateboarding (0xfd1e70) calls CheckForGrind (0xfb41d0: the sweep for the edge, the
+// approach, ValidateGrind, then the picker) only while the board is grounded (its interface's slot 0x3b0) AND the skater's +0x711 bit 1
+// (held: 0x33) AND +0x918 bit 0 (held: 0 -- bit 1 is IsInManual, bit 2 IsInNoseManual: execIsIn*Manual 0x11d8030). Falling
+// (PostPhysFalling 0xfd18e0) it always checks: the real BS blunt of 28 Oct (284, 17:37) came from the air back down onto the coping.
+// With AltBluntGame (HJN_Set("altbluntgame", 0/1); 0 = build 285, nothing here runs) and AltStall's blunt held: +0x918 bit 0 is LENT
+// each pose of the hold (cleared again the moment the hold ends, if it was ours), so the game's own grind check runs at the coping;
+// the picker's hook answers its Blunt (the game's own side kept: on his straight-up approach the game's own pick was BS_Five0 and
+// the real one GRIND_BS_Blunt; a pick with no side gets BS here). The held board and then the game's grind have their velocity
+// ALONG THE COPING zeroed every pose (the game's grind move direction, board movement +0x4f4, when it reads as one; else the
+// horizontal across the ramp's climb), so he sits still in it; the game owns the pop / flip-out. "altstall: #n bluntgame:" lines.
+volatile LONG g_asBluntGame = 0;   // HJN_Set("altbluntgame", 0/1): the ini's AltBluntGame
+struct AsBgT { bool lent, gameDir; V3 rail; double logT; LONG zeroN, lendN; float vIn, vMax; int n; int wN; bool wOpen; };   /* (lockgrind2 289) wN, wOpen: the wait for the wheels */
+AsBgT g_asbg = {};
+V3 AsBgRailOf(V3 h) { const V3 r = cross(v3(0.0f, 0.0f, 1.0f), flat(h)); const float l = len(r); return l > 0.01f ? mul(r, 1.0f / l) : v3(1.0f, 0.0f, 0.0f); }   /* the coping's line: across the climb */
+bool AsBgGameDir(V3& out) { const uint8_t* bm = BoardMC(); if (!bm || !PtrOk(bm, 0x500)) return false; const V3 d = *(const V3*)(bm + 0x4f4); const float l = len(d); if (!finite3(d) || l < 0.5f || l > 1.5f) return false; out = mul(d, 1.0f / l); return true; }
+float AsBgZero(const uint8_t* board, V3 rail, bool write, float* after) {   // the deck's speed along the coping (cm/s); write: every part's along-coping speed taken out
+    float v0 = 0.0f, v1 = 0.0f;
+    for (int k = 0; k < 7; k++) {
+        uint8_t* c = *(uint8_t* const*)(board + WG_PART[k]);
+        if (!c || !PtrOk(c, SC_C2W + 0x30) || !WrInExe(*(void* const*)c)) continue;
+        V3 v; if (!WallBodyVel(c, v)) continue;
+        const float a = dot(v, rail);
+        if (k == 0) v0 = a;
+        if (write) { const V3 w = sub(v, mul(rail, a)); WallSetVel(c, w); if (k == 0) v1 = dot(w, rail); } else if (k == 0) v1 = a;
+    }
+    if (after) *after = v1;
+    return v0;
+}
+void AsBgUnlend(uint8_t* sk, const char* why) {
+    AsBgT& G = g_asbg;
+    if (!G.lent) return;
+    G.lent = false;
+    if (sk && PtrOk(sk, 0x920)) sk[0x918] = (uint8_t)(sk[0x918] & ~1u);
+    Log("altstall: #%d bluntgame: the skater's +0x918 bit 0 given back (%s) after %ld poses lent", G.n, why ? why : "?", (long)G.lendN);
+}
+// (lockgrind2 289) THE BLUNT BEGUN WITH THE WHEELS UP OVER THE COPING. The 288 test (28 Oct 23:52, #2): caught with the trailing
+// wheels -4 cm past / -2.7 over the coping top, the bit lent 0.02 s after the catch, the game's grind began the next pose -- right
+// there, under the coping, and the lock pinned that place ("the wheels are still under the coping instead of on top"). Now the bit
+// (the game's ground grind check) waits until the catch's hold has those wheels at its goal (+3 past / +2.5 over the top, the wheel
+// radius: their tread on it) within 1.5 cm, or 0.35 s. "bluntgame (lockgrind2 289)" lines: the wheels at the catch, and when opened.
+bool AsBgWait(AsBgT& G, const uint8_t* board, int n, double now, double tCatch) {
+    const AltStallT& T = g_as;
+    V3 wh; if (!board || !AltStallAnchor(board, !(T.lead > 0), wh)) return false;   /* (lockgrind6 293) */
+    const float dg = len(sub(wh, T.goal)), p = dot(sub(wh, T.E), T.h), o = wh.z - T.zTop;
+    const bool wait = dg > 1.5f && now - tCatch < 0.35;
+    if (G.wN != n) { G.wN = n; G.wOpen = false; Log("altstall: #%d bluntgame (lockgrind2 289): the trailing wheels %+.1f past / %+.1f over the coping top (goal %+.1f / %+.1f, %.1f cm off) %.2f s after the catch -- %s", n, p, o, dot(sub(T.goal, T.E), T.h), T.goal.z - T.zTop, dg, now - tCatch, wait ? "the game's grind check WAITS for the hold to lift them up over it (0.35 s at the most)" : "there: the grind check opened"); }
+    if (!wait && !G.wOpen) { G.wOpen = true; Log("altstall: #%d bluntgame (lockgrind2 289): the grind check OPENED %.2f s after the catch (%s): the trailing wheels %+.1f past / %+.1f over the coping top, %.1f cm off the goal", n, now - tCatch, dg <= 1.5f ? "the wheels up over the coping" : "0.35 s: as they are", p, o, dg); }
+    return wait;
+}
+void AsBgHold(uint8_t* sk, const uint8_t* board, V3 h, int n, double now, double tCatch) {   // each pose of the held blunt
+    AsBgT& G = g_asbg;
+    if (!PtrOk(sk, 0x920)) return;
+    if (G.n != n) { G.n = n; G.lent = false; G.lendN = 0; G.zeroN = 0; G.logT = 0.0; G.vMax = 0.0f; }
+    if (!(sk[0x918] & 1) && !AsBgWait(G, board, n, now, tCatch)) { if (!G.lent) Log("altstall: #%d bluntgame: the skater's +0x918 bit 0 LENT (it was %02x; +0x711 %02x) -- the game's ground grind check (CheckForGrind) runs at the coping %.2f s after the catch", n, (unsigned)sk[0x918], (unsigned)sk[0x711], now - tCatch); sk[0x918] = (uint8_t)(sk[0x918] | 1u); G.lent = true; }
+    if (G.lent) G.lendN++;
+    G.rail = AsBgRailOf(h); G.gameDir = false;
+    float a1 = 0.0f; const float a0 = AsBgZero(board, G.rail, true, &a1); G.zeroN++;
+    if (fabsf(a0) > G.vMax) G.vMax = fabsf(a0);
+    if (now - G.logT >= 0.5) { G.logT = now; Log("altstall: #%d bluntgame: held %.2f s, the deck's speed along the coping %+.0f -> %+.0f cm/s (the most %.0f; %ld poses zeroed) | bit 0 %s | picker calls %ld forced %ld", n, now - tCatch, a0, a1, G.vMax, (long)G.zeroN, G.lent ? "lent" : "the game's own", (long)g_asb.calls, (long)g_asb.forced); }
+}
+void AsBgEnter(uint8_t* sk, const uint8_t* board, V3 h, int n) {   // the game's grind began: the target logged, the side speed zeroed
+    AsBgT& G = g_asbg;
+    AsBgUnlend(sk, "the game's grind began");
+    V3 gd; G.gameDir = AsBgGameDir(gd); G.rail = G.gameDir ? flat(gd) : AsBgRailOf(h);
+    { const float l = len(G.rail); G.rail = l > 0.01f ? mul(G.rail, 1.0f / l) : AsBgRailOf(h); }
+    float a1 = 0.0f; const float a0 = AsBgZero(board, G.rail, true, &a1); G.vIn = a0; G.vMax = fabsf(a0); G.zeroN = 1; G.logT = NowS(); G.n = n;
+    const uint8_t* cur = PtrOk(sk, 0x710) ? *(const uint8_t* const*)(sk + 0x6d0) : nullptr; const uint8_t* tgt = PtrOk(sk, 0x710) ? *(const uint8_t* const*)(sk + 0x6c8) : nullptr;
+    const uint8_t* bm = BoardMC(); const int appr = (bm && PtrOk(bm, 0x780)) ? (int)bm[0x770] : -1, exs = (bm && PtrOk(bm, 0x780)) ? (int)bm[0x772] : -1;
+    char cn[64], tn[64]; GrDefName(cur, cn, 64); GrDefName(tgt, tn, 64);
+    Log("altstall: #%d bluntgame: INTO THE GAME'S GRIND target \"%s\" current \"%s\" (approach %d exitside %d) | the speed along the coping %+.0f -> %+.0f cm/s (the line: %s) -- kept ~0 while it lasts; the game owns the pop / flip-out",
+        n, tn, cn, appr, exs, a0, a1, G.gameDir ? "the game's grind move direction" : "across the ramp's climb");
+}
+void AsBgKeep(const uint8_t* board, double now) {   // each pose of the handed-over grind
+    AsBgT& G = g_asbg;
+    float a1 = 0.0f; const float a0 = AsBgZero(board, G.rail, true, &a1); G.zeroN++;
+    if (fabsf(a0) > G.vMax) G.vMax = fabsf(a0);
+    if (now - G.logT >= 0.5) { G.logT = now; Log("altstall: #%d bluntgame: in the game's grind %.2f s \"%s\", the speed along the coping %+.0f -> %+.0f cm/s (the most %.0f since the entry's %+.0f; %ld poses zeroed)", G.n, now - g_asb.handT, g_asb.nm, a0, a1, G.vMax, G.vIn, (long)G.zeroN); }
+}
+// (nostall, build 281) THE NO STALL HANDED TO THE DROP-IN. "The no stall is the reverse of the drop-in. The character has to rotate
+// like 90 degrees up the vert and then basically be in the drop-in position. Then we can just let it be in the drop-in position and
+// let him drop back in." (the user, on build 280's no stall: the leading wheels pinned on the coping, him leaned -- wrong.) With
+// AltNoStallDropIn (HJN_Set("altnostalldrop", 0/1); 0 = build 280's hold, nothing here runs) the no stall's catch (the leading truck
+// at the lip, riding up nose or tail first) holds nothing: the lip (the stall's lip finder, its top read again under the edge) is
+// handed to the Lua's drop-in (HJN_SetDown("nstake")), which turns him and the board in ~0.3 s (HJN_SetDown("nsbegin" / "nsstep"):
+// the board from where it rides up the wall to the drop-in's level spot on the deck -- its middle DropInBack behind the edge, its
+// nose out over the ramp, the wheels on the top -- as ONE rigid move: its pitch slerped (~the ramp's angle, up over the coping), and
+// riding up NOSE first a 180 yaw about the vertical as well (the drop-in hangs the BACK truck at the coping with the nose over the
+// drop; tail first that is already so: no yaw), its middle on a curve over the edge (never through the coping); the game's board
+// controller turned with it; the parts teleported, their speeds zeroed. Then the drop-in's own "set" takes the board where it lies:
+// the slide out, the stance, GO on the stick, the ride -- the drop-in's code end to end. The impact bail is passed over and the
+// stalls do not arm again while it turns.
+// (nostall2, build 283) THAT TURN IS GONE -- no yaw, no travel, no "set": the drop-in's GO played backwards (see AltNsBegin).
+volatile LONG g_asNsDrop = 0;            // HJN_Set("altnostalldrop"): the ini's AltNoStallDropIn
+volatile LONG g_asNsRev = 0;             // (revnostall 286) HJN_Set("altnostallrev"): the ini's AltNoStallReverse (the Lua carries him up with the tip; here it is only logged)
+struct AsNsT { int pend, n, lead, nP, steps; double t; V3 E, o, p0, p1; Q4 q0, q1, ctrl0; float top, ramp, yawTot; bool cap, ctrlOk; float hang, pitch, tail, kick, lip, phi0, elS, el, resid; V3 D; Q4 Cq; int pivF; bool info; V3 P0[kMaxParts]; Q4 Q0[kMaxParts]; };
+AsNsT g_asNs = {};
+bool AsFsWanted(int n);   /* (lockgrind3 290) the no stall's nose slide wanted for this catch: the drop-in hand-over passed */
+bool AltNsHand(AltStallT& T, double now, float sp, float lp, float lo) {
+    if (!g_asNsDrop || T.mode != 1 || g_sigMode || !g_hooked) return false;
+    if (AsFsWanted(T.n)) return false;   /* (lockgrind3 290) */
+    int hits = 0; const float top = AltStallTop(SkaterWorld(), T.E, T.h, T.zTop, &hits);
+    AsNsT& N = g_asNs;
+    N.pend = 1; N.n = T.n; N.lead = T.lead; N.t = now; N.E = v3(T.E.x, T.E.y, top); N.o = mul(T.h, -1.0f); N.top = top; N.ramp = T.rampDeg; N.cap = false; N.steps = 0;
+    if (g_noBailHook == 1) { const ULONGLONG u = GetTickCount64() + 1000; if (g_noBailUntil < u) g_noBailUntil = u; }
+    Log("altstall: #%d no stall: CAUGHT (nostall 281) -- the leading truck %+.0f cm past / %+.0f over the lip, %.0f cm/s, %s first on a %.0f deg ramp; the coping top %+.1f cm over the lip finder's (%d rays) -- handed to the drop-in (AltNoStallDropIn): nothing held here",
+        T.n, lp, lo, sp, T.lead > 0 ? "nose" : "tail", T.rampDeg, top - T.zTop, hits);
+    T.st = 0; T.postN = 0; T.nextT = now + 1.5;
+    return true;
+}
+void AltNsTake(char* b, size_t n) {
+    b[0] = 0; AsNsT& N = g_asNs;
+    if (!N.pend) return;
+    N.pend = 0;
+    const double now = NowS();
+    if (!g_asNsDrop || now - N.t > 0.5) { Log("altstall: #%d no stall: the drop-in did not take it within 0.5 s (%.2f s; a trick of the mod's own running?) -- nothing done", N.n, now - N.t); return; }
+    snprintf(b, n, "%d %d %.2f %.2f %.2f %.4f %.4f %.1f", N.n, N.lead, N.E.x, N.E.y, N.top, N.o.x, N.o.y, N.ramp);
+}
+// (nostall2, build 283) THE NO STALL IS THE DROP-IN PLAYED BACKWARDS. "It did trigger a drop-in, but it drove around to do it -- it
+// caused the player to 180 and all this other stuff. Once it gets to the coping it needs to do a REVERSE of the drop-in to get into the
+// drop-in." (the user, on build 282.) No yaw, no travel, no "set" moving the board about: the board as it arrives up the wall is laid
+// (in thought only) level on the deck with its LEADING end toward the deck (-o) -- written as the drop-in's own capture (g_bp / g_bq /
+// g_bctrl). The drop-in's geometry never asks which end is the nose: the wheels on the deck's side are its "back" axle, the pivot. So
+// the drop-in's stance from that capture (StanceAt, k 1) tipped nose-down phi0 = its pitch + the board's angle below level on the wall
+// IS the board on the wall, but for a few cm and degrees (the leading axle against the stance's hung one, the yaw and roll off the lip's
+// normal): that rest (Cq about the pivot, D) is faded out over the tip. The Lua plays phi0 -> 0 (HJN_SetDown "nsstep", e 0..1): the
+// drop-in's GO backwards, about the leading wheels, the board's controller with it; he rides it (the mod never moves him). At e = 1 the
+// board is exactly where BoardStance (k 1, phi 0) holds it in the drop-in's "wait", and the drop-in's own GO tips it down about the SAME
+// wheels. Riding up nose first those are the FRONT wheels and the nose lies on the deck: the drop back in is fakey, the drop-in mirrored
+// (its code does that as it is). Tail first it is the drop-in reversed exactly.
+int AltNsBegin(const double* a) {
+    AsNsT& N = g_asNs;
+    N.cap = false; N.info = false;
+    if (!g_hooked || g_sigMode || g_sdOn || g_bpartN < 1 || g_bpartN > kMaxParts || !PartsOk("no stall")) return 0;
+    for (int i = 0; i < g_bpartN; i++) {
+        if (!PtrOk(g_bpart[i], 0x200)) return 0;
+        N.Q0[i] = qnorm(*(const Q4*)((const uint8_t*)g_bpart[i] + SC_C2W)); N.P0[i] = *(const V3*)((const uint8_t*)g_bpart[i] + SC_C2W + 0x10);
+        if (!finite3(N.P0[i]) || len(sub(N.P0[i], N.P0[0])) > 120.0f) return 0;
+    }
+    N.nP = g_bpartN;
+    N.hang = (float)a[0]; N.pitch = (float)a[1]; N.tail = (float)a[2]; N.kick = (float)a[3]; N.lip = (float)a[4];
+    if (!std::isfinite(N.hang) || !std::isfinite(N.pitch) || !std::isfinite(N.tail) || !std::isfinite(N.kick) || !std::isfinite(N.lip)) return 0;
+    const V3 Z = v3(0.0f, 0.0f, 1.0f), o = norm(flat(N.o));
+    const V3 up = norm(add(mul(o, -1.0f), Z));                       // up the wall and in over the deck
+    N.pivF = (dot(qrot(N.Q0[0], v3(1.0f, 0.0f, 0.0f)), up) > 0.0f) ? 1 : 0;   // the deck's +X up the wall = riding up nose first: the FRONT wheels lead
+    const V3 hd = N.pivF ? mul(o, -1.0f) : o;                         // the leading end toward the deck: NOT turned round
+    const Q4 Lq = qnorm(qmul(qaxis(Z, atan2f(hd.y, hd.x) * 57.2957795f), qconj(N.Q0[0])));   // the board as it stands -> laid level (the deck's +X along hd, +Z up)
+    for (int i = 0; i < N.nP; i++) { g_bq[i] = qnorm(qmul(Lq, N.Q0[i])); g_bp[i] = add(v3(N.E.x, N.E.y, N.top), qrot(Lq, sub(N.P0[i], N.P0[0]))); }
+    g_bcap = true; g_baxleLogged = false; g_stanceLogged = false;
+    BoardGeom g; g.nB = g.nF = 0;
+    if (!BoardGeomGet(o, N.top, g) || g.nB < 1 || g.nF < 1) { g_bcap = false; Log("altstall: #%d no stall: the board's wheels could not be told apart laid level (%d on the deck's side, %d on the drop's) -- not tipped", N.n, g.nB, g.nF); return 0; }
+    const float dz = (N.top + g_sdWheelR) - g.axle.z;                // (as the set-down's level capture: the wheels' origins g_sdWheelR over the top)
+    for (int i = 0; i < N.nP; i++) g_bp[i].z += dz;
+    StancePose s;
+    if (!StanceAt(N.hang, N.pitch, N.tail, N.kick, N.lip, o, N.E, N.top, 1.0f, 0.0f, s)) { g_bcap = false; return 0; }
+    const float along = s.along1 + clampf(N.tail, 5.0f, 40.0f) - dot(sub(s.g.axle, g_bp[0]), o);   // the tail's tip over the stance's: k only tips it (LB/RB lays it down there)
+    for (int i = 0; i < N.nP; i++) { g_bp[i].x += o.x * along; g_bp[i].y += o.y * along; }
+    if (!StanceAt(N.hang, N.pitch, N.tail, N.kick, N.lip, o, N.E, N.top, 1.0f, 0.0f, s)) { g_bcap = false; return 0; }
+    const V3 aB = add(N.P0[0], qinv(Lq, sub(s.g.axle, g_bp[0]))), aF = add(N.P0[0], qinv(Lq, sub(s.g.axleF, g_bp[0])));   // the two axles where they ARE
+    const V3 dA = sub(aF, aB), dS = sub(StancePoint(s, s.g.axleF), s.A1);
+    N.el = atan2f(dA.z, dot(dA, o)) * 57.2957795f;                  // the board on the wall: its far end this far over level (below = -)
+    N.elS = atan2f(dS.z, dot(dS, o)) * 57.2957795f;                 // the drop-in's stance (its pitch, raised for a lip)
+    N.phi0 = clampf(N.elS - N.el, 0.0f, 150.0f);
+    StancePose s0;
+    if (!StanceAt(N.hang, N.pitch, N.tail, N.kick, N.lip, o, N.E, N.top, 1.0f, N.phi0, s0)) { g_bcap = false; return 0; }
+    N.Cq = qnorm(qmul(qconj(Lq), qconj(s0.R)));                      // the stance at phi0 -> the board as it is (about the pivot) ...
+    N.D = sub(aB, s0.A1);                                            // ... and the pivot's own way to the stance's hung axle
+    N.resid = qangle(N.Cq);
+    if (N.resid > 60.0f || len(N.D) > 50.0f) {
+        g_bcap = false;
+        Log("altstall: #%d no stall: the board is too far from the drop-in's stance tipped %.0f deg (%.0f deg of yaw/roll, the wheels %.0f cm off) -- not tipped", N.n, N.phi0, N.resid, len(N.D));
+        return 0;
+    }
+    g_bctrlOk = false;
+    if (const uint8_t* bm = BoardMC()) { const Q4 c = *(const Q4*)(bm + BM_CTRLQUAT); const float l = c.x * c.x + c.y * c.y + c.z * c.z + c.w * c.w; if (std::isfinite(l) && fabsf(l - 1.0f) < 0.05f) { g_bctrl = qnorm(qmul(Lq, qnorm(c))); g_bctrlOk = true; } }
+    N.ctrlOk = g_bctrlOk;
+    N.cap = true; N.info = true; N.steps = 0;
+    Log("altstall: #%d no stall: tip planned (nostall2 283) -- the drop-in played backwards about the %s wheels on the coping (%s first%s): the board %+.0f deg (its far end over level) -> the drop-in's stance %+.0f, %.0f deg about them; no yaw, no travel; faded out over the tip: %.0f deg of yaw/roll, the wheels %.1f cm (%+.1f past / %+.1f over the edge -> %+.1f / %+.1f); %d parts, controller %s",
+        N.n, N.pivF ? "FRONT" : "BACK", N.pivF ? "nose" : "tail", ((N.lead > 0) != (N.pivF == 1)) ? " -- the lip finder said the other end" : "", N.el, N.elS, N.phi0, N.resid, len(N.D),
+        dot(sub(aB, N.E), o), aB.z - N.top, dot(sub(s0.A1, N.E), o), s0.A1.z - N.top, N.nP, N.ctrlOk ? "read" : "NOT read");
+    if (g_asNsRev) Log("altstall: #%d no stall: AltNoStallReverse (revnostall 286) -- the Lua carries HIM up with this tip: the drop-in's GO stepped backwards on his body with the board's own eased share, from the wall to the drop-in's spot ('REVERSE' lines in ExpandedTricks.log)", N.n);
+    return N.nP;
+}
+void AltNsInfo(char* b, size_t n) {
+    const AsNsT& N = g_asNs;
+    b[0] = 0;
+    if (N.info) snprintf(b, n, "%d %.1f %.1f %.1f %.1f %.1f", N.pivF, N.phi0, N.elS, N.el, N.resid, len(N.D));
+}
+// one pose of the tip, e 0..1 (eased by the Lua) -> parts placed: the drop-in's stance tipped phi0 (1 - e) about the pivot, the rest faded
+int AltNsStep(float e) {
+    AsNsT& N = g_asNs;
+    if (!N.cap || !g_bcap || !g_hooked || g_sigMode || N.nP != g_bpartN || !PartsOk("no stall")) return 0;
+    e = std::isfinite(e) ? clampf(e, 0.0f, 1.0f) : 1.0f;
+    uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr);
+    const V3 o = norm(flat(N.o));
+    const float w = 1.0f - e;
+    StancePose s;
+    if (!StanceAt(N.hang, N.pitch, N.tail, N.kick, N.lip, o, N.E, N.top, 1.0f, N.phi0 * w, s)) return 0;
+    const Q4 C = qslerpTo(q4(0.0f, 0.0f, 0.0f, 1.0f), N.Cq, w);
+    const V3 Dw = mul(N.D, w);
+    int done = 0;
+    for (int i = 0; i < N.nP; i++) {
+        if (!PtrOk(g_bpart[i], 0x200)) continue;
+        V3 loc = add(add(s.A1, qrot(C, sub(StancePoint(s, g_bp[i]), s.A1))), Dw);
+        alignas(16) Q4 qi = qnorm(qmul(C, qmul(s.R, g_bq[i])));
+        if (!finite3(loc)) continue;
+        ((SetXfFn)(exe + RVA_SET_WORLD_LOCROT))(g_bpart[i], &loc, &qi, false, nullptr, 1 /* TeleportPhysics */);
+        V3 v = v3(0.0f, 0.0f, 0.0f);
+        ((SetVelFn)(exe + RVA_SET_LINVEL))(g_bpart[i], &v, false, 0);
+        v = v3(0.0f, 0.0f, 0.0f);
+        ((SetVelFn)(exe + RVA_SET_ANGVEL))(g_bpart[i], &v, false, 0);
+        done++;
+    }
+    if (N.ctrlOk && g_bctrlOk && done > 0) if (uint8_t* bm = BoardMC()) *(Q4*)(bm + BM_CTRLQUAT) = qnorm(qmul(C, qmul(s.R, g_bctrl)));
+    const double now = NowS();
+    if (g_as.nextT < now + 1.0) g_as.nextT = now + 1.0;              // the stalls do not arm again while it tips
+    if (g_noBailHook == 1) { const ULONGLONG t = GetTickCount64() + 300; if (g_noBailUntil < t) g_noBailUntil = t; }
+    N.steps++;
+    return done;
+}
+void AltNsEnd() { AsNsT& N = g_asNs; if (N.cap) Log("altstall: #%d no stall: the turn's hold ended after %d poses", N.n, N.steps); N.cap = false; N.pend = 0; }
+void SafeAltNsTake(char* b, size_t n) { __try { AltNsTake(b, n); } __except (EXCEPTION_EXECUTE_HANDLER) { b[0] = 0; Log("altstall: a fault reading the no stall's hand-over"); } }
+int SafeAltNsBegin(const double* a) { __try { return AltNsBegin(a); } __except (EXCEPTION_EXECUTE_HANDLER) { g_asNs.cap = false; Log("altstall: a fault planning the no stall's turn"); return 0; } }
+int SafeAltNsStep(float e) { __try { return AltNsStep(e); } __except (EXCEPTION_EXECUTE_HANDLER) { g_asNs.cap = false; Log("altstall: a fault turning the no stall's board -- let go"); return 0; } }
+// (forcegrind 287) THE GAME PUT INTO A NAMED GRIND OF ITS OWN AT THE COPING. Build 286's AltBluntGame (the user's test, 28 Oct 22:22):
+// 0.02 s after the catch +0x918 bit 0 was lent, one pose later the game began "ENTER LIP | def none target none" (lip 1, IsGrinding 0),
+// its picker was never asked, and he popped or bailed. Why (PdbDis, Epic's exe 69ca6d05): +0x918 bit 0 is the skater's IsInManual, and
+// in Session a grind begun FROM A MANUAL is a LIP TRICK. USkateboardExMovementComponent::CheckForGrind (0xfb41d0) found the coping (the
+// sweep, SetGrindApproachType, ValidateGrind), the manual bit let the ground check pass (+0x4a2: bit 0 and +0x530 <= 0), it copied that
+// bit into the board movement's grind flags +0x7e8 bit 2 (+0x90b..0x943), set bit 1 (+0xb0d: IsOnGrind, 0xfc3a90 = +0x7e8 bit 1 through
+// the interface at +0x138) and began the grind (vtable +0x5c0 = OnBeginGrind 0xfc4480: the movement mode 2, ASkateboardEx::
+// HandleOnEnterGrind). IsOnGrindFromLiptrick (0xfc3ab0) = the skater's +0x711 bit 1 AND +0x7e8 bit 2: the anim's IsInLipTrick (0x33d,
+// NativeUpdateAnimation +0x7d1) -- the lip trick, whose GrindsHandler::CheckForGrindInput (0x1047830) never asked the picker. The
+// grind's definition is only two plain setters: ASkaterCharacterBase::SetTargetGrindDefinition (0x1006780: +0x6c8) and
+// SetCurrentGrindDefinition (0x1004820: +0x6d0, +0x708 = the definition's +0x38); CheckForGrindInput calls them with the picker's answer.
+// So, the game's own path end to end: the ground grind check opened (the blunt: the lent bit, as 286; the nose slide: the same bit, lent
+// by this code), the game's own CheckForGrind begins the grind on the coping; the pose it does (board movement mode 2) the lip-trick flag
+// (+0x7e8 bit 2) is taken off (bit 1 kept: a grind, not a lip trick) and the wanted definition (the game's own UGrindOrSlideDefinition
+// from the GrindsHandler's list, gh+0x28) is set as target and current through the game's two setters; the picker's hook answers it as
+// well, so the game keeps it. No speed is needed: the game's check runs on the board standing at the coping. "altstall: #n forcegrind:"
+// lines: the entry (the flags before -> after, the definition), the state at 0.1 and 0.5 s (and every 0.5 s), the end and why.
+// AltNoStallSlide (HJN_Set("altnostallslide", 0/1); 0 = build 286, nothing here runs): the no stall caught at the lip turns the board
+// 90 deg about the vertical through its leading wheels onto the coping (frontside: the way he faces; laid level), its speed zeroed,
+// and goes into the game's GRIND_FS_Noseslide (the side of the game's own pick when its picker is asked) by the same path.
+volatile LONG g_asNsSlide = 0;   // HJN_Set("altnostallslide", 0/1): the ini's AltNoStallSlide
+const uintptr_t RVA_SET_TGT_GRIND = 0x1006780, RVA_SET_CUR_GRIND = 0x1004820;   /* ASkaterCharacterBase::SetTargetGrindDefinition / SetCurrentGrindDefinition */
+constexpr int FG_BM_GFLAGS = 0x7e8;   /* the board movement's grind flags: bit 1 IsOnGrind, bit 2 the grind came from a manual (a lip trick, with the skater's +0x711 bit 1) */
+typedef void (*SetGrindDefFn)(void* sk, const void* def);
+struct AsFgT { int on, kind, side, nose, n, poses; bool lent, conv, forced, entered; double t0, tIn, logT; const uint8_t* def; LONG calls, kept; uint8_t f0, f1; V3 h; float turn; int lkSt; bool pp; V3 A0; float p0, pinMax; LONG reN, pinN, rotN, lkN; double lkT, lkLogT; char nm[64]; bool hold; double tHold; V3 G; bool gOk; float pl0; bool ck; int offN; int stk; bool sHeld; V3 Tg; void* pc[7]; V3 pL[7]; Q4 pQ[7]; int pn; bool skLog; bool cgOk; };   /* (lockgrind3 290) hold: the no stall's wait for its wheels; G, pl0: the lock's goal and pitch */
+AsFgT g_asfg = {};
+int AsFgSlideRank(const char* nm, int side) { if (!nm || !AgHas(nm, "noseslide")) return 0; return (!side || AsBluntSide(nm) == side) ? 1 : 2; }   /* 1 the side's nose slide, 2 the other side's */
+const uint8_t* AsFgIn(const uint8_t* data, int n, int stride, int kind, int side, int nose, char* nm, int cap) {   // the best wanted grind in a list of definitions
+    if (kind == 1) return AsBluntIn(data, n, stride, side, nose, nm, cap);
+    if (!data || n <= 0 || n > 512 || !PtrOk(data, (size_t)n * stride)) return nullptr;
+    const uint8_t* best = nullptr; int bestR = 9;
+    for (int i = 0; i < n; i++) {
+        const uint8_t* d = *(const uint8_t* const*)(data + (size_t)i * stride);
+        if (!d) continue;
+        char s[64]; GrDefName(d, s, 64);
+        const int r = AsFgSlideRank(s, side);
+        if (r && r < bestR) { best = d; bestR = r; snprintf(nm, cap, "%s", s); }
+    }
+    return best;
+}
+const uint8_t* AsFgHandler(const uint8_t* sk) {   // the skater's controller (+0x258) -> its GrindsHandler (+0x6d8, as HandleOnEnterGrind reads it)
+    if (!PtrOk(sk, 0x260)) return nullptr;
+    const uint8_t* pc = *(const uint8_t* const*)(sk + 0x258);
+    if (!pc || !PtrOk(pc, 0x6e0)) return nullptr;
+    const uint8_t* gh = *(const uint8_t* const*)(pc + 0x6d8);
+    if (!gh || !PtrOk(gh, 0x48) || *(const uint8_t* const*)(gh + 8) != sk) return nullptr;
+    return gh;
+}
+const uint8_t* AsFgFind(const uint8_t* sk, int kind, int side, int nose, char* nm, int cap) {
+    const uint8_t* gh = AsFgHandler(sk);
+    if (!gh) return nullptr;
+    return AsFgIn(*(const uint8_t* const*)(gh + 0x28), *(const int32_t*)(gh + 0x30), 8, kind, side, nose, nm, cap);
+}
+const char* AsFgKind(int kind) { return kind == 1 ? "blunt" : "noseslide"; }
+void AsFgStart(int kind, int side, int nose, int n, V3 h, float turn) {
+    AsFgT& F = g_asfg;
+    F.on = 1; F.kind = kind; F.side = side; F.nose = nose; F.n = n; F.poses = 0; F.lent = false; F.conv = false; F.forced = false; F.entered = false;
+    F.t0 = NowS(); F.tIn = 0.0; F.logT = 0.0; F.def = nullptr; F.calls = 0; F.kept = 0; F.f0 = 0; F.f1 = 0; F.h = h; F.turn = turn; F.nm[0] = 0; F.lkSt = 0; F.reN = 0; F.pinN = 0; F.rotN = 0; F.lkN = 0; F.pinMax = 0.0f; F.hold = false; F.tHold = 0.0; F.gOk = false; F.pl0 = 0.0f;
+    uint8_t* sk = (uint8_t*)g_skater;
+    if (sk) F.def = AsFgFind(sk, kind, side, nose, F.nm, sizeof(F.nm));
+    Log("altstall: #%d forcegrind: %s wanted -- the game's own \"%s\" (%s%s) from its GrindsHandler's list; the game's ground grind check opened, the grind it begins at the coping taken as that one",
+        n, AsFgKind(kind), F.def ? F.nm : "NOT FOUND", side == 1 ? "FS" : side == 2 ? "BS" : "no side", nose ? ", nose" : "");
+}
+void AsFgUnlend(uint8_t* sk, const char* why) {
+    AsFgT& F = g_asfg;
+    if (!F.lent) return;
+    F.lent = false;
+    if (sk && PtrOk(sk, 0x920)) sk[0x918] = (uint8_t)(sk[0x918] & 0xfe);
+    Log("altstall: #%d forcegrind: the skater's +0x918 bit 0 (IsInManual) given back (%s)", F.n, why ? why : "?");
+}
+// (lockpin2 296) USkaterConfig::BailOnGrindsWhenStopped (+0x23c bit; its Delay +0x240, its MinSpeed +0x244): a board stopped in a
+// grind that long is taken off it -- 295's frozen blunts, "off the board" 0.93 s in. Held off while the lock freezes the board.
+struct AsCfgT { uint8_t* cfg; float d0, m0; bool on; };
+AsCfgT g_ascfg = {};
+constexpr int CFG_STOPDELAY = 0x240, CFG_STOPMINSPD = 0x244;
+void AsCfgHold(uint8_t* sk, int n) {
+    if (g_ascfg.on || !sk || !PtrOk(sk, SK_MC + 8)) return;
+    uint8_t* mc = *(uint8_t* const*)(sk + SK_MC);
+    if (!mc || !PtrOk(mc, MCA_CONFIG + 8)) return;
+    uint8_t* cfg = *(uint8_t* const*)(mc + MCA_CONFIG);
+    if (!cfg || !PtrOk(cfg, CFG_STOPMINSPD + 4)) return;
+    g_ascfg.cfg = cfg; g_ascfg.d0 = *(const float*)(cfg + CFG_STOPDELAY); g_ascfg.m0 = *(const float*)(cfg + CFG_STOPMINSPD); g_ascfg.on = true;
+    *(float*)(cfg + CFG_STOPDELAY) = 1.0e6f; *(float*)(cfg + CFG_STOPMINSPD) = -1.0f;
+    Log("altstall: #%d (lockpin2 296) the game's stopped-on-a-grind bail held off while the board is frozen: its delay %.2f s -> 1e6, its min speed %.1f -> -1 (295: off the board 0.93 s into the frozen blunts)", n, g_ascfg.d0, g_ascfg.m0);
+}
+void AsCfgBack(const char* why) {
+    if (!g_ascfg.on) return;
+    uint8_t* cfg = g_ascfg.cfg; g_ascfg.on = false;
+    if (cfg && PtrOk(cfg, CFG_STOPMINSPD + 4)) { *(float*)(cfg + CFG_STOPDELAY) = g_ascfg.d0; *(float*)(cfg + CFG_STOPMINSPD) = g_ascfg.m0; }
+    Log("altstall: (lockpin2 296) the game's stopped-on-a-grind bail given back (delay %.2f s, min speed %.1f): %s", g_ascfg.d0, g_ascfg.m0, why);
+}
+void AsFsBrake(uint8_t* sk, int n, double th) {   /* (lockpin2 296) the no stall's rider stopped with the board until the nose slide begins (295: 285+ cm/s catches flew on past the coping and were thrown) */
+    uint8_t* mc = (sk && PtrOk(sk, SK_MC + 8)) ? *(uint8_t* const*)(sk + SK_MC) : nullptr;
+    if (!mc || !PtrOk(mc, 0xe28)) return;
+    V3& v = *(V3*)(mc + 0xc4);
+    if (!finite3(v)) return;
+    const float s = len(v);
+    static int seenN = -1; if (seenN != n) { seenN = n; Log("altstall: #%d (bailangle 297) the no stall's rider at %.2f s: his movement speed %.0f cm/s (%+.0f up)%s", n, th, s, v.z, s <= 60.0f ? " -- under 60, nothing to brake" : ""); }
+    if (s <= 60.0f) return;
+    const V3 v0 = v; v = mul(v, 60.0f / s);
+    static int lastN = -1; if (lastN != n) { lastN = n; Log("altstall: #%d (lockpin2 296) the no stall's rider braked with the board: his speed %.0f cm/s (%+.0f up) -> 60 at %.2f s (each pose until the nose slide begins, 0.6 s at the most)", n, s, v0.z, th); }
+}
+// (bailangle 297) USkateboardExMovementComponent::CheckForBailBoardAngle (from PostPhysSkateboarding / PostPhysGrinding): the deck's up
+// against its rotation controller's (the object at +0x138: +0xa0 one turn, +0xa8 the other) under 0.575 (~55 deg) bails -- 296's frozen
+// blunts (pitch +58) "off the board" 1.23-1.30 s in, its no stall #17 0.12 s into the nose slide. Passed over while our stall hold or
+// the forced grind's lock owns the board (AltBluntGame / AltNoStallSlide only); the dot the game would have read kept for the log.
+uintptr_t RVA_BAIL_BOARDANGLE = 0xfb2680;   // bool USkateboardExMovementComponent::CheckForBailBoardAngle(float)
+typedef bool (*AsBaFn)(void* mc, float dt);
+AsBaFn o_AsBa = nullptr; int g_asBaHook = 0; volatile LONG g_asBaSkips = 0, g_asBaWould = 0, g_asBaN = -1; volatile float g_asBaMin = 2.0f;
+float AsBaDot(void* mc) {   /* POD only (the caller's __try): the game's own sum, both turns' up axes */
+    uint8_t* o = (uint8_t*)mc + 0x138;
+    void* const* vt = *(void* const* const*)o;
+    if (!vt || !WrInExe(vt) || !WrInExe(vt[0xa0 / 8]) || !WrInExe(vt[0xa8 / 8])) return 2.0f;
+    typedef const float* (*AsBaQaFn)(void*); typedef const float* (*AsBaQbFn)(void*, float*);
+    float buf[16] = {};
+    const float* a = ((AsBaQaFn)vt[0xa0 / 8])(o);
+    const float* b = ((AsBaQbFn)vt[0xa8 / 8])(o, buf);
+    if (!a || !b) return 2.0f;
+    const float ua[3] = { 2.0f * (a[0] * a[2] + a[3] * a[1]), 2.0f * (a[1] * a[2] - a[3] * a[0]), 1.0f - 2.0f * (a[0] * a[0] + a[1] * a[1]) };
+    const float ub[3] = { 2.0f * (b[0] * b[2] + b[3] * b[1]), 2.0f * (b[1] * b[2] - b[3] * b[0]), 1.0f - 2.0f * (b[0] * b[0] + b[1] * b[1]) };
+    const float d = ua[0] * ub[0] + ua[1] * ub[1] + ua[2] * ub[2];
+    return std::isfinite(d) ? d : 2.0f;
+}
+bool AsBaOwned() { return g_asfg.on && (g_asfg.lkSt == 1 || g_as.st >= 2); }   /* the lock holding, or the stall's hold (st 2..4) */
+bool hkAsBa(void* mc, float dt) {
+    if (mc && (g_asBluntGame || g_asNsSlide) && AsBaOwned() && mc == (void*)BoardMC()) {
+        float d = 2.0f;
+        __try { d = AsBaDot(mc); } __except (EXCEPTION_EXECUTE_HANDLER) { d = 2.0f; }
+        if (d < g_asBaMin) g_asBaMin = d;
+        if (d < 0.575f) InterlockedIncrement(&g_asBaWould);
+        InterlockedIncrement(&g_asBaSkips);
+        if (g_asBaN != g_asfg.n) { g_asBaN = g_asfg.n; Log("altstall: #%d (bailangle 297) the game's board-angle bail check passed over: the board is ours (%s); the deck's up . its controller's %.3f now (it bails under 0.575)", g_asfg.n, g_asfg.lkSt == 1 ? "the lock" : "the stall's hold", d); }
+        return false;
+    }
+    return o_AsBa ? o_AsBa(mc, dt) : false;
+}
+void AsBaPlace() {
+    static const uint8_t e[15] = { 0x48, 0x8b, 0xc4, 0x48, 0x89, 0x58, 0x10, 0x56, 0x48, 0x81, 0xec, 0xc0, 0x00, 0x00, 0x00 };   /* mov rax, rsp | mov [rax+0x10], rbx | push rsi | sub rsp, 0xc0 */
+    void *nx = nullptr, *og = nullptr;
+    if (HostPlace(Exe() + RVA_BAIL_BOARDANGLE, (const void*)&hkAsBa, 15, e, sizeof(e), "USkateboardExMovementComponent::CheckForBailBoardAngle", false, &nx, &og)) { o_AsBa = (AsBaFn)nx; g_asBaHook = 1; }
+}
+uintptr_t RVA_CHECK_GRIND = 0xfb41d0;   // bool USkateboardExMovementComponent::CheckForGrind(float, const FQuat&, bool): (grindhold 298) its failure exit (+0xf82) clears IsOnGrind (+0x7e8 bit 1)
+typedef bool (*AsCgFn)(void* mc, float dt, const void* q, bool b);
+AsCgFn o_AsCg = nullptr; int g_asCgHook = 0; volatile LONG g_asCgPut = 0, g_asCgN = -1;
+bool hkAsCg(void* mc, float dt, const void* q, bool b) {   /* (grindhold 298) the grind the game drops under the lock put back */
+    uint8_t* m = (uint8_t*)mc;
+    const bool own = mc && (g_asBluntGame || g_asNsSlide) && g_asfg.on && g_asfg.lkSt == 1 && g_asfg.cgOk && mc == (void*)BoardMC();
+    bool was = false;
+    if (own) { __try { was = (m[FG_BM_GFLAGS] & 2) != 0 && m[BM_MODE] == 2; } __except (EXCEPTION_EXECUTE_HANDLER) { was = false; } }
+    const bool r = o_AsCg ? o_AsCg(mc, dt, q, b) : false;
+    if (own && was) {
+        bool put = false;
+        __try { if (!(m[FG_BM_GFLAGS] & 2) && m[BM_MODE] == 2) { m[FG_BM_GFLAGS] |= (uint8_t)2; put = true; } } __except (EXCEPTION_EXECUTE_HANDLER) { put = false; }
+        if (put) {
+            InterlockedIncrement(&g_asCgPut);
+            if (g_asCgN != g_asfg.n) { g_asCgN = g_asfg.n; Log("altstall: #%d (grindhold 298) the game's grind check DROPPED the grind under the lock (297: rolled off 0.15-0.84 s after the stick was let go): IsOnGrind put back -- it hangs until a pop or a flip", g_asfg.n); }
+            return true;
+        }
+    }
+    return r;
+}
+void AsCgPlace() {
+    static const uint8_t e[15] = { 0x48, 0x8b, 0xc4, 0x48, 0x89, 0x58, 0x10, 0x48, 0x89, 0x70, 0x18, 0x55, 0x57, 0x41, 0x54 };   /* mov rax, rsp | mov [rax+0x10], rbx | mov [rax+0x18], rsi | push rbp | push rdi | push r12 */
+    void *nx = nullptr, *og = nullptr;
+    if (HostPlace(Exe() + RVA_CHECK_GRIND, (const void*)&hkAsCg, 15, e, sizeof(e), "USkateboardExMovementComponent::CheckForGrind", false, &nx, &og)) { o_AsCg = (AsCgFn)nx; g_asCgHook = 1; }
+}
+void AsBaInstall() {   /* once, at the first forced stall's arming (the stall code's thread, as the picker's AgInstall) */
+    if (g_asBaHook != 0 || !g_hooked || g_sigMode) return;
+    g_asBaHook = -1;
+    __try { AsBaPlace(); } __except (GrabFilter(GetExceptionCode())) { g_asBaHook = -1; }
+    g_asCgHook = -1; __try { AsCgPlace(); } __except (GrabFilter(GetExceptionCode())) { g_asCgHook = -1; }   /* (grindhold 298) */
+    Log("alt stalls: (grindhold 298) the game's grind check (CheckForGrind) %s", g_asCgHook == 1 ? "is hooked: the grind it drops under the lock is put back" : "could NOT be hooked on this game build -- a locked blunt still ends after the stick is let go");
+    Log("alt stalls: (bailangle 297) the game's board-angle bail (CheckForBailBoardAngle) %s", g_asBaHook == 1 ? "is hooked: passed over while the stall's hold or the forced grind's lock owns the board" : "could NOT be hooked on this game build -- a frozen blunt is still taken off the board ~1.2 s in");
+}
+void AsBaNote(int n, const char* why) {
+    const LONG s = InterlockedExchange(&g_asBaSkips, 0), w = InterlockedExchange(&g_asBaWould, 0); const float m = g_asBaMin; g_asBaMin = 2.0f;
+    const LONG cgp = InterlockedExchange(&g_asCgPut, 0); if (cgp > 0) Log("altstall: #%d (grindhold 298) the game's grind check dropped the grind %ld times under the lock (%s): put back each time", n, (long)cgp, why);
+    if (s > 0) Log("altstall: #%d (bailangle 297) the game's board-angle bail passed over %ld times while the board was ours (%s): it would have bailed on %ld of them (the deck's up . its controller's down to %.3f, its line 0.575)", n, (long)s, why, (long)w, m);
+}
+void AsFgEnd(uint8_t* sk, const char* what, const char* why) {
+    AsCfgBack("the forced grind ended");   /* (lockpin2 296) */
+    AsBaNote(g_asfg.n, "the forced grind ended");   /* (bailangle 297) */
+    AsFgT& F = g_asfg;
+    if (!F.on) return;
+    const double now = NowS();
+    char cn[64] = "none"; if (sk && PtrOk(sk, 0x710)) GrDefName(*(const uint8_t* const*)(sk + 0x6d0), cn, 64);
+    Log("altstall: #%d forcegrind: %s %s after %.2f s (%.2f s in the game's grind) -- %s | the current \"%s\" | entered %d, the lip flag taken off %d, the definition set %d, picker answers %ld (kept %ld)",
+        F.n, AsFgKind(F.kind), what, now - F.t0, F.entered ? now - F.tIn : 0.0, why ? why : "?", cn, F.entered ? 1 : 0, F.conv ? 1 : 0, F.forced ? 1 : 0, (long)F.calls, (long)F.kept);
+    AsFgUnlend(sk, "the forced grind is over");
+    if (F.kind == 1) { g_asb.hand = false; g_asBluntPick = 0; }
+    F.on = 0;
+    if (g_as.nextT < now + 1.0) g_as.nextT = now + 1.0;
+}
+bool AsFgTake(uint8_t* sk, double now) {   // the pose the game's grind begins: a grind, not a lip trick, and the wanted definition
+    AsFgT& F = g_asfg;
+    uint8_t* bm = BoardMC();
+    if (!F.on || F.entered || !bm || !PtrOk(bm, 0x800) || !PtrOk(sk, 0x920)) return false;
+    F.poses++;
+    if (bm[BM_MODE] != 2) return false;
+    F.f0 = bm[FG_BM_GFLAGS];
+    if (F.f0 & 4) { bm[FG_BM_GFLAGS] = (uint8_t)((F.f0 & 0xfb) | 2); F.conv = true; }
+    F.f1 = bm[FG_BM_GFLAGS];
+    if (!F.def) F.def = AsFgFind(sk, F.kind, F.side, F.nose, F.nm, sizeof(F.nm));
+    char tw[64], cw[64]; GrDefName(*(const uint8_t* const*)(sk + 0x6c8), tw, 64); GrDefName(*(const uint8_t* const*)(sk + 0x6d0), cw, 64);
+    if (F.def) { uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr); ((SetGrindDefFn)(exe + RVA_SET_TGT_GRIND))(sk, F.def); ((SetGrindDefFn)(exe + RVA_SET_CUR_GRIND))(sk, F.def); F.forced = true; }
+    F.entered = true; F.tIn = now; F.logT = now;
+    AsFgUnlend(sk, "the game's grind began");
+    Log("altstall: #%d forcegrind: INTO THE GAME'S GRIND %.2f s after the start (%d poses): the board movement mode 2, its grind flags %02x -> %02x (%s) | the game had target \"%s\" current \"%s\" -> %s \"%s\" set as both (SetTarget/SetCurrentGrindDefinition) | skater +711 %02x +918 %02x",
+        F.n, now - F.t0, F.poses, (unsigned)F.f0, (unsigned)F.f1, F.conv ? "its LIP TRICK flag (bit 2) taken off: a grind" : "no lip flag: the game's own grind", tw, cw,
+        F.def ? "the wanted" : "NOTHING (no such definition found:", F.def ? F.nm : "the game's own kept)", (unsigned)sk[0x711], (unsigned)sk[0x918]);
+    return true;
+}
+void AsFgBlunt(uint8_t* sk, double now, int n) {   // each pose of AltBluntGame's held blunt (the bit lent by AsBgHold)
+    if (!g_asfg.on || g_asfg.n != n || g_asfg.kind != 1) AsFgStart(1, 2, 0, n, g_as.h, 0.0f);   /* BS: as the real one of 28 Oct */
+    AsFgTake(sk, now);
+}
+void AsFgState(uint8_t* sk, const uint8_t* mc, const uint8_t* anim, const uint8_t* bm, double now, const char* tag) {
+    AsFgT& F = g_asfg;
+    char tn[64], cn[64]; GrDefName(*(const uint8_t* const*)(sk + 0x6c8), tn, 64); GrDefName(*(const uint8_t* const*)(sk + 0x6d0), cn, 64);
+    float yawC = -999.0f, pitch = -999.0f, vAlong = 0.0f, vAll = 0.0f;
+    const uint8_t* board = PtrOk(sk, 0xa40) ? *(const uint8_t* const*)(sk + SK_BOARD) : nullptr;
+    Q4 dq; V3 dw;
+    if (board && PtrOk(board, 0x530) && WrDeckWorld(board, dq, dw)) {
+        const V3 ax = qrot(dq, v3(1.0f, 0.0f, 0.0f)), rail = AsBgRailOf(F.h), af = flat(ax);
+        pitch = asinf(clampf(ax.z, -1.0f, 1.0f)) * 57.2957795f;
+        if (len(af) > 0.05f) yawC = acosf(clampf(fabsf(dot(norm(af), rail)), 0.0f, 1.0f)) * 57.2957795f;
+        uint8_t* c0 = *(uint8_t* const*)(board + WG_PART[0]); V3 v;
+        if (c0 && PtrOk(c0, SC_C2W + 0x30) && WallBodyVel(c0, v)) { vAlong = dot(v, rail); vAll = len(v); }
+    }
+    Log("altstall: #%d forcegrind: %s %s %.2f s: board mode %d flags %02x | IsGrinding %d IsInLipTrick %d | target \"%s\" current \"%s\"%s | the deck %.0f deg off the coping's line, pitch %+.0f, %.0f cm/s (%+.0f along the coping) | mc %d/%d | picker answers %ld | +918 %02x",
+        F.n, AsFgKind(F.kind), tag, now - F.tIn, bm[BM_MODE], (unsigned)bm[FG_BM_GFLAGS], anim[WG_AI_GRIND] ? 1 : 0, anim[WG_AI_LIP] ? 1 : 0, tn, cn,
+        (F.def && *(const uint8_t* const*)(sk + 0x6d0) == F.def) ? " (the wanted)" : " (NOT the wanted)", yawC, pitch, vAll, vAlong, mc[WR_SMC_MODE], mc[WR_SMC_CUSTOM], (long)F.calls, (unsigned)sk[0x918]);
+}
+// (lockgrind 288) THE FORCED GRIND LOCKED ON THE COPING. The user's 287 test (28 Oct 23:16-23:19): "very squirrely ... doesn't really lock
+// into the rail ... switches to a nose blunt, drifts off the ramp, drifts forward". The log: the speed along the coping not held (#11:
+// +1, -41, -109, -130 cm/s), the definition re-picked (#3: target FS_Blunt at 0.12 s, current FS_Blunt at 0.53 s), the pitch sinking
+// (#3: +58, +45, +22, +10, rolled off). Why (PdbDis, PhysGrindingMovement 0xfc8230): Session's grind has NO spline distance or grind
+// speed to pin -- it is physics: each substep the board's velocity is split along the grind's direction and the part across it is pushed
+// out by an impulse (x skater +0x714); the part along it is left free (gravity, the lean), so a pose-rate velocity zero loses to the
+// substeps between poses. So each pose in the game's grind: the wanted definition re-set (target +0x6c8 and current +0x6d0, the game's
+// own setters) whenever the game moved it; the deck's place PINNED where the grind began (its drift across the ground taken back by a
+// teleport of the board's 7 parts, their across-the-ground speed zeroed; the height left to the game's grind); the deck's pitch held at
+// the entry's (turned back about the lower wheel pair when it is 3 deg off). Let go the pose the game's pop is pending
+// (ASkaterCharacterBase::IsPopPending 0xff8590): the game owns the pop / flip-out. "altstall: #n lock" lines (the first 8 poses, then
+// every 0.25 s): the drift along the coping before the pin, the speed along it before -> after, the re-sets, the pitch.
+// (lockgrind3 290) THE LOCK HOLDS THE PLACE, SMOOTHLY. The 289 test (29 Oct 08:30, #2, #4): in the game's blunt the board sat still
+// 0.4 s, then slid DOWN THE RAMP FACE at 35-50 cm/s (the trailing wheels +1.9 -> -26.8 past / +2.4 -> -35.2 over the coping top in 2 s),
+// the grind still on -- the user: "locking into the grind in thin air, and then the guy just slides down the ramp". Why: the game's grind
+// leaves the velocity ALONG its grind direction free (board movement +0x4f4: for this blunt it lies along the deck, prail +73..+79, up /
+// down the ramp) and 289 took out only the speed along the coping. Now each pose the stall hold's own step (AltStallStep: velocities and
+// spin only, no teleport) drives the held wheels (the blunt's trailing, the nose slide's leading) to the stall's goal on the coping top
+// (T.goal, +3 past the edge, where the game's check begins the grind; the blunt's held 2 cm further onto the deck, +5 -- the user: "maybe
+// it needs to start a little higher up past the coping"), 12 /s, 60 cm/s at the most, and keeps the leading end's pitch within 4 deg of
+// the lock's start (inside that band its spin is stilled). The definition
+// re-set and the let-go when the game's pop becomes pending as 288. "altstall: #n lock" lines: the wheels vs the goal, the deck's speed.
+float AsFgLeadPitch(const uint8_t* board, int lead) {   // the leading end's pitch (deg) as AltStallStep measures it; -999 = not read
+    Q4 dq; V3 dw;
+    if (!board || !WrDeckWorld(board, dq, dw)) return -999.0f;
+    V3 ax = qrot(dq, v3(1.0f, 0.0f, 0.0f));
+    const uint8_t* fc = *(const uint8_t* const*)(board + 0x500); const uint8_t* bc = *(const uint8_t* const*)(board + 0x4f0);
+    if (!fc || !bc || !PtrOk(fc, SC_C2W + 0x20) || !PtrOk(bc, SC_C2W + 0x20)) return -999.0f;
+    if (dot(sub(*(const V3*)(fc + SC_C2W + 0x10), *(const V3*)(bc + SC_C2W + 0x10)), ax) < 0.0f) ax = mul(ax, -1.0f);   // +ax = toward the nose
+    const V3 fw = mul(ax, lead < 0 ? -1.0f : 1.0f);
+    return finite3(fw) ? asinf(clampf(fw.z, -1.0f, 1.0f)) * 57.2957795f : -999.0f;
+}
+float AsFgBand(float pl, float p0) { return clampf(pl, p0 - 4.0f, p0 + 4.0f); }   /* (lockgrind3 290) the lock's pitch: kept within 4 deg of its start */
+float AsFgStick(int which) {   /* (lockgrind6 293) the physical stick's lean (0..1; 1 the left, 2 the right); -1 = no pad */
+    if (!g_xiGet || g_xiUser < 0 || (which != 1 && which != 2)) return -1.0f;
+    XiState s; memset(&s, 0, sizeof(s)); if (g_xiGet((uint32_t)g_xiUser, &s) != 0) return -1.0f;
+    const float x = (which == 1 ? s.pad.lx : s.pad.rx) / 32767.0f, y = (which == 1 ? s.pad.ly : s.pad.ry) / 32767.0f;
+    return sqrtf(x * x + y * y);
+}
+float AsFgTipCm(int kind) { return kind == 1 ? -35.0f : kind == 2 ? 35.0f : 0.0f; }   /* (lockgrind7 294) the blunt: the trailing end's (EGCP_BoardBottomTail), the nose slide: the leading end's (EGCP_BoardBottomNose) */
+V3 AsFgWalk(V3 g, V3 to, float step) { const V3 d = sub(to, g); const float L = len(d); return (L > step && L > 0.0f) ? add(g, mul(d, step / L)) : to; }   /* (lockgrind7 294) the held place walked toward the edge, step cm a pose */
+int AsFgPinTake(const uint8_t* board, void** pc, V3* pL, Q4* pQ) {   /* (lockpin 295) the board's parts' world places and turns at the grind's start */
+    int n = 0;
+    for (int k = 0; k < 7; k++) {
+        pc[k] = nullptr;
+        uint8_t* c = *(uint8_t* const*)(board + WG_PART[k]);
+        if (!c || !PtrOk(c, SC_C2W + 0x30) || !WrInExe(*(void* const*)c)) continue;
+        const V3 p = *(const V3*)(c + SC_C2W + 0x10); const Q4 q = *(const Q4*)(c + SC_C2W);
+        if (!finite3(p) || !std::isfinite(q.x) || !std::isfinite(q.y) || !std::isfinite(q.z) || !std::isfinite(q.w)) continue;
+        pc[k] = c; pL[k] = p; pQ[k] = qnorm(q); n++;
+    }
+    return n;
+}
+float AsFgPinPut(const uint8_t* board, void* const* pc, const V3* pL, const Q4* pQ) {   /* (lockpin 295) each pose: every part back to its place and turn, still; -> how far the deck had moved (cm) */
+    uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr); float d0 = -1.0f;
+    for (int k = 0; k < 7; k++) {
+        uint8_t* c = *(uint8_t* const*)(board + WG_PART[k]);
+        if (!c || (void*)c != pc[k] || !PtrOk(c, SC_C2W + 0x30) || !WrInExe(*(void* const*)c)) continue;
+        const V3 p = *(const V3*)(c + SC_C2W + 0x10);
+        if (k == 0 && finite3(p)) d0 = len(sub(p, pL[k]));
+        V3 loc = pL[k]; alignas(16) Q4 q = pQ[k];
+        ((SetXfFn)(exe + RVA_SET_WORLD_LOCROT))(c, &loc, &q, false, nullptr, 1 /* TeleportPhysics */);
+        WallSetVel(c, v3(0.0f, 0.0f, 0.0f)); WallSetAngVel(c, v3(0.0f, 0.0f, 0.0f));
+    }
+    return d0;
+}
+int AsFgStickPick(float l, float r) { return (l < 0.6f && r < 0.6f) ? 0 : (l >= r ? 1 : 2); }   /* (lockgrind6 293) the stick holding the crouch: the one leaned 0.6 or more (the more leaned) */
+void AsFgLock(uint8_t* sk, uint8_t* bm, double now) {
+    AsFgT& F = g_asfg;
+    if (F.lkSt == 2 || !PtrOk(sk, 0xa40)) { if (F.lkSt == 2) { g_as.tip = 0.0f; AsCfgBack("the lock let go"); } return; }   /* (lockpin2 296) */   /* (lockgrind7 294) the contact point only inside the lock */
+    uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr);
+    const uint8_t* board = *(const uint8_t* const*)(sk + SK_BOARD);
+    Q4 dq; V3 dw;
+    if (!board || !PtrOk(board, 0x530) || !WrDeckWorld(board, dq, dw)) return;
+    const AltStallT& T = g_as;
+    const bool wFr = (F.kind == 1) ? !(T.lead > 0) : (T.lead > 0);   /* the held wheels: the blunt's trailing, the nose slide's leading */
+    const char* wNm = F.kind == 1 ? "trailing" : "leading";
+    const V3 rail = AsBgRailOf(F.h);
+    const float pl = AsFgLeadPitch(board, T.lead);
+    const bool pend = ((bool (*)(const void*))(exe + RVA_POP_PENDING))(sk);
+    if (F.lkSt == 0) g_as.tip = 0.0f;   /* (lockpin 295) the wheels again: 294 walked the contact point by velocities and the game's grind never let the board move */
+    V3 W = dw; const bool wOk = AltStallAnchor(board, wFr, W);   /* (lockgrind6 293) the game's contact point when tip */
+    if (F.lkSt == 0) {
+        F.skLog = false; F.pp = pend; F.ck = (sk[WG_SK_CRANK] & 1) != 0; F.offN = 0; F.stk = AsFgStickPick(AsFgStick(1), AsFgStick(2)); F.sHeld = F.stk != 0; F.lkSt = 1; F.A0 = dw; F.p0 = pl; F.pl0 = pl; F.lkT = now; F.lkLogT = 0.0; F.reN = 0; F.pinN = 0; F.rotN = 0; F.lkN = 0; F.pinMax = 0.0f;
+        F.gOk = T.n == F.n && finite3(T.goal); F.G = W; F.Tg = W; if (T.tip != 0.0f && F.gOk) { F.Tg = add(T.E, mul(T.h, 1.0f)); F.Tg.z = T.zTop + 1.0f; }   /* (lockgrind7 294) the contact point's goal: the coping's edge */
+        F.pn = AsFgPinTake(board, F.pc, F.pL, F.pQ);   /* (lockpin 295) */
+        AsCfgHold(sk, F.n);   /* (lockpin2 296) */
+        F.cgOk = F.kind == 1 || (dot(sub(F.G, T.E), T.h) > -1.0f && F.G.z - T.zTop > -0.5f);   /* (grindhold 298) the game's grind check overruled: the blunt always, a nose slide only on the coping */
+        Log("altstall: #%d lock (grindhold 298): the game's grind check (CheckForGrind) %s", F.n, F.cgOk ? "OVERRULED while the lock holds: the grind it drops is put back (it hangs until a pop or a flip)" : "left to the game: the wheels began behind or under the coping top");
+        Log("altstall: #%d lock (lockpin 295): the board FROZEN where the game's grind began -- %d parts' places and turns put back every pose (teleport, still), the wheels %+.1f past / %+.1f over the coping top, the leading end's pitch %+.0f", F.n, F.pn, dot(sub(W, T.E), T.h), W.z - T.zTop, pl);   /* (lockgrind4 291) the wheels' own place where the game's grind began: 290's +5 goal sat behind the coping (the wheels stuck at -0.5 past, pushed into it at 50 cm/s every pose: the lurch forward) */
+        Log("altstall: #%d lock: %s LOCKED (lockgrind3 290: the hold's own step, no teleports) in the game's grind -- the %s wheels held at %s (%+.1f past / %+.1f over the coping top; now %+.1f / %+.1f), the leading end's pitch within 4 deg of %+.0f, the definition \"%s\" held (pop pending now %d); let go when the game's pop BECOMES pending",
+            F.n, AsFgKind(F.kind), wNm, F.gOk ? "the stall's goal" : "their place (the goal not read)", dot(sub(F.G, T.E), T.h), F.G.z - T.zTop, dot(sub(W, T.E), T.h), W.z - T.zTop, pl, F.def ? F.nm : "none (the game's own)", pend ? 1 : 0);
+        Log("altstall: #%d lock (lockgrind7 294): the contact point walked from %+.1f past / %+.1f over to %+.1f / %+.1f (the coping top) at 15 cm/s", F.n, dot(sub(F.G, T.E), T.h), F.G.z - T.zTop, dot(sub(F.Tg, T.E), T.h), F.Tg.z - T.zTop);
+        Log("altstall: #%d lock (lockgrind6 293): the held point: %s | the crouch's stick watched (bailangle 297: HELD ON when it is let go): %s", F.n, T.tip != 0.0f ? (T.tip > 0.0f ? "the deck's LEADING end 35 cm from its middle (the game's grind contact point, not the wheels)" : "the deck's TRAILING end 35 cm from its middle (the game's grind contact point, not the wheels)") : "the wheels", F.stk == 1 ? "the LEFT stick" : F.stk == 2 ? "the RIGHT stick" : "no stick leaned (the game's crank, while its grind is on)");
+    }
+    const bool popNow = pend && !F.pp; F.pp = pend;   /* the edge: a crouch already held into the grind (the real blunt of 284 held the stick down) does not let go */
+    if (popNow) { F.lkSt = 2; Log("altstall: #%d lock: LET GO after %.2f s (%ld poses): the game's pop became pending -- the game owns the pop / flip-out | %ld definition re-sets, %ld poses over 1 cm off (the most %.1f cm), %ld pitch pulls", F.n, now - F.lkT, (long)F.lkN, (long)F.reN, (long)F.pinN, F.pinMax, (long)F.rotN); return; }
+    const bool ck = (sk[WG_SK_CRANK] & 1) != 0, gOn = (bm[FG_BM_GFLAGS] & 2) != 0; const float sa = F.stk ? AsFgStick(F.stk) : -1.0f;
+    const bool sHeld = sa >= 0.35f, sGone = F.stk != 0 && F.sHeld && sa >= 0.0f && !sHeld, ckGone = F.stk ? sGone : (F.ck && !ck && gOn); F.ck = ck; if (sa >= 0.0f) F.sHeld = sHeld;   /* (lockgrind6 293) the STICK let go (292: the game's own crank clear at a grind drop, the stick still held) */
+    const uint8_t* fth = LateHandler(); const uint8_t* fpend = (fth && PtrOk(fth, 0xc0)) ? *(const uint8_t* const*)(fth + 0xb8) : nullptr;
+    if (ckGone && !F.skLog) { F.skLog = true; Log("altstall: #%d lock: the crouch's %s let go after %.2f s -- HELD ON (bailangle 297: the game's own blunt hangs there with the sticks let go; 296 let go here and he dropped it): a pop, a flip or the grind's end lets go", F.n, F.stk ? "stick" : "crank", now - F.lkT); }   /* (bailangle 297) */
+    if (fpend) { F.lkSt = 2; char fn[64]; GrFlipName(fpend, fn, 64); Log("altstall: #%d lock: LET GO after %.2f s (%ld poses): %s -- the game's ollie / flip-out not overwritten by the hold (lockgrind5 292)", F.n, now - F.lkT, (long)F.lkN, fn); return; }
+    if (!(bm[FG_BM_GFLAGS] & 2)) { if (++F.offN >= 15) { F.lkSt = 2; Log("altstall: #%d lock: LET GO after %.2f s (%ld poses): the game's grind ENDED (its IsOnGrind flag off 0.25 s, flags %02x) -- nothing held any more: the game's own riding, its ollie (lockgrind4 291; lockgrind5 292: one-pose flickers held through)", F.n, now - F.lkT, (long)F.lkN, (unsigned)bm[FG_BM_GFLAGS]); return; } } else F.offN = 0;
+    if (T.tip != 0.0f) F.G = AsFgWalk(F.G, F.Tg, 0.25f);   /* (lockgrind7 294) 15 cm/s at 60 poses */
+    F.lkN++;
+    int re = 0;
+    if (F.def) {
+        if (*(const uint8_t* const*)(sk + 0x6c8) != F.def) { ((SetGrindDefFn)(exe + RVA_SET_TGT_GRIND))(sk, F.def); re |= 1; }
+        if (*(const uint8_t* const*)(sk + 0x6d0) != F.def) { ((SetGrindDefFn)(exe + RVA_SET_CUR_GRIND))(sk, F.def); re |= 2; }
+        if (re) F.reN++;
+    }
+    const V3 e = sub(W, F.G);
+    const float off = wOk ? len(e) : 0.0f;
+    if (off > F.pinMax) F.pinMax = off;
+    if (off > 1.0f) F.pinN++;
+    const float tgt = pl > -900.0f ? AsFgBand(pl, F.pl0) : pl;
+    if (tgt != pl) F.rotN++;
+    V3 v0 = v3(0.0f, 0.0f, 0.0f), v1 = v0;
+    uint8_t* c0 = *(uint8_t* const*)(board + WG_PART[0]);
+    const bool c0Ok = c0 && PtrOk(c0, SC_C2W + 0x30) && WrInExe(*(void* const*)c0);
+    if (c0Ok) WallBodyVel(c0, v0);
+    const float pinD = F.pn > 0 ? AsFgPinPut(board, F.pc, F.pL, F.pQ) : -1.0f; const int held = F.pn;   /* (lockpin 295) frozen where the game's grind began (288's pins held 2-6 s; 289-294's velocity holds lost to the grind's substeps) */
+    if (pinD > F.pinMax) F.pinMax = pinD;
+    if (c0Ok) WallBodyVel(c0, v1);
+    if (F.lkN <= 8 || now - F.lkLogT >= 0.25) {
+        F.lkLogT = now;
+        char cn[64]; GrDefName(*(const uint8_t* const*)(sk + 0x6d0), cn, 64);
+        Log("altstall: #%d lock %.2f s p%ld: the %s wheels %+.1f past / %+.1f over the coping top (the goal %+.1f / %+.1f: off %+.1f along the coping, %+.1f past, %+.1f up; the most %.1f) | the deck's speed %.0f -> %.0f cm/s (before: %+.0f along the coping, %+.0f up) | def \"%s\"%s (re-sets %ld) | the leading end's pitch %+.0f (kept %+.0f..%+.0f%s) | %d parts held (lockgrind3 290), put back %.1f cm (lockpin 295)",
+            F.n, now - F.lkT, (long)F.lkN, wNm, dot(sub(W, T.E), T.h), W.z - T.zTop, dot(sub(F.G, T.E), T.h), F.G.z - T.zTop,
+            dot(e, rail), dot(e, T.h), e.z, F.pinMax, len(v0), len(v1), dot(v0, rail), v0.z, cn, re ? (re == 3 ? " RE-SET target+current" : re == 1 ? " RE-SET target" : " RE-SET current") : "", (long)F.reN,
+            pl, F.pl0 - 4.0f, F.pl0 + 4.0f, tgt != pl ? ", PULLED back" : "", held, pinD);
+    }
+}
+void AsFgWatch(uint8_t* sk, const uint8_t* mc, const uint8_t* anim, double now, bool onB, bool bail) {   // each pose while forced (st 0)
+    AsFgT& F = g_asfg;
+    uint8_t* bm = BoardMC();
+    if (!F.on) return;
+    if (!bm || !PtrOk(bm, 0x800) || !PtrOk(sk, 0x920)) { AsFgEnd(sk, "let go", "the board's movement or the skater not read"); return; }
+    if (!F.entered) {
+        if (bail || !onB) { AsFgEnd(sk, "NOT entered", bail ? "a BAIL before the game's grind began" : "off the board before the game's grind began"); return; }
+        if (F.hold) { AsFgEnd(sk, "NOT entered", "the stall's hold let go before the grind check opened (lockgrind3 290)"); return; }
+        if (F.kind == 2 && !(sk[0x918] & 1)) { sk[0x918] |= (uint8_t)1; if (!F.lent) Log("altstall: #%d forcegrind: the skater's +0x918 bit 0 (IsInManual) lent (it was %02x; +0x711 %02x; board mode %d flags %02x) -- the game's ground grind check (CheckForGrind) runs at the coping", F.n, (unsigned)(sk[0x918] & 0xfe), (unsigned)sk[0x711], bm[BM_MODE], (unsigned)bm[FG_BM_GFLAGS]); F.lent = true; }
+        if (F.kind == 2 && AsFgTake(sk, now)) return;
+        if (now - F.t0 > 0.6) { char why[160]; snprintf(why, sizeof(why), "the game's grind check began no grind in 0.6 s (board mode %d flags %02x, +711 %02x, %d poses)", bm[BM_MODE], (unsigned)bm[FG_BM_GFLAGS], (unsigned)sk[0x711], F.poses); AsFgEnd(sk, "NOT entered", why); }
+        return;
+    }
+    const bool in = bm[BM_MODE] == 2;
+    const char* end = bail ? "a BAIL" : !onB ? "off the board" : !in ? ((mc[WR_SMC_MODE] == 6 && mc[WR_SMC_CUSTOM] == 2) ? "out into the air (the game's pop / flip-out / off the end)" : "rolled off onto the ground") : now - F.tIn > 30.0 ? "30 s (the watch's limit)" : nullptr;
+    if (!end) {
+        if (bm[FG_BM_GFLAGS] & 4) { const uint8_t f = bm[FG_BM_GFLAGS]; bm[FG_BM_GFLAGS] = (uint8_t)(f & 0xfb); Log("altstall: #%d forcegrind: the lip flag came back (%02x) at %.2f s -- taken off again", F.n, (unsigned)f, now - F.tIn); }
+        AsFgLock(sk, bm, now);   /* (lockgrind 288) held still, locked on the coping, the definition held -- until the pop */
+        const double th = now - F.tIn;
+        if (th >= 0.1 && F.logT <= F.tIn) { F.logT = now; AsFgState(sk, mc, anim, bm, now, "at 0.1 s:"); }
+        else if (th >= 0.5 && now - F.logT >= 0.4) { F.logT = now; AsFgState(sk, mc, anim, bm, now, "in the grind"); }
+        return;
+    }
+    if (F.lkSt == 1) Log("altstall: #%d lock: ended with the grind after %.2f s (%ld poses): %ld definition re-sets, %ld pins (the most %.1f cm), %ld pitch turns", F.n, now - F.lkT, (long)F.lkN, (long)F.reN, (long)F.pinN, F.pinMax, (long)F.rotN);   /* (lockgrind 288) */
+    AsFgState(sk, mc, anim, bm, now, "the last pose,");
+    AsFgEnd(sk, "the game's grind ENDED", end);
+}
+void SafeAsFgWatch(uint8_t* sk, const uint8_t* mc, const uint8_t* anim, double now, bool onB, bool bail) {
+    __try { AsFgWatch(sk, mc, anim, now, onB, bail); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { static LONG n = 0; if (InterlockedIncrement(&n) <= 3) Log("altstall: a fault in the forced grind's watch -- let go"); g_asfg.on = 0; AsCfgBack("a fault"); if (g_asfg.lent) { g_asfg.lent = false; uint8_t* s = (uint8_t*)g_skater; if (s && PtrOk(s, 0x920)) s[0x918] = (uint8_t)(s[0x918] & 0xfe); } }
+}
+bool AsFgPickOn() { return g_asfg.on && g_asfg.kind == 2; }
+const uint8_t* AsFgPick(void* gh, const uint8_t* r) {   // the picker's hook, the nose slide: the game's own nose slide kept, else a nose slide of the game's side
+    AsFgT& F = g_asfg;
+    const uint8_t* g = (const uint8_t*)gh;
+    if (!PtrOk(g, 0x48) || *(const uint8_t* const*)(g + 8) != (const uint8_t*)g_skater) return r;
+    InterlockedIncrement(&F.calls);
+    char rn[64]; GrDefName(r, rn, 64);
+    if (F.entered && F.def) { if (r == F.def) InterlockedIncrement(&F.kept); return F.def; }   /* (lockgrind2 289) once in, the entered nose slide (288: FS flipped to BS as the deck sat 15 deg off) */
+    if (r && AsFgSlideRank(rn, 0)) { InterlockedIncrement(&F.kept); return r; }
+    const int side = AsBluntSide(rn) ? AsBluntSide(rn) : F.side;
+    char nm[64] = "";
+    const uint8_t* d = AsFgIn(*(const uint8_t* const*)(g + 0x38), *(const int32_t*)(g + 0x40), 0x20, 2, side, 0, nm, 64);
+    if (!d) d = AsFgIn(*(const uint8_t* const*)(g + 0x28), *(const int32_t*)(g + 0x30), 8, 2, side, 0, nm, 64);
+    if (F.calls <= 3 || (d && d != F.def)) Log("altstall: #%d forcegrind: the game's picker (call %ld) chose \"%s\" -> %s \"%s\"", F.n, (long)F.calls, rn, d ? "answered" : "kept (no nose slide found)", d ? nm : rn);
+    return d ? d : r;
+}
+const uint8_t* SafeAsFgPick(void* gh, const uint8_t* r) {
+    __try { return AsFgPick(gh, r); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { static LONG n = 0; if (InterlockedIncrement(&n) <= 3) Log("altstall: a fault in the nose slide's pick -- the game's grind kept"); return r; }
+}
+float AsFgTurnDeg(bool goofy, bool sw, int lead, int side) {   // +90 = yaw to the right of the way up the wall; frontside = toward the way he faces
+    const float faceBoard = (goofy != sw) ? -1.0f : 1.0f;                // regular faces the deck's right, goofy its left (switch the other)
+    const float faceTravel = faceBoard * (lead > 0 ? 1.0f : -1.0f);       // tail first: the other way round
+    return (side == 2 ? -90.0f : 90.0f) * faceTravel;
+}
+int AsFgTurn(const uint8_t* board, V3 pivot, V3 fw, float deg, float* pitch0) {   // the board turned deg about the vertical through pivot, laid level, still
+    if (!board || !PtrOk(board, 0x530)) return 0;   /* (lockgrind 288) the board's own 7 parts: the Lua's list (g_bpart) is empty at the catch -- why 287's turn always refused */
+    const V3 fl = flat(fw);
+    if (!finite3(fw) || len(fl) < 0.05f || !finite3(pivot)) return 0;
+    *pitch0 = asinf(clampf(norm(fw).z, -1.0f, 1.0f)) * 57.2957795f;
+    const Q4 R = qnorm(qmul(qaxis(v3(0.0f, 0.0f, 1.0f), deg), qfromto(fw, norm(fl))));
+    uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr);
+    int done = 0;
+    for (int i = 0; i < 7; i++) {
+        uint8_t* pc = *(uint8_t* const*)(board + WG_PART[i]);   /* (lockgrind 288) */
+        if (!pc || !PtrOk(pc, SC_C2W + 0x30) || !WrInExe(*(void* const*)pc)) continue;
+        const V3 p = *(const V3*)(pc + SC_C2W + 0x10);
+        if (!finite3(p) || len(sub(p, pivot)) > 150.0f) continue;
+        V3 loc = add(pivot, qrot(R, sub(p, pivot)));
+        alignas(16) Q4 qi = qnorm(qmul(R, qnorm(*(const Q4*)(pc + SC_C2W))));
+        ((SetXfFn)(exe + RVA_SET_WORLD_LOCROT))(pc, &loc, &qi, false, nullptr, 1 /* TeleportPhysics */);
+        V3 v = v3(0.0f, 0.0f, 0.0f);
+        ((SetVelFn)(exe + RVA_SET_LINVEL))(pc, &v, false, 0);
+        v = v3(0.0f, 0.0f, 0.0f);
+        ((SetVelFn)(exe + RVA_SET_ANGVEL))(pc, &v, false, 0);
+        done++;
+    }
+    if (done > 0) if (uint8_t* bm = BoardMC()) { const Q4 c = *(const Q4*)(bm + BM_CTRLQUAT); const float l = c.x * c.x + c.y * c.y + c.z * c.z + c.w * c.w; if (std::isfinite(l) && fabsf(l - 1.0f) < 0.05f) *(Q4*)(bm + BM_CTRLQUAT) = qnorm(qmul(R, qnorm(c))); }
+    return done;
+}
+// (lockgrind2 289) THE NOSE SLIDE: THE WHOLE RIDER. The 288 test: 6 of 8 never entered ("off the board before the game's grind
+// began" in 0.13-0.25 s); only the board's parts were turned and stilled -- the rider kept going, facing up the wall. Now: the board
+// turned EXACTLY onto the coping's line (0 deg off: the game's own FS_Noseslide sat yaw -1 vs the rail), the skater actor turned by
+// the same yaw about the same vertical (AActor::SetActorLocationAndRotation, the FQuat one, 0x29cdf40, TeleportPhysics), and stopped:
+// USkaterMovementComponent::StopMovementImmediately (0x1008480: his Velocity zeroed, then the board's movement's own stop).
+float AsFgAlignDeg(float deg, V3 fw, V3 h) {   // the turn that lays the board exactly along the coping's line, on the side deg chose
+    const V3 f0 = flat(fw); const float l = len(f0);
+    if (l < 0.05f) return deg;
+    const V3 f = mul(f0, 1.0f / l), rail = AsBgRailOf(h), d1 = qrot(qaxis(v3(0.0f, 0.0f, 1.0f), deg), f), tg = dot(d1, rail) >= 0.0f ? rail : mul(rail, -1.0f);
+    float a = atan2f(cross(f, tg).z, dot(f, tg)) * 57.2957795f;
+    if (dot(qrot(qaxis(v3(0.0f, 0.0f, 1.0f), a), f), tg) < dot(qrot(qaxis(v3(0.0f, 0.0f, 1.0f), -a), f), tg)) a = -a;
+    return std::isfinite(a) ? a : deg;
+}
+const uintptr_t RVA_ACT_SET_LOCROT_Q = 0x29cdf40, RVA_SKMC_STOP = 0x1008480;   /* AActor::SetActorLocationAndRotation(FVector, const FQuat&, bool, FHitResult*, ETeleportType); USkaterMovementComponent::StopMovementImmediately */
+void AsFgRider(uint8_t* sk, V3 piv, float deg, int n) {
+    uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr);
+    uint8_t* root = PtrOk(sk, 0x140) ? *(uint8_t* const*)(sk + ACTOR_ROOT) : nullptr;
+    int turned = 0; float dist = -1.0f, v0 = -1.0f;
+    if (root && PtrOk(root, SC_C2W + 0x30)) {
+        const V3 p = *(const V3*)(root + SC_C2W + 0x10); dist = len(flat(sub(p, piv)));
+        if (finite3(p) && len(sub(p, piv)) < 300.0f) {
+            const Q4 R = qnorm(qaxis(v3(0.0f, 0.0f, 1.0f), deg));
+            V3 loc = add(piv, qrot(R, sub(p, piv)));
+            alignas(16) Q4 q = qnorm(qmul(R, qnorm(*(const Q4*)(root + SC_C2W))));
+            turned = ((bool (*)(void*, const V3*, const Q4*, bool, void*, uint8_t))(exe + RVA_ACT_SET_LOCROT_Q))(sk, &loc, &q, false, nullptr, 1) ? 1 : 2;
+        }
+    }
+    uint8_t* mc = PtrOk(sk, 0xa40) ? *(uint8_t* const*)(sk + SK_MC) : nullptr;
+    if (mc && PtrOk(mc, 0xe28)) { v0 = len(*(const V3*)(mc + 0xc4)); ((void (*)(void*))(exe + RVA_SKMC_STOP))(mc); }
+    Log("altstall: #%d no stall -> noseslide (lockgrind2 289): the RIDER turned %+.0f deg with the board about the same vertical (%s; %.0f cm from it) and stopped (his movement's speed %.0f cm/s -> StopMovementImmediately %s)", n, deg, turned == 1 ? "done" : turned == 2 ? "the game REFUSED" : "his place not read", dist, v0, v0 >= 0.0f ? "called" : "NOT called: no movement read");
+}
+void SafeAsFgRider(uint8_t* sk, V3 piv, float deg, int n) {
+    __try { AsFgRider(sk, piv, deg, n); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { Log("altstall: #%d a fault turning the rider for the nose slide -- the board alone", n); }
+}
+// (lockgrind3 290) THE NO STALL INTO THE NOSE SLIDE, CAUGHT AS THE BLUNT. The 289 test (29 Oct 08:30, #5-#7): the board and the rider
+// turned 90 deg onto the coping's line and laid level 5 cm short of its edge (the leading truck -5 past / -0 over): nothing under the
+// board, so the game's check began no grind in 0.6 s, or he was off the board in 0.15 s (the user, 288 and 289: "it just turned the board
+// 90 degrees for some reason, or either bailed"). Now NO TURN: the no stall is caught by the stall's own hold (its leading wheels driven
+// to the goal on the coping top: +3 past the edge, their tread on it), the drop-in hand-over passed (AsFsWanted); once those wheels are
+// there (1.5 cm) or 0.35 s after the catch, the game's ground grind check is opened (+0x918 bit 0 lent) and the grind it begins on them is
+// made a grind (not a lip trick) and set to GRIND_FS_Noseslide (AsFgTake, as the blunt); handed over with no push, then held by the lock
+// (AsFgLock) until the game's pop. Not begun 0.6 s after the opening: the bit given back, the plain no stall hold goes on. AsFgTurn,
+// AsFgAlignDeg and AsFgRider (288 / 289) are no longer called.
+bool AsFsWanted(int n) { return g_asNsSlide && g_asfg.on && g_asfg.kind == 2 && g_asfg.n == n && !g_asfg.entered; }
+bool AsFsHold(uint8_t* sk, const uint8_t* board, const uint8_t* anim, double now) {   // each pose of the no stall's hold while its nose slide is wanted; true = the game's grind began: hand over, no push
+    AsFgT& F = g_asfg; const AltStallT& T = g_as;
+    if (!AsFsWanted(T.n) || !PtrOk(sk, 0x920)) return false;
+    if (F.hold) {
+        V3 wh; const bool ok = board && AltStallAnchor(board, T.lead > 0, wh);   /* (lockgrind6 293) */
+        const float dg = ok ? len(sub(wh, T.goal)) : 99.0f;
+        if (dg > 1.5f && now - T.tCatch < 0.35) return false;
+        F.hold = false; F.t0 = now;
+        if (!(sk[0x918] & 1)) { sk[0x918] |= (uint8_t)1; F.lent = true; }
+        Log("altstall: #%d noseslide (lockgrind3 290): the grind check OPENED %.2f s after the catch (%s): the leading wheels %+.1f past / %+.1f over the coping top, %.1f cm off the goal (%+.1f / %+.1f) | +0x918 bit 0 %s (now %02x)",
+            T.n, now - T.tCatch, dg <= 1.5f ? "the wheels on the coping top" : "0.35 s: as they are", ok ? dot(sub(wh, T.E), T.h) : 0.0f, ok ? wh.z - T.zTop : 0.0f, dg, dot(sub(T.goal, T.E), T.h), T.goal.z - T.zTop, F.lent ? "LENT" : "already set", (unsigned)sk[0x918]);
+    }
+    const bool took = AsFgTake(sk, now);
+    if (took || anim[WG_AI_GRIND] || anim[WG_AI_LIP]) {
+        Log("altstall: #%d noseslide (lockgrind3 290): the game's grind began %.2f s after the opening (%s) -- HANDED OVER from the stall's hold, no push: the lock holds it", T.n, now - F.t0, took ? "taken: made a grind, set to the nose slide" : "its grind / lip flag up: taken by the watch");
+        return true;
+    }
+    if (now - F.t0 > 0.6) {
+        const uint8_t* bm = BoardMC(); const bool bOk = bm && PtrOk(bm, 0x800);
+        char why[220]; snprintf(why, sizeof(why), "the game's grind check began no grind in 0.6 s on the held wheels (board mode %d flags %02x, +711 %02x) -- the plain no stall hold goes on", bOk ? (int)bm[BM_MODE] : -1, bOk ? (unsigned)bm[FG_BM_GFLAGS] : 0u, (unsigned)sk[0x711]);
+        AsFgEnd(sk, "NOT entered", why);
+    }
+    return false;
+}
+bool SafeAsFsHold(uint8_t* sk, const uint8_t* board, const uint8_t* anim, double now) {
+    __try { return AsFsHold(sk, board, anim, now); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { static LONG n = 0; if (InterlockedIncrement(&n) <= 3) Log("altstall: a fault in the no stall's nose slide hold -- let go"); g_asfg.on = 0; if (g_asfg.lent) { g_asfg.lent = false; uint8_t* s = (uint8_t*)g_skater; if (s && PtrOk(s, 0x920)) s[0x918] = (uint8_t)(s[0x918] & 0xfe); } return false; }
+}
+bool AltNsSlide(AltStallT& T, uint8_t* sk, const uint8_t* board, const uint8_t* anim, double now, float sp, float lp, float lo) {   // AltNoStallSlide: the no stall into the game's nose slide
+    if (!g_asNsSlide || T.mode != 1 || g_sigMode || !g_hooked || !PtrOk(sk, 0x920)) return false;
+    if (!g_ag.tried) AgInstall();   /* (forcegrind 287) the picker's hook (shared with the blunt): it answers the nose slide */
+    AsBaInstall();   /* (bailangle 297) */
+    const int side = 1;                                               /* frontside: the game's own nose slide of 28 Oct (#15) was GRIND_FS_Noseslide; its picker's side wins when it is asked */
+    AsFgStart(2, side, 0, T.n, T.h, 0.0f);
+    g_asfg.hold = true; g_asfg.tHold = now;   /* (lockgrind3 290) no turn: the stall's hold catches it; the grind check opens once its leading wheels are on the coping top */
+    if (g_noBailHook == 1) { const ULONGLONG u = GetTickCount64() + 600; if (g_noBailUntil < u) g_noBailUntil = u; }
+    Log("altstall: #%d no stall -> NOSESLIDE (lockgrind3 290, AltNoStallSlide): caught with the leading truck %+.0f cm past / %+.0f over the lip at %.0f cm/s, %s first -- NOT turned: held by the stall's own hold (its leading wheels to the coping top), the drop-in hand-over passed; the game's grind check opens once they are there, its grind set to the nose slide",
+        T.n, lp, lo, sp, T.lead > 0 ? "nose" : "tail");
+    (void)board; (void)anim;
+    return false;   /* the catch goes on: the stall's own hold */
+}
+void AltStallTick(void* mesh) {
+    AltStallT& T = g_as;
+    const int mode = AltStallMode((double)g_altStall);
+    if (!mode || !g_hooked) { T.st = 0; return; }
+    if (g_sigMode) { if (!T.sigTold) { T.sigTold = true; Log("altstall: another build of the game -- the alt stalls read unsigned addresses and stand down"); } T.st = 0; return; }
+    const double now = NowS();
+    if ((g_asNsSlide || g_asBluntGame) && g_asfg.on && T.st == 0 && !T.postN && now < T.nextT) T.nextT = now;   /* (forcegrind 287) the forced grind: every pose */
+    if (T.st == 0 && now < T.nextT && !T.postN && !(g_asBluntGame && g_asb.hand)) return;   /* (bsblunt 286) the game's blunt: every pose */
+    T.nextT = now + 1.0 / 12.0;
+    uint8_t* sk = (uint8_t*)g_skater;
+    uint8_t* mc = (sk && PtrOk(sk, 0xa40)) ? *(uint8_t**)(sk + SK_MC) : nullptr;
+    uint8_t* board = (sk && PtrOk(sk, 0xa40)) ? *(uint8_t**)(sk + SK_BOARD) : nullptr;
+    const uint8_t* anim = (const uint8_t*)g_anim;
+    if (!mc || !PtrOk(mc, 0xe28) || !board || !PtrOk(board, 0x530) || !anim || !PtrOk(anim, 0x600) || mesh != g_mesh) { if (T.st) Log("altstall: #%d -- the skater or the board is not read any more: let go", T.n); T.st = 0; return; }
+    Q4 dq; V3 dp;
+    if (!WrDeckWorld(board, dq, dp)) { T.pOk = false; return; }
+    if (T.pOk && now - T.pPrevT > 0.004 && now - T.pPrevT < 0.3) { const V3 st = sub(dp, T.pPrev); if (len(st) < 200.0f) T.vel = mul(st, 1.0f / (float)(now - T.pPrevT)); }
+    else if (!T.pOk) T.vel = v3(0, 0, 0);
+    T.pPrev = dp; T.pPrevT = now; T.pOk = true;
+    const bool onB = mc[MC_ONBOARD] != 0, bail = (sk[WR_SK_FLAGS] & 2) || g_bail;
+    const bool mcAir = onB && mc[WR_SMC_MODE] == 6 && mc[WR_SMC_CUSTOM] == 2;
+    if ((g_asNsSlide || g_asBluntGame) && g_asfg.on && T.st == 0) { SafeAsFgWatch(sk, mc, anim, now, onB, bail); if (g_asfg.kind == 2 && g_asfg.on) return; }   /* (forcegrind 287) the forced grind watched (taken: the nose slide) */
+    if (g_asbg.lent && (T.st < 2 || T.mode != 2 || !g_asBluntGame || !g_asBluntPick)) AsBgUnlend(sk, "the hold is over");   /* (bsblunt 286) */
+    if (g_asBluntGame && g_asb.hand && T.st == 0 && onB && !bail) AsBgKeep(board, now);   /* (bsblunt 286) the speed along the coping kept ~0 */
+    if (g_asb.hand && T.st == 0) { AsBluntHandTick(sk, mc, anim, now, onB, bail, mcAir); return; }   /* (blunt 281) the game's blunt watched */
+    if (T.st == 0 && g_asBluntPick && !g_asb.hand) g_asBluntPick = 0;   /* (blunt 281) */
+    if (T.st == 0 && T.postN) {   /* (stall3 278) the exit's outcome: 1.2 s of watching what the game did with it */
+        if (T.carryUntil > 0.0) {   /* (stall5 280) the carry: the board kept with the rider through the game's pop out of the hold */
+            const V3 mp = *(const V3*)((const uint8_t*)mesh + SC_C2W + 0x10); const double dt = now - T.cPrevT;
+            const V3 tg = add(mp, T.cOff); const float gap = len(sub(tg, dp));
+            const char* end = (bail || !onB) ? "off the board / a bail" : now > T.carryUntil ? "0.3 s" : nullptr;
+            if (!end && finite3(mp) && dt > 0.004 && dt < 0.1) {
+                V3 v = add(mul(sub(mp, T.cPrev), 1.0f / (float)dt), mul(sub(tg, dp), 10.0f));
+                if (len(v) > 600.0f) v = mul(norm(v), 600.0f);
+                if (finite3(v)) { AltStallLetGo(board, v); T.carryN++; }
+                if (now - T.carryLogT >= 0.1) { T.carryLogT = now; Log("altstall: #%d (stall5 280) carry %.2f s: the root %+.0f cm over its exit place, the deck %.0f cm from its place under it (%+.0f over the root), the board given %.0f cm/s (%+.0f up)", T.postN, now - T.postT, mp.z - T.cZ0, gap, dp.z - mp.z, len(v), v.z); }
+            }
+            if (end) { Log("altstall: #%d (stall5 280) carry ended (%s) after %d poses, the deck %.0f cm from its place under the root (%+.0f over it)", T.postN, end, T.carryN, gap, dp.z - mp.z); T.carryUntil = 0.0; }
+            T.cPrev = mp; T.cPrevT = now;
+        }
+
+        if (mcAir && !T.postAir) { T.postAir = true; Log("altstall: #%d exit: the game's pop fired -- airborne %.2f s after the exit", T.postN, now - T.postT); }
+        if (g_alt.t.phase == 2 && g_alt.t.n != T.postAlt0 && !T.postAlt) { T.postAlt = true; Log("altstall: #%d exit: an ALT FLIP fired (alt trick #%ld) %.2f s after the exit", T.postN, (long)g_alt.t.n, now - T.postT); }
+        if ((bail || !onB) && !T.postOff) { T.postOff = true; Log("altstall: #%d exit: %s %.2f s after the exit (mc %d/%d)", T.postN, bail ? "a BAIL" : "off the board", now - T.postT, mc[WR_SMC_MODE], mc[WR_SMC_CUSTOM]); }
+        if (now - T.postT > 1.2) { Log("altstall: #%d exit outcome (%s): airborne %d, alt flip %d, bail/off the board %d%s", T.postN, T.postSt == 9 ? "the game's own pop during the hold" : "a crouch let go", T.postAir ? 1 : 0, T.postAlt ? 1 : 0, T.postOff ? 1 : 0, (!T.postAir && !T.postOff) ? " -- no pop: rolled back in on the wheels" : ""); T.postN = 0; }
+        return;
+    }
+    // the physical sticks (AsStick, from the alt set's pose; stale over 0.25 s: XInput, the right stick taken as the back foot's)
+    float uB = g_asStk[0], xB = g_asStk[1], dF = g_asStk[2], xF = g_asStk[3]; bool stkOk = now - g_asStkT <= 0.25;
+    if (!stkOk && g_xiGet && g_xiUser >= 0) { XiState s; memset(&s, 0, sizeof(s)); if (g_xiGet((uint32_t)g_xiUser, &s) == 0) { uB = s.pad.ry / 32767.0f; xB = s.pad.rx / 32767.0f; dF = -s.pad.ly / 32767.0f; xF = s.pad.lx / 32767.0f; stkOk = true; } }
+    const int crouch = stkOk ? AltStallCrouch(uB, xB, dF, xF, g_asEng, g_asRel) : -1;
+    const bool alt = g_alt.s.in != 0 || g_alt.sn.in != 0;
+    const bool altHeld = alt || crouch == 1 || crouch == 2;   /* (stall2 277) the alt set's flag or the hand on the stick */
+    const bool busy = WallRiding() || g_sdOn != 0 || anim[WG_AI_GRIND] || anim[WG_AI_LIP];
+    const float sp = len(T.vel);
+    if (T.st == 0) {
+        if (!onB || bail || mcAir || busy || T.vel.z < 20.0f) return;
+        const void* world = SkaterWorld();
+        if (!world) return;
+        const V3 Zw = v3(0, 0, 1), up = qrot(dq, Zw);
+        RayHit g; if (!Ray(world, add(dp, mul(up, 30.0f)), sub(dp, mul(up, 80.0f)), g)) return;
+        const float ramp = acosf(clampf(g.n.z, -1.0f, 1.0f)) * 57.2957795f;
+        if (ramp < 30.0f || len(flat(g.n)) < 0.2f) return;
+        V3 E; float zTop; const V3 h = norm(flat(mul(g.n, -1.0f)));
+        if (!StallLip(world, dp, h, 150.0f, E, zTop)) return;
+        if (!altHeld) { if (now - T.noAltT > 3.0) { T.noAltT = now; Log("altstall: riding up a %.0f deg ramp to a lip %.0f cm ahead WITHOUT an alt crouch -- not armed (AltStall=%d wants an alt crouch held: alt nollie = no stall, alt = blunt (blunt 281))", ramp, dot(sub(E, dp), h), mode); } return; }
+        V3 ax = qrot(dq, v3(1, 0, 0));
+        const uint8_t* fc = *(const uint8_t* const*)(board + 0x500); const uint8_t* bc = *(const uint8_t* const*)(board + 0x4f0);
+        if (!fc || !bc || !PtrOk(fc, SC_C2W + 0x20) || !PtrOk(bc, SC_C2W + 0x20)) return;
+        if (dot(sub(*(const V3*)(fc + SC_C2W + 0x10), *(const V3*)(bc + SC_C2W + 0x10)), ax) < 0.0f) ax = mul(ax, -1.0f);
+        static int nAtt = 0;
+        const int kind = AltStallKind(g_alt.s.in != 0, g_alt.sn.in != 0, crouch);
+        if (!kind) return;
+        AsCfgBack("a new stall armed"); AsBaNote(T.n, "a new stall armed"); T.st = 1; T.mode = kind; T.tip = 0.0f; T.postN = 0; T.n = ++nAtt; T.t0 = now; T.lastT = now; T.E = E; T.h = h; T.zTop = zTop; T.kind = 0;
+        T.lead = (dot(flat(T.vel), flat(ax)) >= 0.0f) ? 1 : -1; T.rampDeg = ramp;   /* (stall4 279) the ramp, for the exit's lie */
+        if (kind == 2) AsBluntArm(T.n, T.lead);   /* (blunt 281) */
+        T.lean = 0; T.carryUntil = 0.0; if (g_noBailHook == 0) { NoBail(0.05); g_noBailUntil = 0; }   /* (stall5 280) the impact-bail hook put in NOW (no window yet: it opens at the catch) -- 279's #4 bailed with the hook not in */
+        Log("altstall: #%d ARMED (%s): riding up a %.0f deg ramp at %.0f cm/s %s first, the lip %.0f cm ahead, %.0f cm over the deck; alt crouch %d alt nollie crouch %d (sticks: crouch %d)",
+            T.n, kind == 1 ? "no stall: the ALT NOLLIE crouch (blunt 281)" : "blunt stall: the ALT crouch (blunt 281)", ramp, sp, T.lead > 0 ? "nose" : "tail", dot(sub(E, dp), h), zTop - dp.z, g_alt.s.in != 0 ? 1 : 0, g_alt.sn.in != 0 ? 1 : 0, crouch);
+        return;
+    }
+    const V3 E = T.E, h = T.h;
+    const uint8_t* fc = *(const uint8_t* const*)(board + 0x500); const uint8_t* bc = *(const uint8_t* const*)(board + 0x4f0);
+    if (!fc || !bc || !PtrOk(fc, SC_C2W + 0x20) || !PtrOk(bc, SC_C2W + 0x20)) { Log("altstall: #%d -- the trucks are not read: let go", T.n); T.st = 0; return; }
+    const V3 ft = *(const V3*)(fc + SC_C2W + 0x10), bt = *(const V3*)(bc + SC_C2W + 0x10);
+    const bool leadFront = T.lead > 0;
+    const V3 leadT = leadFront ? ft : bt, trailT = leadFront ? bt : ft;
+    auto past = [&](V3 q) { return dot(sub(q, E), h); };
+    auto over = [&](V3 q) { return q.z - E.z; };
+    if (T.st == 1) {
+        if (g_asBluntGame && T.mode == 2 && g_asBluntPick && AsBluntGrindOn(sk, anim)) AsBgEnter(sk, board, T.h, T.n);   /* (bsblunt 286) */
+        if (T.mode == 2 && g_asBluntPick && AsBluntGrindOn(sk, anim)) { AsBluntHandOver(T.n, sk, anim, now, T.t0, "before the catch"); T.st = 0; T.postN = 0; T.nextT = now; return; }   /* (blunt 281) */
+        const char* no = nullptr;
+        if (bail || !onB) no = bail ? "a BAIL" : "off the board";
+        else if (busy) no = "a grind, lip trick, wallride or drop-in began";
+        else if (!altHeld) no = "the alt crouch was let go before the lip";
+        else if (mcAir && !(T.mode == 1 && past(leadT) >= -10.0f && past(leadT) <= 30.0f && over(leadT) < 40.0f)) no = "went AIRBORNE (over the lip): not caught";   /* (stall4 279) a no stall whose leading truck is still at the lip is caught (and held down) */
+        else if (T.vel.z < -40.0f && over(dp) < -60.0f) no = "rolled back before the lip (too slow)";
+        else if (now - T.t0 > 4.0 || len(flat(sub(dp, E))) > 400.0f) no = "4 s or 4 m from the lip without reaching it";
+        if (no && T.mode == 2) g_asBluntPick = 0;   /* (blunt 281) */
+        if (no) { Log("altstall: #%d not caught -- %s (lead truck %+.0f past / %+.0f over, trail truck %+.0f / %+.0f, %.0f cm/s)", T.n, no, past(leadT), over(leadT), past(trailT), over(trailT), sp); T.st = 0; return; }
+        const bool reach = (T.mode == 1) ? ((past(leadT) >= -6.0f || mcAir) && over(leadT) > -30.0f) : (past(trailT) >= -4.0f && over(trailT) > -30.0f);
+        if (!reach) return;
+        if (sp > 400.0f && T.mode == 2) g_asBluntPick = 0;   /* (blunt 281) */
+        if (sp > 400.0f) { Log("altstall: #%d not caught -- too fast at the lip (%.0f cm/s, 400 at the most)", T.n, sp); T.st = 0; return; }
+        if (g_asNsSlide && T.mode == 1 && AltNsSlide(T, sk, board, anim, now, sp, past(leadT), over(leadT))) return;   /* (forcegrind 287) AltNoStallSlide: the no stall into the game's nose slide (before the drop-in) */
+        if (AltNsHand(T, now, sp, past(leadT), over(leadT))) return;   /* (nostall 281) AltNoStallDropIn: the no stall handed to the drop-in */
+        const bool aF = (T.mode == 1) ? leadFront : !leadFront;
+        V3 wh; if (!AltStallWheels(board, aF, wh)) wh = aF ? ft : bt;
+        int topHits = 0; const float zTop0 = T.zTop; T.zLip = zTop0; T.zTop = AltStallTop(SkaterWorld(), E, h, zTop0, &topHits); T.holdLogT = now;   /* (stall3 278) the coping's real top */
+        if (g_noBailHook == 1) { const ULONGLONG u = GetTickCount64() + 300; if (g_noBailUntil < u) g_noBailUntil = u; }
+        T.goal = add(E, mul(h, 3.0f)); T.goal.z = T.zTop + g_sdWheelR;   /* (stall2 277) the wheels ON the coping: just past the edge, their tread on the lip top */
+        T.tgt = (T.mode == 1) ? -g_asPitch : 65.0f;
+        if (T.mode == 1 && AsFsWanted(T.n)) T.tgt = -15.0f;   /* (lockpin 295) the nose slide: -15 (294's #6: -25 at 400 deg/s flicked the tail up, the board flew) */
+        const float tipC = AltStallTipCm(T.mode, g_asBluntGame && g_asBluntPick, AsFsWanted(T.n));   /* (lockgrind6 293) (lockgrind7 294) only logged here: the catch holds the wheels as 292 */
+        if (tipC != 0.0f) {
+            V3 tp = v3(0.0f, 0.0f, 0.0f); const bool tOk = AltStallTip(board, T.lead, tipC, tp);
+            Log("altstall: #%d (lockgrind7 294) %s: the catch holds the wheels (as 292); the game's grind contact point (the deck's %s end %.0f cm from its middle, %s) is now %+.1f past / %+.1f over the coping top -- once the game's grind has begun the lock walks it to the coping's edge (+1 past / +1 over) at 15 cm/s",
+                T.n, T.mode == 1 ? "no stall -> nose slide" : "blunt", tipC > 0.0f ? "leading" : "trailing", fabsf(tipC), T.mode == 1 ? "EGCP_BoardBottomNose" : "EGCP_BoardBottomTail", tOk ? past(tp) : 0.0f, tOk ? tp.z - T.zTop : 0.0f);
+        }
+        T.st = 2; T.tCatch = now; T.lastT = now; T.kind = 0; T.popArm = false; T.gN = 0; T.airT = mcAir ? now : 0.0;   /* (stall4 279) */
+        T.lean = AltStallLeanEnd(aF, g_switchNow != 0); T.leanR = AltStallLeanRatio(T.mode); T.nuaN = 0; T.crankUses = 0; T.vC = T.vel; T.decT = (T.mode == 1 && !AsFsWanted(T.n)) ? AltStallDecT(sp) : 0.0f;   /* (lockgrind5 292) the nose slide's catch: no ease-in (291: flew 20-40 cm up past the coping) */   /* (stall5 280) */
+        Log("altstall: #%d (stall5 280) the rider: the arming crouch used up while still held, the game's %s toward the held (%s) truck, ratio %.2f -- he stands into it; the impact bail passed over (hook %d)", T.n, T.lean == 1 ? "manual (IsInManual)" : "nose manual (IsInNoseManual)", aF ? "front" : "back", T.leanR, g_noBailHook);
+        if (T.decT > 0.0f) Log("altstall: #%d (stall5 280) the no stall eased in from %.0f cm/s (%+.0f up) over %.2f s, the pull capped at 150 cm/s for 0.5 s after", T.n, len(T.vC), T.vC.z, T.decT);
+        if (mcAir) Log("altstall: #%d (stall4 279) caught IN THE GAME'S AIR (mc %d/%d: the board already lifting at the lip): held down; the game-pop exit armed only once mc is 6/1 for 3 poses (0.3 s at the most)", T.n, mc[WR_SMC_MODE], mc[WR_SMC_CUSTOM]);
+        Log("altstall: #%d CAUGHT (%s) at the %s wheels %+.0f cm past / %+.1f over the lip top (the wheel radius %.1f; the trucks: lead %+.0f / %+.0f, trail %+.0f / %+.0f), %.0f cm/s; held: those wheels to %+.0f past / %+.1f over, the leading end's pitch to %+.0f deg -- held until a crouch is pressed and let go (the sticks to the middle first)",
+            T.n, T.mode == 1 ? "no stall" : "blunt stall", T.mode == 1 ? "leading" : "trailing", past(wh), wh.z - T.zTop, g_sdWheelR,
+            past(leadT), over(leadT), past(trailT), over(trailT), sp, past(T.goal), T.goal.z - T.zTop, T.tgt);
+        Log("altstall: #%d the coping top: %+.1f cm over the lip finder's (%d of 5 rays down across the edge hit; the wheel bottoms now %+.1f over it; the goal: their centres %.1f over it)", T.n, T.zTop - zTop0, topHits, wh.z - g_sdWheelR - T.zTop, g_sdWheelR);
+        return;
+    }
+    if (g_asBluntGame && T.mode == 2 && g_asBluntPick && T.st >= 2 && onB && !bail) AsFgBlunt(sk, now, T.n);   /* (forcegrind 287) the game's grind begun at the coping: a grind (not a lip trick), its Blunt set */
+    if (g_asBluntGame && T.mode == 2 && g_asBluntPick && AsBluntGrindOn(sk, anim)) AsBgEnter(sk, board, T.h, T.n);   /* (bsblunt 286) */
+    if (T.mode == 2 && g_asBluntPick && AsBluntGrindOn(sk, anim)) { AsBluntHandOver(T.n, sk, anim, now, T.t0, "during the hold"); T.st = 0; T.postN = 0; T.lean = 0; T.nextT = now; return; }   /* (blunt 281) no push: the game's grind */
+    if (T.mode == 2 && g_asBluntPick) AsBluntHoldLog(T.n, sk, anim, now, T.tCatch);   /* (blunt 281) */
+    if (g_asBluntGame && T.mode == 2 && g_asBluntPick && T.st >= 2 && onB && !bail) AsBgHold(sk, board, T.h, T.n, now, T.tCatch);   /* (bsblunt 286) the game's grind check opened, the side speed zeroed */
+    if (g_asNsSlide && T.mode == 1 && T.st >= 2 && onB && !bail && AsFsWanted(T.n) && SafeAsFsHold(sk, board, anim, now)) { T.st = 0; T.postN = 0; T.lean = 0; T.nextT = now; return; }   /* (lockgrind3 290) the no stall's nose slide begun on the held wheels: handed over, no push */
+    const bool anchorFront = (T.mode == 1) ? leadFront : !leadFront;   // the hold (st 2..4)
+    V3 A; if (!AltStallAnchor(board, anchorFront, A)) A = anchorFront ? ft : bt;   /* (lockgrind6 293) */
+    const char* why = nullptr; int exitK = 0;
+    const int st0 = T.st;
+    bool gamePop = false;
+    if (!mcAir) { if (!T.popArm && ++T.gN >= 3) { T.popArm = true; Log("altstall: #%d (stall4 279) the board settled on the coping (mc 6/1, 3 poses) %.2f s after the catch%s -- the game-pop exit is armed: a NEW pop lets go", T.n, now - T.tCatch, T.airT > 0.0 ? " (caught in the game's air)" : ""); } } else if (!T.popArm) T.gN = 0;   /* (stall4 279) */
+    if (bail || !onB) why = bail ? "a BAIL" : "off the board";
+    else if (mcAir && AsFsWanted(T.n) && now - T.tCatch <= 0.6 && !((PopPendingFn)(Exe() + RVA_POP_PENDING))(sk)) { }   /* (lockgrind6 293) 0.6 s (292: 0.3, under the grind check's 0.35) */   /* (lockgrind4 291) the nose slide's catch still flying up from the climb, no pop pending (290: all four let go at 0.10 s as a "game pop"): held down */
+    else if (mcAir && !T.popArm && T.decT > 0.0f && now - T.tCatch <= 0.3 + T.decT) { }   /* (stall5 280) the no stall easing in */
+    else if (mcAir && !T.popArm && now - T.tCatch <= 0.3) { }   /* (stall4 279) the game's air from the catch: held down, not a pop */
+    else if (mcAir && !T.popArm) { why = "the game's air from the catch did not settle in 0.3 s: let go (stall4 279)"; gamePop = true; }
+    else if (mcAir) { why = "the GAME'S OWN POP fired during the hold (a flick with the crouch held): let go with it, no push of ours"; gamePop = true; }   /* (stall3 278) */
+    else if (anim[WG_AI_GRIND] || anim[WG_AI_LIP] || WallRiding() || g_sdOn) why = "a grind, lip trick, wallride or drop-in began";
+    else if (now - T.tCatch > AltStallHoldS(T.mode)) why = "20 s held (the safety timeout): rolled back in";
+    else if (len(sub(A, T.goal)) > 45.0f) why = "the board slipped 45 cm off the hold";
+    else if (crouch >= 0 && (exitK = AltStallExitStep(T.st, T.kind, crouch)) != 0) why = AltStallCrouchName(exitK);
+    if (!why && T.st != st0) {
+        if (T.st == 3) Log("altstall: #%d the sticks are in the middle after %.2f s -- waiting for a crouch (pressed and let go: the alt crouch = the alt pop, the crouch = the game's pop)", T.n, now - T.tCatch);
+        else if (T.st == 4) Log("altstall: #%d %s PRESSED after %.2f s (alt crouch %d alt nollie crouch %d) -- let it go to exit", T.n, AltStallCrouchName(T.kind), now - T.tCatch, g_alt.s.in != 0 ? 1 : 0, g_alt.sn.in != 0 ? 1 : 0);
+    }
+    if (!why && g_noBailHook == 1) { const ULONGLONG u = GetTickCount64() + 300; if (g_noBailUntil < u) g_noBailUntil = u; }   /* (stall3 278) the impact bail passed over while caught */
+    if (!why && T.st == 2 && T.lean && WgCrankUse(sk) == 1) T.crankUses++;   /* (stall5 280) the arming crouch, still held, used up: the graph leaves its Crank State, no pop from it */
+    if (!why && now - T.holdLogT >= 0.5) { T.holdLogT = now; Log("altstall: #%d hold %.2f s: the held wheels %+.0f past / centres %+.1f, bottoms %+.1f over the coping top (goal %+.0f / %+.1f); mc %d/%d bm %d, crouch %d, step %d", T.n, now - T.tCatch, past(A), A.z - T.zTop, A.z - g_sdWheelR - T.zTop, past(T.goal), T.goal.z - T.zTop, mc[WR_SMC_MODE], mc[WR_SMC_CUSTOM], BoardMCMode(), crouch, T.st); }
+    if (!why && T.holdLogT == now) { const V3 mp = *(const V3*)((const uint8_t*)mesh + SC_C2W + 0x10); Log("altstall: #%d (stall5 280) rider %.2f s: lean %s ratio %.2f (written %ld poses) | the anim: manual %d nose manual %d ratio %.2f cranking %d pocket %.2f | the skater's crank %d, crouch uses %d | root %+.0f cm over the deck", T.n, now - T.tCatch, AltStallLeanOn(T.st, T.lean) ? (T.lean == 1 ? "MANUAL" : "NOSE MANUAL") : "off (the game's own)", T.leanR, (long)T.nuaN, anim[0x32e] ? 1 : 0, anim[0x32f] ? 1 : 0, ReadF(anim, 0x330), anim[0x497] ? 1 : 0, ReadF(anim, 0x498), (sk[WG_SK_CRANK] & 1) ? 1 : 0, T.crankUses, mp.z - dp.z); }   /* (stall5 280) */
+    if (why) {
+        const V3 v = add(mul(h, -120.0f), v3(0, 0, 80.0f));   /* the pop back toward the ramp: down the transition, a little up */
+        if (!bail && onB && !gamePop) AltStallLetGo(board, v); if (!bail && onB && gamePop) AltStallExitShape(board, T.lead, AltStallLevel(T.mode, T.rampDeg), T.h, T.n);   /* (stall4 279) */
+        if (!bail && onB && gamePop && AsFsWanted(T.n)) Log("altstall: #%d (bailangle 297) the exit does NOT carry the board with the rider (the nose slide was wanted: 296's #20 pulled it at 600 cm/s from 92 cm over his root and threw it)", T.n);
+        if (!bail && onB && gamePop && !AsFsWanted(T.n)) { const V3 mp = *(const V3*)((const uint8_t*)mesh + SC_C2W + 0x10); if (finite3(mp)) { T.cOff = sub(dp, mp); T.cPrev = mp; T.cPrevT = now; T.carryUntil = now + 0.3; T.carryN = 0; T.carryLogT = 0.0; T.cZ0 = mp.z; Log("altstall: #%d (stall5 280) the exit carries the board with the rider for 0.3 s (the deck %+.0f cm over the root, %.0f from it): the game's pop lifts the root, the board is pulled with it", T.n, T.cOff.z, len(T.cOff)); } }   /* (stall5 280) */
+        if (bail || !onB || gamePop) Log("altstall: #%d dismount detail: onboard %d, bail flag %d / %d, mc %d/%d, board mode %d, crouch %d, step %d, alt trick phase %d", T.n, onB ? 1 : 0, (sk[WR_SK_FLAGS] & 2) ? 1 : 0, g_bail ? 1 : 0, mc[WR_SMC_MODE], mc[WR_SMC_CUSTOM], BoardMCMode(), crouch, T.st, g_alt.t.phase);
+        T.postN = (bail || !onB) ? 0 : T.n; T.postSt = gamePop ? 9 : T.st; T.postT = now; T.postAir = gamePop; T.postAlt = false; T.postOff = false; T.postAlt0 = gamePop ? -1 : g_alt.t.n;
+        Log("altstall: #%d RELEASED after %.2f s -- %s (the held wheels %.0f cm from their place, %+.1f over the lip top; alt crouch %d alt nollie crouch %d)", T.n, now - T.tCatch, why, len(sub(A, T.goal)), A.z - T.zTop, g_alt.s.in != 0 ? 1 : 0, g_alt.sn.in != 0 ? 1 : 0);
+        if (T.mode == 2 && g_asBluntPick) AsBluntNoTake(T.n, why);   /* (blunt 281) */
+        if (g_asbg.lent) AsBgUnlend(sk, why);   /* (bsblunt 286) */
+        if (g_asBluntGame && g_asfg.on && g_asfg.kind == 1 && !g_asfg.entered) AsFgEnd(sk, "NOT entered", why);   /* (forcegrind 287) */
+        if (g_asNsSlide && g_asfg.on && g_asfg.kind == 2 && !g_asfg.entered) AsFgEnd(sk, "NOT entered", why);   /* (lockgrind3 290) the no stall's nose slide never begun */
+        T.st = 0; T.nextT = now + 1.0; return;
+    }
+    V3 got;
+    if (T.st == 4 && st0 != 4) Log("altstall: #%d (stall4 279) the press: the board eased toward the exit's lie, the leading end's pitch %+.0f -> %+.0f deg (the ramp %.0f deg)", T.n, T.tgt, AltStallLevel(T.mode, T.rampDeg), T.rampDeg);
+    if (T.mode == 1 && AsFsWanted(T.n) && now - T.tCatch < 0.6) AsFsBrake(sk, T.n, now - T.tCatch);   /* (lockpin2 296) */
+    const double thE = now - T.tCatch; const bool easing = T.decT > 0.0f && thE < T.decT + 0.5;   /* (stall5 280) */
+    const int w = AltStallStep(board, anchorFront, T.lead, T.goal, T.st == 4 ? AltStallLevel(T.mode, T.rampDeg) : T.tgt, got, easing ? AltStallBlend(thE, T.decT) : 1.0f, T.vC, easing ? 150.0f : 400.0f, AsFsWanted(T.n) ? 200.0f : 400.0f);   /* (lockpin 295) the nose slide's turn 200 deg/s */   /* (stall4 279) (stall5 280) */
+    if (w <= 0) { Log("altstall: #%d RELEASED -- the board's parts could not be held (%d)", T.n, w); T.st = 0; return; }
+    T.lastT = now;
+}
+void SafeAltStallTick(void* mesh) {
+    __try { AltStallTick(mesh); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { static LONG n = 0; if (InterlockedIncrement(&n) <= 5) Log("altstall: a fault reading or holding the board -- let go"); g_as.st = 0; if (g_asbg.lent) { g_asbg.lent = false; uint8_t* sk = (uint8_t*)g_skater; if (sk && PtrOk(sk, 0x920)) sk[0x918] = (uint8_t)(sk[0x918] & ~1u); } }   /* (bsblunt 286) the lent bit given back */
 }
 bool RowBase(uint8_t* dst, const char* key, const char* label, const char* desc, uint64_t* keyOut) {
     memset(dst, 0, IT_SIZE);
@@ -24070,7 +26363,7 @@ void GcFind() {
     uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr);
     const IMAGE_DOS_HEADER* dos = (const IMAGE_DOS_HEADER*)exe;
     const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(exe + dos->e_lfanew);
-    if (nt->FileHeader.TimeDateStamp == kExeStamp) {
+    if (KnownStamp(nt->FileHeader.TimeDateStamp)) {
         g_gcA = (uintptr_t)exe + 0x4e65a48; g_gcB = (uintptr_t)exe + 0x4e65ce8; g_gcKnown = 1;
         Log("objects: the engine's purge flags are read at their known places (in progress %d, required %d; it destroys objects on another thread: %d)",
             *(const uint8_t*)g_gcA, *(const uint8_t*)g_gcB, *(const int*)(exe + 0x4e65b20));
@@ -24220,6 +26513,589 @@ int GrindExit(int side) {
     __except (EXCEPTION_EXECUTE_HANDLER) { return -4; }
     return 1;
 }
+// ==== (heelstop 299) THE HEEL STOP: the manual's "all the way down" drags the tail instead of crouching (the note in mk_heelstop_native.pl)
+constexpr int HS_PC_MANDB = 0x6b8, HS_MDB_MIN = 0x30, HS_MDB_MAX = 0x34, HS_PC_EXIT = 0x758;   /* the controller's UManualsDatabase* | its Min/MaxManualInputThreshold | the controller's manual exit clock (s) */
+constexpr int HS_SK_MAN = 0x918, HS_SK_RATIO = 0x91c, HS_SK_TAILBRK = 0x613, HS_SK_BRKMULT = 0x9a4;   /* skater: bit 1 IsInManual, bit 2 IsInNoseManual | ManualRatio | IsBrakingTail | the brake's multiplier */
+constexpr int HS_BM_BRAKE = 0x535, HS_CFG_TAILDEC = 0x190;   /* the board movement's ESkaterBreakingMethod (2 = BREAK_Tail) | USkaterConfig::BrakingDecelerationTail (cm/s2) */
+volatile LONG g_heelStop = 0, g_heelAnim = 1; volatile float g_heelDecel = 250.0f, g_heelSound = 1.0f;   /* (heelanim 300) HeelStopSound */
+constexpr int HS_AD_TAILCUE = 0x298, HS_AD_SPD0 = 0x2a8, HS_AD_PIT1 = 0x2bc;   /* USkateboardAudioDataAsset: _tailSlideLoopSoundCue | the powerslide's speed (min, max), volume (min, max), pitch (min, max) */   /* HJN_Set("heelstop" / "heelanim" / "heeldecel"): HeelStop, HeelStopTailAnim, HeelStopDecel */
+struct HeelT {
+    bool on, wrote, brk, flag, lent, wasMan; int n, poses, shrinks, missTold, resets; float s, mn, mx, cfg0, v0, vMin, pMin, pMax, lastMag, lastRatio, engMag;
+    float* wp; float wx, wy, px, py; double t0, tLog, tWrote; uint8_t *sk, *bm, *cfg; const char* miss;
+    void* snd; int sndSpawns, sndRefused, surf; bool sndTold; float sndVol, sndPit;   /* (heelanim 300) the tail-slide loop */
+};
+HeelT g_hs = {};
+float HsSpeed(const uint8_t* sk) {   /* (heelanim 300) the skater mesh's own speed along the ground (SpeedNote), cm/s; -1 = not read (299 read his movement's +0xc4: always 50) */
+    (void)sk; return g_spOk ? g_spNow : -1.0f;
+}
+void HsSoundStop();   /* (heelanim 300) defined with the sound */
+// ==== (snap 303) THE HEEL STOP SNAPS IN (the note in v144/w71/snap/mk_snap_native.pl). While the heel stop is on, the anim graph's four
+// blends from the manual to the one-foot powerslide's pose take HS_BLEND and the slide blend spaces lose their smoothing; given back after.
+uintptr_t BsAddr(double d);   /* (sketch 301's, defined with the blend sample writer) */
+constexpr float HS_BLEND = 0.08f;
+struct HsXfT { float* p; float orig; };
+HsXfT g_hsXf[12]; int g_hsXfN = 0, g_hsXfTold = 0; uintptr_t g_hsXfCls = 0; bool g_hsXfOn = false;
+uintptr_t g_hsBs[12]; int g_hsBsN = 0; float g_hsBsOrig[12][3];
+int HsXfFind(uintptr_t cls) {   /* Default: Manuals (13) -> Idle Skate (1), Idle Skate -> PowerSlides (9), 0.33 each; the two Power Slides machines: Ready (0) -> PowerSliding (1), 0.2 */
+    g_hsXfN = 0;
+    uint64_t nDef = 0, nRps = 0, nSps = 0;
+    if (!MakeFName("Default", &nDef) || !MakeFName("Regular Power Slides State Machine", &nRps) || !MakeFName("Switch Power Slides State Machine", &nSps)) return 0;
+    if (!PtrOk((const void*)cls, 0x340)) return 0;
+    const uint8_t* arr = *(const uint8_t* const*)(cls + 0x330);
+    const int nm = *(const int*)(cls + 0x338);
+    if (!arr || nm <= 0 || nm > 256 || !PtrOk(arr, 0x30 * nm)) return 0;
+    for (int m = 0; m < nm; m++) {
+        const uint8_t* M = arr + 0x30 * m;
+        const uint64_t name = *(const uint64_t*)M;
+        const bool def = name == nDef, ps = name == nRps || name == nSps;
+        if (!def && !ps) continue;
+        uint8_t* tr = *(uint8_t* const*)(M + 0x20);
+        const int nt = *(const int*)(M + 0x28);
+        if (!tr || nt <= 0 || nt > 2000 || !PtrOk(tr, 0x40 * nt)) continue;
+        for (int i = 0; i < nt && g_hsXfN < 12; i++) {
+            uint8_t* T = tr + 0x40 * i;
+            const int pv = *(const int*)(T + 0x8), nx = *(const int*)(T + 0xc);
+            float* cf = (float*)(T + 0x10);
+            const bool take = def ? (((pv == 13 && nx == 1) || (pv == 1 && nx == 9)) && fabsf(*cf - 0.33f) < 0.02f) : (pv == 0 && nx == 1 && fabsf(*cf - 0.2f) < 0.02f);
+            if (take) { g_hsXf[g_hsXfN].p = cf; g_hsXf[g_hsXfN].orig = *cf; g_hsXfN++; }
+        }
+    }
+    return g_hsXfN;
+}
+void HsXfSet(bool on) {
+    if (on == g_hsXfOn) return;
+    if (on) {
+        const uint8_t* a = (const uint8_t*)g_anim;
+        const uintptr_t cls = (a && PtrOk(a, 0x18)) ? *(const uintptr_t*)(a + 0x10) : 0;
+        if (cls && cls != g_hsXfCls) {
+            g_hsXfCls = cls;
+            const int n = HsXfFind(cls);
+            if (g_hsXfTold++ < 4) Log("heelstop: (snap 303) %d of the 4 blends found in the anim class (manual -> idle skate, idle skate -> powerslides, ready -> sliding regular / switch): %.2f s while the heel stop is on; %d slide blend spaces without their smoothing", n, HS_BLEND, g_hsBsN);
+        }
+        for (int i = 0; i < g_hsXfN; i++) *g_hsXf[i].p = HS_BLEND;
+        for (int b = 0; b < g_hsBsN; b++) { float* tm = (float*)(g_hsBs[b] + 0x90); for (int k = 0; k < 3; k++) { g_hsBsOrig[b][k] = tm[2 * k]; tm[2 * k] = 0.0f; } }
+    } else {
+        for (int i = 0; i < g_hsXfN; i++) *g_hsXf[i].p = g_hsXf[i].orig;
+        for (int b = 0; b < g_hsBsN; b++) { float* tm = (float*)(g_hsBs[b] + 0x90); for (int k = 0; k < 3; k++) tm[2 * k] = g_hsBsOrig[b][k]; }
+    }
+    g_hsXfOn = on;
+}
+void SafeHsXfSet(bool on) {
+    __try { HsXfSet(on); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { g_hsXfOn = on; g_hsXfN = 0; g_hsBsN = 0; Log("heelstop: (snap 303) fault setting the blends -- left alone for this run"); }
+}
+int HsBsAdd(double v) {   /* HJN_Set("hsbs", a slide blend space) -> 1 taken, 2 already, -1 not */
+    const uintptr_t bs = BsAddr(v);
+    if (!bs || !PtrOk((const void*)bs, 0xb0)) return -1;
+    for (int b = 0; b < g_hsBsN; b++) if (g_hsBs[b] == bs) return 2;
+    if (g_hsBsN >= 12 || g_hsXfOn) return -1;
+    g_hsBs[g_hsBsN++] = bs;
+    return 1;
+}
+// ==== (pidsnap 304) THE BOARD SNAPS DOWN (the note in v144/w72/pidsnap/mk_pidsnap_native.pl): the board config's manual and powerslide
+// PID settings (FPIDSettings P +0x0, I +0x4, D +0x8) lent stiffer while the heel stop is on -- P x k^2, D x k -- and given back after.
+constexpr int HS_BM_BCFG = 0x330, HS_BCFG_PIDMAN = 0x78, HS_BCFG_PIDPS = 0x84;
+float g_heelSnap = 4.0f;
+struct HsPidT { float* s; float p0, d0; bool lent; };
+HsPidT g_hsPid[2] = {};
+int g_hsPidTold = 0;
+struct HsTdT { float pp; double pt; bool armed; float rs, pk; double tf, ptr; int n, hn; bool tr; };   /* (settle 305) the touch-down watch: the pitch a pose ago, its time; on while the stiff PID is lent. (touch 306) the rate smoothed, its peak, the easing's start, the trace's last pose, heel stops watched, the one traced, traced */
+constexpr double HS_TD_EASE = 0.1, HS_TD_MAX = 0.3;   /* (touch 306) the stiff PID eased back to the game's own over 0.1 s from the touch; the watch's time limit */
+constexpr double HS_TD_RAMP = 0.08;   /* (ramp 308) the stiff PID eased in over 0.08 s from the heel stop's first pose (no snap of the manual's leftover roll / yaw) */
+float g_hsKNow = 1.0f;   /* (ramp 308) the lent PID's quickness now (the trace) */
+float HsSmooth(float u) { u = clampf(u, 0.0f, 1.0f); return u * u * (3.0f - 2.0f * u); }
+void HsDeckRH(const uint8_t* board, float& roll, float& head) {   /* (ramp 308) the deck's roll (its side axis up) and heading, deg */
+    Q4 dq; V3 dw; roll = head = 0.0f;
+    if (!board || !WrDeckWorld(board, dq, dw)) return;
+    const V3 x = qrot(dq, v3(1.0f, 0.0f, 0.0f)), y = qrot(dq, v3(0.0f, 1.0f, 0.0f));
+    if (finite3(y)) roll = asinf(clampf(y.z, -1.0f, 1.0f)) * 57.2957795f;
+    if (finite3(x)) head = atan2f(x.y, x.x) * 57.2957795f;
+}
+HsTdT g_hsTd = {};
+void HsPidLend(uint8_t* bm) {
+    const float k = g_heelSnap;
+    if (k <= 1.001f || !bm || !PtrOk(bm, HS_BM_BCFG + 8)) return;
+    uint8_t* bc = *(uint8_t**)(bm + HS_BM_BCFG);
+    if (!bc || !PtrOk(bc, HS_BCFG_PIDPS + 12)) return;
+    const int offs[2] = { HS_BCFG_PIDMAN, HS_BCFG_PIDPS };
+    for (int j = 0; j < 2; j++) {
+        HsPidT& L = g_hsPid[j];
+        if (L.lent) continue;
+        float* s = (float*)(bc + offs[j]);
+        if (!std::isfinite(s[0]) || !std::isfinite(s[2]) || s[0] < 0.0f || s[0] > 100000.0f) continue;
+        L.s = s; L.p0 = s[0]; L.d0 = s[2]; L.lent = true;
+        s[0] = L.p0 * k * k; s[2] = L.d0 * k;
+    }
+    g_hsTd.armed = g_hsPid[0].lent || g_hsPid[1].lent; g_hsTd.pp = 0.0f; g_hsTd.pt = 0.0;   /* (settle 305) */
+    g_hsTd.rs = g_hsTd.pk = 0.0f; g_hsTd.tf = g_hsTd.ptr = 0.0; g_hsTd.tr = g_hsTd.armed && ++g_hsTd.n <= 3; g_hsTd.hn = g_hs.n + 1;   /* (touch 306) the first 3 traced pose by pose (H.n is counted after) */
+    if (g_hsPidTold++ < 6) Log("heelstop: (pidsnap 304) the board's PID lent x%.1f quicker: manual P %.0f -> %.0f, D %.2f -> %.2f; powerslide P %.0f -> %.0f, D %.2f -> %.2f (HeelStopSnap)",
+        k, g_hsPid[0].p0, g_hsPid[0].lent ? g_hsPid[0].s[0] : -1.0f, g_hsPid[0].d0, g_hsPid[0].lent ? g_hsPid[0].s[2] : -1.0f, g_hsPid[1].p0, g_hsPid[1].lent ? g_hsPid[1].s[0] : -1.0f, g_hsPid[1].d0, g_hsPid[1].lent ? g_hsPid[1].s[2] : -1.0f);
+}
+void HsPidScale(float ke) {   /* (touch 306) the lent PID at ke times the game's own quickness (P x ke^2, D x ke) */
+    g_hsKNow = ke;   /* (ramp 308) */
+    for (int j = 0; j < 2; j++) { HsPidT& L = g_hsPid[j]; if (L.lent && L.s && PtrOk(L.s, 12)) { L.s[0] = L.p0 * ke * ke; L.s[2] = L.d0 * ke; } }
+}
+void HsPidBack() {
+    g_hsTd.armed = false;   /* (settle 305) */
+    for (int j = 0; j < 2; j++) {
+        HsPidT& L = g_hsPid[j];
+        if (L.lent && L.s && PtrOk(L.s, 12)) { L.s[0] = L.p0; L.s[2] = L.d0; }
+        L.lent = false;
+    }
+}
+void HsGiveBack() {   /* what the heel stop lent, given back (only what it set and is still its own) */
+    HeelT& H = g_hs;
+    if (H.brk && H.bm && H.bm == BoardMC() && PtrOk(H.bm, 0x8a0) && H.bm[HS_BM_BRAKE] == 2) H.bm[HS_BM_BRAKE] = 0;
+    if (H.flag && H.sk && H.sk == (uint8_t*)g_skater && PtrOk(H.sk, 0xa40)) H.sk[HS_SK_TAILBRK] = 0;
+    if (H.lent && H.cfg && PtrOk(H.cfg, HS_CFG_TAILDEC + 4)) *(float*)(H.cfg + HS_CFG_TAILDEC) = H.cfg0;
+    H.brk = H.flag = H.lent = false;
+    g_hsNua = 0;   /* (heelanim 300) */
+    if (H.snd) HsSoundStop();
+    SafeHsXfSet(false);   /* (snap 303) the graph's own blends back */
+    HsPidBack();   /* (pidsnap 304) the board's own PID back */
+}
+void HsEnd(const char* why) {
+    HeelT& H = g_hs;
+    if (!H.on) return;
+    H.on = false; H.wrote = false;
+    const float v = HsSpeed(H.sk);
+    HsGiveBack();
+    if (H.sndSpawns || H.sndRefused) Log("heelstop: #%d (heelanim 300) the tail-slide loop: %d spawned, %d refused, last volume %.2f pitch %.2f, the ground's surface %d", H.n, H.sndSpawns, H.sndRefused, H.sndVol, H.sndPit, H.surf);
+    Log("heelstop: #%d OFF (%s) after %.2f s, %d poses: speed %.0f -> %.0f cm/s (%.1f -> %.1f km/h); the nose's pitch %+.1f .. %+.1f deg; the stick held at %.3f of the manual's max (%d shrinks, %d resets of the brake by the game)",
+        H.n, why ? why : "?", NowS() - H.t0, H.poses, H.v0, v, H.v0 * 0.036f, v * 0.036f, H.pMin, H.pMax, H.s, H.shrinks, H.resets);
+}
+void HsIdle() { if (g_hs.on) { __try { HsEnd("no controller this pose"); } __except (EXCEPTION_EXECUTE_HANDLER) { g_hs.on = false; } } g_hs.wrote = false; }
+void HsMiss(const char* why, float mag) {   /* a manual that ended with the stick near or past its max and no heel stop: why (20 a run) */
+    HeelT& H = g_hs;
+    if (H.missTold >= 20) return;
+    H.missTold++;
+    Log("heelstop: a manual ended with the back-foot stick at %.2f (the manual's max %.2f; the game's last ratio %.2f = its length %.2f) and NO heel stop: %s%s", mag, H.mx, H.lastRatio, H.mn + H.lastRatio * (H.mx - H.mn), why, H.missTold == 20 ? " -- the next ones are not logged" : "");
+}
+int HsGroundSurf(uint8_t* board) {   /* (heelanim 300) the ground's surface as AdjustPowerSlideAudio reads it (the board's +0x280 interface -> +0x108 -> +0x120); 2 = concrete when not read */
+    uint8_t* bif = board + 0x280;
+    void** vt = *(void***)bif;
+    if (!vt || !PtrOk(vt, 0x110)) return 2;
+    uint8_t* mif = ((uint8_t* (*)(void*))vt[0x108 / 8])(bif);
+    if (!mif || !PtrOk(mif, 8)) return 2;
+    void** mvt = *(void***)mif;
+    if (!mvt || !PtrOk(mvt, 0x128)) return 2;
+    uint8_t tmp[16] = {};
+    const uint8_t* ps = ((const uint8_t* (*)(void*, void*))mvt[0x120 / 8])(mif, tmp);
+    return (ps && PtrOk(ps, 1)) ? (int)*ps : 2;
+}
+void HsSoundStop() {
+    HeelT& H = g_hs;
+    void* c = H.snd; H.snd = nullptr;
+    if (c && PtrOk(c, 0x10)) { ((WsSetFFn)(Exe() + RVA_RAM_SETVOL))(c, 0.0f); ((WsStopFn)((*(void***)c)[AC_VT_STOP / 8]))(c); }   /* (heelfix 301) silent through the replay manager first (a recorded event), then stopped */
+}
+void HsSound(uint8_t* board, float v) {   /* (heelanim 300) the game's tail-slide loop while the tail drags: its own audio component on the deck */
+    HeelT& H = g_hs;
+    if (g_heelSound <= 0.0f || !g_wsRvaOk || !board || !PtrOk(board, SB_ATTACH + 8)) { if (H.snd) HsSoundStop(); return; }
+    uint8_t* audio = *(uint8_t**)(board + SB_AUDIO); uint8_t* att = *(uint8_t**)(board + SB_ATTACH);
+    if (!audio || !PtrOk(audio, HS_AD_PIT1 + 4) || !att || !PtrOk(att, 0x1d0)) return;
+    void* cue = *(void**)(audio + HS_AD_TAILCUE);
+    if (!cue) { if (!H.sndTold) { H.sndTold = true; Log("heelstop: #%d the board's audio data has no tail-slide loop (+0x298): no sound", H.n); } return; }
+    const float* cv = (const float*)(audio + HS_AD_SPD0);   /* speed min, max | volume min, max | pitch min, max */
+    const float r = (std::isfinite(cv[0]) && std::isfinite(cv[1]) && cv[1] > cv[0]) ? clampf((v - cv[0]) / (cv[1] - cv[0]), 0.0f, 1.0f) : 1.0f;
+    float vol = (cv[2] + (cv[3] - cv[2]) * r) * g_heelSound, pit = cv[4] + (cv[5] - cv[4]) * r;
+    if (!std::isfinite(vol) || vol <= 0.0f) vol = g_heelSound;
+    if (!std::isfinite(pit) || pit <= 0.05f) pit = 1.0f;
+    if (v >= 0.0f && v < 25.0f) vol *= v / 25.0f;   /* fades out as he comes to a stop */
+    uint8_t* exe = Exe();
+    void* c = H.snd;
+    const bool playing = c && PtrOk(c, 0x10) && ((WsIsPlayingFn)((*(void***)c)[AC_VT_ISPLAYING / 8]))(c);
+    if (!playing) {
+        if (H.snd) HsSoundStop();   /* (heelfix 301) never dropped without a stop */
+        if (H.sndSpawns >= 4) return;
+        H.sndSpawns++;
+        const float loc[3] = { 0, 0, 0 }, rot[3] = { 0, 0, 0 };
+        c = ((WsSpawnFn)(exe + RVA_RAM_SPAWNATT))(cue, att, 0ull, loc, rot, 2 /* SnapToTarget */, true, 1.0f, 1.0f, 0.0f, nullptr, nullptr, false);   /* (heelfix 301) auto-destroy off, as the game's own tail slide */
+        if (!c || !((WsIsPlayingFn)((*(void***)c)[AC_VT_ISPLAYING / 8]))(c)) { H.sndRefused++; return; }
+        H.snd = c;
+        H.surf = HsGroundSurf(board);
+        ((WsSurfAudioFn)(exe + RVA_SU_SURFAUDIO))(c, H.surf);
+    }
+    ((WsSetFFn)(exe + RVA_RAM_SETVOL))(c, vol);
+    ((WsSetFFn)(exe + RVA_RAM_SETPITCH))(c, pit);
+    H.sndVol = vol; H.sndPit = pit;
+}
+void HsPsLearn(const uint8_t* anim) {   /* (heelanim 300) your own tail-down powerslide's anim values, for HeelStopTailAnim=2 (the deepest tail sample of each slide) */
+    if (!anim[0x2d9] || anim[0x2da]) return;
+    const float com = *(const float*)(anim + 0x2dc);
+    if (!std::isfinite(com) || com > -0.3f) return;
+    static double tSeen = 0.0; static float best = 0.0f;
+    const double now = NowS();
+    if (now - tSeen > 1.0) best = 0.0f;   /* a new slide */
+    tSeen = now;
+    if (com >= best) return;
+    best = com;
+    for (int i = 0; i < 6; i++) { const float x = *(const float*)(anim + 0x2dc + 4 * i); if (std::isfinite(x)) g_hsPs[i] = x; }
+    if (InterlockedIncrement(&g_hsPsLearned) <= 40)
+        Log("heelstop: learned from your tail-down powerslide (for HeelStopTailAnim=2): COM offset %+.2f, pitch ratio %+.2f, ratio %.2f, target %.2f, exit ratio %.2f, exit time %.2f", g_hsPs[0], g_hsPs[1], g_hsPs[2], g_hsPs[3], g_hsPs[4], g_hsPs[5]);
+}
+// ==== (switchstop 307) THE HEEL STOP OUT OF REGULAR (the note in v144/w75/switchstop/mk_switchstop_native.pl): the trailing end dragged,
+// the game's manual exit clock held.
+constexpr uintptr_t RVA_HS_SKSWITCH = 0xff86c0, RVA_HS_BMVT = 0x3c89b48;   /* ASkaterCharacterBase::IsSkatingSwitch | the board movement's own vtable (at bm +0x138) */
+constexpr int HS_BM_ITF = 0x138;
+struct HsSwT { float p0, d; int key, want, held; bool decided; };
+HsSwT g_hsSw = {};
+signed char g_hsSwMap[10] = {};   /* by foot position x2 + IsBoardReversed: the COM side that puts the end axis's end A down; 0 = not seen */
+float g_hsCal = 1.0f; bool g_hsCalSeen = false;
+typedef bool (*HsBoolFn)(void*);
+int HsBmQ(uint8_t* bm, int off) {   /* (switchstop 307) the board movement's own bool getters through its vtable at +0x138 (IsBoardReversed 0x240, front wheels 0x3f8 / 0x400, back 0x418 / 0x420); -1 = not this build's */
+    if (!bm || !PtrOk(bm, HS_BM_ITF + 8)) return -1;
+    void** vt = *(void***)(bm + HS_BM_ITF);
+    if ((uint8_t*)vt != Exe() + RVA_HS_BMVT) return -1;
+    return ((HsBoolFn)vt[off / 8])(bm + HS_BM_ITF) ? 1 : 0;
+}
+float HsTrail(const uint8_t* board) {   /* (switchstop 307) the travel along AsFgLeadPitch's end axis (cos: -1 = its end A trails, +1 = A leads); 0 = not known */
+    Q4 dq; V3 dw;
+    if (!board || !WrDeckWorld(board, dq, dw)) return 0.0f;
+    V3 ax = qrot(dq, v3(1.0f, 0.0f, 0.0f));
+    const uint8_t* fc = *(const uint8_t* const*)(board + 0x500); const uint8_t* bc = *(const uint8_t* const*)(board + 0x4f0);
+    if (!fc || !bc || !PtrOk(fc, SC_C2W + 0x20) || !PtrOk(bc, SC_C2W + 0x20)) return 0.0f;
+    if (dot(sub(*(const V3*)(fc + SC_C2W + 0x10), *(const V3*)(bc + SC_C2W + 0x10)), ax) < 0.0f) ax = mul(ax, -1.0f);
+    if (NowS() - g_spDirT > 0.25 || !finite3(g_spDir) || !finite3(ax)) return 0.0f;
+    const float h = sqrtf(ax.x * ax.x + ax.y * ax.y), g = sqrtf(g_spDir.x * g_spDir.x + g_spDir.y * g_spDir.y);
+    if (h < 0.3f || g < 0.5f) return 0.0f;
+    return (ax.x * g_spDir.x + ax.y * g_spDir.y) / (h * g);
+}
+void HsSwStart(uint8_t* sk, uint8_t* bm, int n) {   /* (switchstop 307) at a heel stop's start: the trailing end, the COM side for it */
+    HsSwT& W = g_hsSw;
+    const uint8_t* board = *(const uint8_t* const*)(sk + SK_BOARD);
+    const bool bok = board && PtrOk(board, 0x530);
+    const int fp = sk[SK_FOOTPOS], rev = HsBmQ(bm, 0x240);
+    const bool swg = ((HsBoolFn)(Exe() + RVA_HS_SKSWITCH))(sk);
+    W.d = bok ? HsTrail(board) : 0.0f;
+    W.p0 = bok ? AsFgLeadPitch(board, 1) : -999.0f;
+    W.key = (fp >= 0 && fp <= 4 ? fp : 0) * 2 + (rev == 1 ? 1 : 0);
+    W.decided = false; W.held = 0;
+    W.want = fabsf(W.d) >= 0.3f ? (W.d * g_hsCal < 0.0f ? -1 : 1) : 0;   /* the end axis's pitch wanted: -1 = A down (A trails), +1 = A up (the other end trails) */
+    g_hsCom = -1.0f;   /* regular: the game's tail, as ever */
+    if (fp != 1 && W.want != 0) { const float aDown = g_hsSwMap[W.key] ? (float)g_hsSwMap[W.key] : -1.0f; g_hsCom = W.want < 0 ? aDown : -aDown; }
+    Log("heelstop: #%d (switchstop 307) foot position %d (1 regular, 2 fakie, 3 nollie, 4 switch), IsSkatingSwitch %d, IsBoardReversed %d; the wheels down: front %d %d, back %d %d; the travel along the end axis %+.2f -> the trailing end %s; the pose's COM side %+.0f%s",
+        n, fp, (int)swg, rev, HsBmQ(bm, 0x3f8), HsBmQ(bm, 0x400), HsBmQ(bm, 0x418), HsBmQ(bm, 0x420), W.d, W.want < 0 ? "A (the regular tail's)" : W.want > 0 ? "B (the regular nose's)" : "not known", g_hsCom,
+        fp == 1 ? " (regular: as ever)" : g_hsSwMap[W.key] ? " (as learned in this stance)" : " (first time in this stance: watched)");
+}
+void HsSwTick(uint8_t* sk, uint8_t* pc, uint8_t* bm, float p, double el, int n) {   /* (switchstop 307) each pose: out of regular the game's manual exit clock held at 0; the side checked by the board's first 4 deg */
+    HsSwT& W = g_hsSw;
+    const int fp = sk[SK_FOOTPOS];
+    if (fp != 1 && PtrOk(pc, HS_PC_EXIT + 4)) {
+        if (*(float*)(pc + HS_PC_EXIT) > 0.0f && ++W.held == 1) Log("heelstop: #%d (switchstop 307) the game's manual exit clock ran at %.2f s (wheels down: front %d %d, back %d %d): held at 0 while the heel stop is on", n, el, HsBmQ(bm, 0x3f8), HsBmQ(bm, 0x400), HsBmQ(bm, 0x418), HsBmQ(bm, 0x420));
+        *(float*)(pc + HS_PC_EXIT) = 0.0f;
+    }
+    if (W.decided || p < -900.0f || W.p0 < -900.0f) return;
+    if (el > 0.25) { W.decided = true; return; }
+    const float dp = p - W.p0;
+    if (fabsf(dp) < 4.0f) return;
+    W.decided = true;
+    const bool aDown = dp < 0.0f;
+    g_hsSwMap[W.key] = (signed char)((aDown == (g_hsCom < 0.0f)) ? -1 : 1);
+    if (fp == 1) {
+        if (fabsf(W.d) >= 0.3f) {
+            const float cal = ((W.d < 0.0f) == aDown) ? 1.0f : -1.0f;
+            if (!g_hsCalSeen || cal != g_hsCal) Log("heelstop: #%d (switchstop 307) regular: end A went down with the travel along it %+.2f -> \"trailing\" calibrated %+.0f%s", n, W.d, cal, cal < 0.0f ? " (NOT as derived: the end axis points the other way)" : " (as derived)");
+            g_hsCal = cal; g_hsCalSeen = true;
+        }
+        return;
+    }
+    const bool right = W.want == 0 || (W.want < 0) == aDown;
+    if (!right) g_hsCom = -g_hsCom;
+    Log("heelstop: #%d (switchstop 307) the board's first %+.0f deg at %.2f s: end %s down -- %s (the COM side %+.0f now)", n, dp, el, aDown ? "A" : "B",
+        W.want == 0 ? "the travel not known: kept" : right ? "the trailing end: kept" : "the LEADING end: the pose's side flipped", g_hsCom);
+}
+void HsTick(void* mesh) {
+    HeelT& H = g_hs;
+    const double now = NowS();
+    if (ReplayNow()) { if (H.on) HsEnd("the replay editor (heelfix 301: nothing of the heel stop's there)"); H.wasMan = false; H.wrote = false; return; }   /* (heelfix 301) */
+    if (!g_heelStop || FeatSigOff() || !g_hooked) { if (H.on) HsEnd(!g_heelStop ? "HeelStop turned off" : "not on this build of the game"); H.wasMan = false; return; }
+    uint8_t* pc = (uint8_t*)g_pc; uint8_t* sk = (uint8_t*)g_skater; const uint8_t* anim = (const uint8_t*)g_anim;
+    uint8_t* bm = BoardMC();
+    const bool ok = pc && PtrOk(pc, 0x7c8) && sk && PtrOk(sk, 0xa40) && anim && PtrOk(anim, 0x600) && bm && PtrOk(bm, 0x8a0) && mesh == g_mesh;
+    if (!ok) { if (H.on) HsEnd("the controller, the skater or the board changed"); H.wasMan = false; return; }
+    const uint8_t* ih = *(const uint8_t* const*)(pc + PC_INPUT);
+    const uint8_t* mdb = *(const uint8_t* const*)(pc + HS_PC_MANDB);
+    if (!ih || !PtrOk(ih, 0x40) || !mdb || !PtrOk(mdb, HS_MDB_MAX + 4)) { if (H.on) HsEnd("no input handler or manuals database"); return; }
+    const float mn = *(const float*)(mdb + HS_MDB_MIN), mx = *(const float*)(mdb + HS_MDB_MAX);
+    if (!std::isfinite(mn) || !std::isfinite(mx) || mx <= mn || mx <= 0.05f || mx > 1.5f) { if (H.on) HsEnd("the manuals database's thresholds are not usable"); return; }
+    H.mn = mn; H.mx = mx;
+    HsPsLearn(anim);   /* (heelanim 300) */
+    const int mode = ih[ALT_IH_MODE];
+    if (mode != 1 && mode != 2) { if (H.on) HsEnd("the stick mode is not front/back-foot or left/right-foot"); H.wasMan = false; return; }
+    const bool goofy = anim[ALT_AI_GOOFY] != 0;
+    const uint8_t fp = sk[SK_FOOTPOS];
+    bool sw = fp == 2 || fp == 4;
+    if (mode == 1) sw = sw != ((AltSwRawFn)(Exe() + RVA_ALT_SWRAW))(sk);
+    float* bxp = (float*)(pc + ALT_PC_STICKS) + (AltBackLeft(mode, sw, goofy) ? 0 : 2);
+    float bx = bxp[0], by = bxp[1];
+    if (!std::isfinite(bx) || !std::isfinite(by)) return;
+    if (H.wrote && bxp == H.wp && bx == H.wx && by == H.wy) { bx = H.px; by = H.py; }   /* still our own write (a second pose in one frame): the physical values read before it */
+    else if (g_alt.wrote && bxp == g_alt.wp && bx == g_alt.wx && by == g_alt.wy) { bx = g_alt.px; by = g_alt.py; }   /* the alt set's write: its physical values */
+    H.wrote = false;
+    const float mag = sqrtf(bx * bx + by * by);
+    const float ds = g_alt.downSign != 0.0f ? g_alt.downSign : -1.0f;   /* the buffer's "down" (the alt set learns it from the game's own crouches) */
+    const float u = by * ds;
+    const bool down = u > 0.0f && fabsf(bx) <= 0.839f * u;   /* within 40 deg of straight down */
+    const uint8_t mf = sk[HS_SK_MAN];
+    const bool man = (mf & 2) != 0 && (mf & 4) == 0;           /* a manual, not a nose manual */
+    const bool riding = bm[BM_MODE] == 1;
+    const bool pop = ((PopPendingFn)(Exe() + RVA_POP_PENDING))(sk);
+    const float exitClk = *(const float*)(pc + HS_PC_EXIT);
+    const bool past = H.on ? mag > fminf(mx, H.engMag) - 0.03f : (mag > mx || (exitClk > 0.0f && mag > 0.5f * (mn + mx)));   /* past the manual's max (where the game would crouch), or the game's own exit clock running with the stick well in (its length another scale); once on, held down to 0.03 under where it began */
+    const bool want = man && riding && !pop && down && past;
+    if (H.wasMan && !man && !H.on && H.lastMag > mx - 0.05f) HsMiss(!down ? "the stick was not pushed straight down" : !riding ? "the board was not riding" : pop ? "a pop was pending" : "the stick passed the max between two poses", H.lastMag);
+    if (man) H.lastRatio = *(const float*)(sk + HS_SK_RATIO);
+    H.wasMan = man; H.lastMag = mag;
+    if (!want) {
+        if (H.on) HsEnd(!man ? "the manual ended" : !riding ? "the board left the ground" : pop ? "a pop" : !down ? "the stick turned away from down" : "the stick eased back into the manual");
+        return;
+    }
+    uint8_t* msk = *(uint8_t* const*)(sk + SK_MC);
+    uint8_t* cfg = (msk && PtrOk(msk, MCA_CONFIG + 8)) ? *(uint8_t* const*)(msk + MCA_CONFIG) : nullptr;
+    if (cfg && !PtrOk(cfg, HS_CFG_TAILDEC + 4)) cfg = nullptr;
+    if (!H.on) {
+        if (g_heelAnim == 2) SafeHsXfSet(true);   /* (snap 303) the graph's blends to the slide's pose, quick */
+        HsPidLend(bm);   /* (pidsnap 304) the board's PID stiffer: down quick */
+        H.on = true; H.n++; H.poses = 0; H.shrinks = 0; H.resets = 0; H.s = 0.985f; H.engMag = mag; H.t0 = now; H.sndSpawns = 0; H.sndRefused = 0; H.sndTold = false; H.surf = -1; H.sndVol = 0.0f; H.sndPit = 0.0f;   /* (heelanim 300) */
+        Log("heelstop: #%d (heelanim 300) the pose: %s; the sound: %s", H.n, g_heelAnim == 2 ? (g_hsPsLearned ? "the one-foot powerslide's (learned from your own)" : "the one-foot powerslide's (defaults: no tail-down powerslide seen yet)") : g_heelAnim == 1 ? (sk[SK_FOOTPOS] == 4 ? "the game's tail brake (switch: the game has no switch BreakTail -- the manual's pose kept)" : "the game's tail brake (the manual let go for BreakTail)") : "the manual's", g_heelSound > 0.0f ? (g_wsRvaOk ? "the game's tail-slide loop" : "none (the sound functions were not checked on this build)") : "off (HeelStopSound=0)"); H.tLog = now; H.sk = sk; H.bm = bm; H.cfg = cfg;
+        H.v0 = HsSpeed(sk); H.vMin = H.v0; H.pMin = 999.0f; H.pMax = -999.0f;
+        HsSwStart(sk, bm, H.n);   /* (switchstop 307) the trailing end, the pose's side */
+        H.cfg0 = cfg ? *(const float*)(cfg + HS_CFG_TAILDEC) : -1.0f;
+        const float mult = *(const float*)(sk + HS_SK_BRKMULT);
+        Log("heelstop: #%d ON at %.0f cm/s (%.1f km/h): the back-foot stick at %.2f (the manual's range %.2f .. %.2f) held at %.3f of the max (the deepest manual, not the crouch); the board's brake method %d -> 2 (the tail), the config's tail decel %.0f lent as %.0f (HeelStopDecel %.0f cm/s2 / the skater's brake multiplier %.2f)%s; the ratio %.2f",
+            H.n, H.v0, H.v0 * 0.036f, mag, mn, mx, H.s, (int)bm[HS_BM_BRAKE], H.cfg0, g_heelDecel / fmaxf(mult, 0.05f), g_heelDecel, mult, g_heelAnim ? "; IsBrakingTail set (the game's tail-stop animation flag)" : "", *(const float*)(sk + HS_SK_RATIO));
+    }
+    H.poses++;
+    if (*(const float*)(pc + HS_PC_EXIT) > 0.0f && H.s > 0.80f && sk[SK_FOOTPOS] == 1) {   /* (switchstop 307) out of regular the clock is held instead */   /* the game's manual exit clock runs: the length written is past its max after all (another stick scale) -- a little less */
+        H.s = fmaxf(0.80f, H.s - 0.03f); H.shrinks++;
+        if (H.shrinks <= 3) Log("heelstop: #%d the game's manual exit clock ran (%.3f s): the stick written at %.3f of the max now", H.n, *(const float*)(pc + HS_PC_EXIT), H.s);
+    }
+    const float k = (mag > 0.0001f) ? H.s * mx / mag : 0.0f;
+    H.px = bx; H.py = by; H.wx = bx * k; H.wy = by * k; H.wp = bxp;
+    bxp[0] = H.wx; bxp[1] = H.wy; H.wrote = true; H.tWrote = now;
+    if (bm[HS_BM_BRAKE] != 2) { if (H.brk) H.resets++; bm[HS_BM_BRAKE] = 2; }
+    H.brk = true; H.bm = bm;
+    if (cfg) {
+        const float mult = *(const float*)(sk + HS_SK_BRKMULT);
+        const float want_ = g_heelDecel / fmaxf(std::isfinite(mult) ? mult : 1.0f, 0.05f);
+        if (!H.lent) { H.cfg = cfg; H.cfg0 = *(const float*)(cfg + HS_CFG_TAILDEC); H.lent = true; }
+        if (H.cfg == cfg) *(float*)(cfg + HS_CFG_TAILDEC) = want_;
+    }
+    if (g_heelAnim == 1) { sk[HS_SK_TAILBRK] = 1; H.flag = true; }
+    else if (H.flag) { sk[HS_SK_TAILBRK] = 0; H.flag = false; }
+    g_hsNua = (g_heelAnim == 2 || (g_heelAnim == 1 && sk[SK_FOOTPOS] != 4)) ? g_heelAnim : 0;   /* (heelanim 300) the pose after NativeUpdateAnimation */
+    { const uint8_t* bd = *(const uint8_t* const*)(sk + SK_BOARD); HsSound((uint8_t*)bd, HsSpeed(sk)); }   /* (heelanim 300) the tail-slide loop */
+    const float v = HsSpeed(sk); if (v >= 0.0f && v < H.vMin) H.vMin = v;
+    const uint8_t* board = *(const uint8_t* const*)(sk + SK_BOARD);
+    const float p = (board && PtrOk(board, 0x530)) ? AsFgLeadPitch(board, 1) : -999.0f;
+    if (p > -900.0f) { if (p < H.pMin) H.pMin = p; if (p > H.pMax) H.pMax = p; }
+    if (g_hsTd.armed) {   /* (settle 305) the tail down: the game's own (soft) PID back, so the stiff one does not drive the tail into the ground (the shake) */
+        const double el = now - H.t0;
+        const float ap = p > -900.0f ? fabsf(p) : 0.0f;
+        if (g_hsTd.tf <= 0.0) HsPidScale(el < HS_TD_RAMP ? 1.0f + (g_heelSnap - 1.0f) * HsSmooth((float)(el / HS_TD_RAMP)) : g_heelSnap);   /* (ramp 308) eased in: x1 at the first pose (the one it was lent on), full at 0.08 s */
+        if (g_hsTd.tf > 0.0) {   /* (touch 306) the easing: the stiff PID back to the game's own over HS_TD_EASE, not in one step (the pop) */
+            const float u = (float)((now - g_hsTd.tf) / HS_TD_EASE);
+            if (u >= 1.0f) { HsPidBack(); }
+            else HsPidScale(1.0f + (g_heelSnap - 1.0f) * (1.0f - u));
+        }
+        else if (g_hsTd.pt <= 0.0) { g_hsTd.pp = ap; g_hsTd.pt = now; }
+        else if (now - g_hsTd.pt >= 0.004 || el >= HS_TD_MAX) {   /* (touch 306) every pose, not every 0.05 s (a second pose in one frame skipped) */
+            const float r = (ap - g_hsTd.pp) / (float)fmax(now - g_hsTd.pt, 0.001);
+            g_hsTd.rs = g_hsTd.rs * 0.5f + r * 0.5f;
+            if (g_hsTd.rs > g_hsTd.pk) g_hsTd.pk = g_hsTd.rs;
+            const bool hit = el >= 0.05 && ap > 12.0f && g_hsTd.pk >= 40.0f && (r < -10.0f || g_hsTd.rs < 0.4f * g_hsTd.pk);   /* the board stopped rising (the tail on the ground) or bounced back */
+            if (hit || el >= HS_TD_MAX) {
+                g_hsTd.tf = now;
+                Log("heelstop: #%d (touch 306) the tail down at %.3f s (the board's pitch %+.1f, rising %.0f deg/s, %.0f smoothed, %.0f at most; the pose's target %+.1f)%s: the stiff PID eased back to the game's own over %.2f s", H.n, el, p, r, g_hsTd.rs, g_hsTd.pk, *(const float*)(bm + 0x620), hit ? "" : " -- not seen in time, the limit", HS_TD_EASE);
+            }
+            g_hsTd.pp = ap; g_hsTd.pt = now;
+        }
+    }
+    if (g_hsTd.tr && g_hsTd.hn == H.n && now - H.t0 < 0.6 && now - g_hsTd.ptr >= 0.004) {   /* (touch 306) the first 3 heel stops pose by pose */
+        g_hsTd.ptr = now;
+        float rl = 0.0f, hd = 0.0f; HsDeckRH(board, rl, hd);   /* (ramp 308) */
+        Log("heelstop: #%d (touch 306) pose %.3f s: the board's pitch %+.2f, the target %+.1f, the PID %s; (ramp 308) x%.2f, the deck's roll %+.2f heading %+.2f, the targets' yaw %+.1f roll %+.1f", H.n, now - H.t0, p, *(const float*)(bm + 0x620), !g_hsTd.armed ? "the game's own" : g_hsTd.tf > 0.0 ? "easing" : "stiff", g_hsTd.armed ? g_hsKNow : 1.0f, rl, hd, *(const float*)(bm + 0x624), *(const float*)(bm + 0x628));
+    }
+    HsSwTick(sk, pc, bm, p, now - H.t0, H.n);   /* (switchstop 307) */
+    if (now - H.tLog >= (now - H.t0 < 0.5 ? 0.05 : now - H.t0 < 0.8 ? 0.1 : 0.25)) {   /* (pidsnap 304) every 0.05 s for 0.5 s */   /* (snap 303) every 0.1 s at first: how quickly the board gets down */
+        H.tLog = now;
+        if (now - H.t0 < 0.8) Log("heelstop: #%d (pidsnap 304) %.2f s: the board's pitch %+.1f deg, its target (+0x620) %+.1f, the socket weight (+0x7dc) %.2f", H.n, now - H.t0, p, *(const float*)(bm + 0x620), *(const float*)(bm + 0x7dc));
+        Log("heelstop: #%d %.2f s: speed %.0f cm/s (%.1f km/h), the nose's pitch %+.1f deg, the ratio %.2f, the stick %.2f written %.2f, the game's exit clock %.3f, cranking %d, brake method %d, IsBrakingTail %d, anim manual %d / nose %d; (heelanim 300) pose %ld, anim powerslide %d / %d com %+.2f pitch %+.2f, sound %s vol %.2f pitch %.2f",
+            H.n, now - H.t0, v, v * 0.036f, p, *(const float*)(sk + HS_SK_RATIO), mag, H.s * mx, *(const float*)(pc + HS_PC_EXIT), (int)anim[ALT_AI_CRANKING], (int)bm[HS_BM_BRAKE], (int)sk[HS_SK_TAILBRK], (int)anim[ALT_AI_MANUAL], (int)anim[ALT_AI_NOSEMANUAL], (long)g_hsNua, (int)anim[0x2d8], (int)anim[0x2d9], *(const float*)(anim + 0x2dc), *(const float*)(anim + 0x2e0), H.snd ? "playing" : "none", H.sndVol, H.sndPit);
+    }
+}
+void SafeHsTick(void* mesh) {
+    __try { HsTick(mesh); }
+    __except (GrabFilter(GetExceptionCode())) {
+        g_hs.on = false; g_hs.wrote = false;
+        g_hsNua = 0;   /* (heelanim 300) */
+        __try { HsGiveBack(); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        g_hs.snd = nullptr;
+        InterlockedExchange(&g_heelStop, 0);
+        Log("heelstop: fault in its tick (code %08x) -- the heel stop is off for this run", GetExceptionCode());
+    }
+}
+void HsSet(int which, double v) {   /* HJN_Set("heelstop" 0, "heeldecel" 1, "heelanim" 2) */
+    if (which == 0) {
+        const LONG o = (v >= 0.5) ? 1 : 0;
+        if (InterlockedExchange(&g_heelStop, o) != o) Log("heel stop: %s (HeelStop=%ld)", o ? "ON: in a manual (not a nose manual) the back-foot stick pushed all the way down drags the tail and slows you (the game's own tail brake), instead of the crouch ('heelstop:' lines)" : "off: all the way down in a manual is the game's crouch", o);
+    }
+    else if (which == 1) { const float d = std::isfinite(v) ? clampf((float)v, 0.0f, 3000.0f) : 250.0f; if (d != g_heelDecel) Log("heel stop: braking %.0f cm/s2 (%.1f km/h a second; HeelStopDecel)", d, d * 0.036f); g_heelDecel = d; }
+    else if (which == 2) { const LONG o = (v >= 1.5) ? 2 : (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_heelAnim, o) != o) Log("heel stop: the pose %s (HeelStopTailAnim=%ld)", o == 2 ? "is the one-foot powerslide's (heelanim 300)" : o == 1 ? "is the game's tail brake (IsBrakingTail, the manual let go for its BreakTail state: heelanim 300)" : "is the manual's", o); }
+    else { const float s = std::isfinite(v) ? clampf((float)v, 0.0f, 2.0f) : 1.0f; if (s != g_heelSound) Log("heel stop: the tail-slide sound x %.2f (HeelStopSound; heelanim 300)", s); g_heelSound = s; }
+}
+// ==== (sketch 301) HJN_Set("bsbs", blendspace) "bsidx" index "bsexp" expect, then "bsanim" anim -> 1 written, 0 no such sample, -1 fault / no object, -2 not the animation
+// expected there. One blend sample's animation: UBlendSpaceBase::SampleData (+0xc8, TArray<FBlendSample>), FBlendSample 0x18 a sample,
+// its Animation at +0x0 (UBlendSpaceBase::GetBlendSample 0x2a5d610: data + index * 24). The Lua (NATIVE.sketchApply) roots both objects.
+int BsAnimSet(uintptr_t bs, int i, uintptr_t an, uintptr_t expect) {
+    __try {
+        if (!PtrOk((const void*)bs, 0xd8)) return -1;
+        uint8_t* data = *(uint8_t**)(bs + 0xc8);
+        const int n = *(const int*)(bs + 0xd0);
+        if (!data || i < 0 || n <= 0 || n > 64 || i >= n || !PtrOk(data + 0x18 * i, 0x18)) return 0;
+        uintptr_t* slot = (uintptr_t*)(data + 0x18 * i);
+        if (expect && *slot != expect) return -2;
+        *slot = an;
+        return 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; }
+}
+uintptr_t BsAddr(double d) { return (d > 65536.0 && d < 1.8e19) ? (uintptr_t)d : 0; }
+uintptr_t g_bsB = 0, g_bsE = 0; int g_bsI = -1;
+int BsStage(int which, double v) {   /* HJN_Set("bsbs" 0 the blend space, "bsidx" 1 the sample, "bsexp" 2 the animation expected there, "bsanim" 3 the animation: written now) */
+    if (which == 0) { g_bsB = BsAddr(v); return g_bsB ? 1 : 0; }
+    if (which == 1) { g_bsI = std::isfinite(v) ? (int)v : -1; return 1; }
+    if (which == 2) { g_bsE = BsAddr(v); return 1; }
+    const uintptr_t an = BsAddr(v);
+    const int r = (g_bsB && an) ? BsAnimSet(g_bsB, g_bsI, an, g_bsE) : -1;
+    if (r != 1) Log("sketch: blend sample %d of %p not written (%d: %s)", g_bsI, (void*)g_bsB, r, r == 0 ? "no such sample" : r == -2 ? "another animation was there" : "fault or no object");
+    g_bsB = 0; g_bsE = 0; g_bsI = -1;
+    return r;
+}
+// ==== (bigdrop 302) THE BIG DROP LANDING (BigDropLanding / BigDropHeight; the note in v144/w70/bigdrop/mk_bigdrop_native.pl). The Lua hands
+// over each landing sample: HJN_Set "bdbs" the blend space, "bdidx" the sample, "bdorig" the game's animation there, then "bdanim" the sketch
+// (-> 1 added, 2 already there, -2 another animation is there now, -1 no object / full). In the air the take-off's height is kept; BigDropHeight
+// under it every sample gets its sketch (written only over the game's own), and the game's own go back after the landing.
+struct BdEnt { uintptr_t bs; int i; uintptr_t orig, sk; };
+BdEnt g_bdE[256]; volatile LONG g_bdN = 0, g_bigDrop = 0; float g_bigDropCm = 250.0f;
+struct BdT { bool air = false, armed = false; float z0 = 0.0f, top = 0.0f; double tAir = 0.0, tLand = 0.0; int n = 0, logs = 0, written = 0; } g_bd;
+uintptr_t g_bdB = 0, g_bdO = 0, g_bdSk = 0; int g_bdI = -1;   /* (dropfix 303) g_bdSk: the sketch for "bdall" */
+typedef bool (*BdFallFn)(void*);
+uintptr_t* BdSlotPtr(uintptr_t bs, int i) {
+    if (!PtrOk((const void*)bs, 0xd8)) return nullptr;
+    uint8_t* data = *(uint8_t**)(bs + 0xc8);
+    const int n = *(const int*)(bs + 0xd0);
+    if (!data || i < 0 || n <= 0 || n > 64 || i >= n || !PtrOk(data + 0x18 * i, 0x18)) return nullptr;
+    return (uintptr_t*)(data + 0x18 * i);
+}
+int BdSlot(const BdEnt& e, bool sketch) {   /* 1 the one wanted is there now, 0 another animation there (left alone), -1 fault */
+    __try {
+        uintptr_t* slot = BdSlotPtr(e.bs, e.i);
+        if (!slot) return -1;
+        const uintptr_t want = sketch ? e.sk : e.orig, other = sketch ? e.orig : e.sk;
+        if (*slot == want) return 1;
+        if (*slot != other) return 0;
+        *slot = want;
+        return 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; }
+}
+int BdAll(bool sketch) { int ok = 0; const LONG n = g_bdN; for (LONG k = 0; k < n; k++) if (BdSlot(g_bdE[k], sketch) == 1) ok++; return ok; }
+void BdDisarm(const char* why) {
+    if (!g_bd.armed) return;
+    g_bd.armed = false;
+    const int ok = BdAll(false);
+    Log("bigdrop: #%d the game's own landings back (%d of %ld samples): %s", g_bd.n, ok, (long)g_bdN, why);
+}
+void BdTick(void* mesh) {
+    BdT& B = g_bd;
+    const bool rp = ReplayNow();
+    if (!g_bigDrop || g_bdN <= 0 || FeatSigOff() || rp) { if (B.armed) BdDisarm(!g_bigDrop ? "BigDropLanding turned off" : rp ? "the replay editor" : "not on this build of the game"); B.air = false; return; }
+    uint8_t* bm = BoardMC();
+    const uint8_t* m = (const uint8_t*)mesh;
+    if (!bm || !m || mesh != g_mesh || !PtrOk(m, SC_C2W + 0x30)) { if (B.armed) BdDisarm("no skater or board this pose"); B.air = false; return; }
+    const float z = *(const float*)(m + SC_C2W + 0x18);
+    if (!std::isfinite(z)) return;
+    const bool fall = ((BdFallFn)(Exe() + RVA_BM_ISFALLING))(bm);
+    const double now = NowS();
+    if (fall) {
+        if (!B.air) { if (B.armed) BdDisarm("a new take-off"); B.air = true; B.z0 = B.top = z; B.tAir = now; }
+        if (z > B.top) B.top = z;
+        if (!B.armed && B.z0 - z >= g_bigDropCm) {
+            B.armed = true; B.n++; B.written = BdAll(true);
+            Log("bigdrop: #%d %.2f m under the take-off (%.2f s in the air, %.2f m over it at the top): the sketchy landing put in (%d of %ld landing samples)", B.n, (B.z0 - z) / 100.0f, now - B.tAir, (B.top - B.z0) / 100.0f, B.written, (long)g_bdN);
+        }
+    }
+    else if (B.air) {
+        B.air = false; B.tLand = now;
+        const float d = B.z0 - z;
+        if (B.armed) Log("bigdrop: #%d landed %.2f m under the take-off after %.2f s in the air: the sketchy landing plays", B.n, d / 100.0f, now - B.tAir);
+        else if (d >= 100.0f && B.logs < 60) { B.logs++; Log("bigdrop: a %.2f m drop (%.2f s in the air): under BigDropHeight %.2f m -- the game's own landing", d / 100.0f, now - B.tAir, g_bigDropCm / 100.0f); }
+    }
+    else if (B.armed && now - B.tLand >= 2.0) BdDisarm("the landing played out (2 s)");
+}
+void SafeBdTick(void* mesh) {
+    __try { BdTick(mesh); }
+    __except (GrabFilter(GetExceptionCode())) {
+        __try { if (g_bd.armed) { g_bd.armed = false; BdAll(false); } } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        g_bd.air = false;
+        InterlockedExchange(&g_bigDrop, 0);
+        Log("bigdrop: fault in its tick (code %08x) -- the big drop landing is off for this run", GetExceptionCode());
+    }
+}
+void BdIdle() { if (g_bd.armed) { __try { BdDisarm("no controller this pose"); } __except (EXCEPTION_EXECUTE_HANDLER) { g_bd.armed = false; } } g_bd.air = false; }
+int BdSet(int which, double v) {   /* HJN_Set("bigdrop" 0, "bigdropcm" 1, "bdbs" 2, "bdidx" 3, "bdorig" 4, "bdanim" 5) */
+    if (which == 0) {
+        const LONG o = (v >= 0.5) ? 1 : 0;
+        if (InterlockedExchange(&g_bigDrop, o) != o) Log("big drop landing: %s (BigDropLanding=%ld)", o ? "ON: BigDropHeight or more under the take-off, the trick lands with the game's unused big sketchy landing (Sketch_Max_Right; 'bigdrop:' lines)" : "off: the game's own landings", (long)o);
+        return 1;
+    }
+    if (which == 1) { const float c = std::isfinite(v) ? clampf((float)v, 50.0f, 2000.0f) : 250.0f; if (c != g_bigDropCm) Log("big drop landing: a big drop is %.2f m or more under the take-off (BigDropHeight)", c / 100.0f); g_bigDropCm = c; return 1; }
+    if (which == 2) { g_bdB = BsAddr(v); return g_bdB ? 1 : 0; }
+    if (which == 3) { g_bdI = std::isfinite(v) ? (int)v : -1; return 1; }
+    if (which == 4) { g_bdO = BsAddr(v); return g_bdO ? 1 : 0; }
+    if (which == 6) { g_bdSk = BsAddr(v); return g_bdSk ? 1 : 0; }   /* (dropfix 303) "bdsk": the sketch for the blend spaces that follow */
+    if (which == 7) {   /* (dropfix 303) "bdall": every sample of this blend space, read here (the Lua cannot), the game's own rooted -> how many held now */
+        const uintptr_t bs = BsAddr(v);
+        if (!bs || !g_bdSk) return -1;
+        int n = 0;
+        __try { n = PtrOk((const void*)bs, 0xd8) ? *(const int*)(bs + 0xd0) : 0; } __except (EXCEPTION_EXECUTE_HANDLER) { n = 0; }
+        if (n <= 0 || n > 64) { Log("bigdrop: blend space %p: %d samples -- not taken", (void*)bs, n); return -1; }
+        int held = 0, skipped = 0;
+        for (int i = 0; i < n; i++) {
+            uintptr_t cur = 0;
+            __try { uintptr_t* s = BdSlotPtr(bs, i); cur = s ? *s : 0; } __except (EXCEPTION_EXECUTE_HANDLER) { cur = 0; }
+            if (!cur || cur == g_bdSk) { skipped++; continue; }
+            bool have = false;
+            for (LONG k = 0; k < g_bdN; k++) if (g_bdE[k].bs == bs && g_bdE[k].i == i) { have = true; break; }
+            if (have) { held++; continue; }
+            if (g_bdN >= 256) { skipped++; continue; }
+            uint32_t f0 = 0, f1 = 0; int32_t cl = 0;
+            if (SafeRoot(cur, &f0, &f1, &cl) != 1) { skipped++; continue; }
+            const LONG m = g_bdN;
+            g_bdE[m].bs = bs; g_bdE[m].i = i; g_bdE[m].orig = cur; g_bdE[m].sk = g_bdSk;
+            MemoryBarrier(); g_bdN = m + 1; held++;
+        }
+        if (skipped) Log("bigdrop: blend space %p: %d of %d samples held, %d not (none there, the sketch already, unrooted or the list full)", (void*)bs, held, n, skipped);
+        return held;
+    }
+    const uintptr_t an = BsAddr(v);
+    int r = -1;
+    if (g_bdB && g_bdO && an && g_bdI >= 0) {
+        const LONG n = g_bdN;
+        r = 0;
+        for (LONG k = 0; k < n; k++) if (g_bdE[k].bs == g_bdB && g_bdE[k].i == g_bdI) { r = 2; break; }
+        if (!r) {
+            uintptr_t now = 0;
+            __try { uintptr_t* slot = BdSlotPtr(g_bdB, g_bdI); now = slot ? *slot : 0; } __except (EXCEPTION_EXECUTE_HANDLER) { now = 0; }
+            if (!now) r = -1;
+            else if (now != g_bdO) r = -2;
+            else if (n >= 256) r = -1;
+            else { g_bdE[n].bs = g_bdB; g_bdE[n].i = g_bdI; g_bdE[n].orig = g_bdO; g_bdE[n].sk = an; MemoryBarrier(); g_bdN = n + 1; r = 1; }
+        }
+    }
+    if (r < 0) Log("bigdrop: landing sample %d of %p not taken (%d: %s)", g_bdI, (void*)g_bdB, r, r == -2 ? "another animation is there now" : "no object, or the list is full");
+    g_bdB = 0; g_bdO = 0; g_bdI = -1;
+    return r;
+}
 int nSet(const Lua& lua) {
     std::string k; double v = 0;
     ArgStr(lua, k); ArgNum(lua, v);
@@ -24228,6 +27104,13 @@ int nSet(const Lua& lua) {
         lua.set_integer(1);
         return 1;
     }
+    if (k == "bdsk" || k == "bdall") { lua.set_integer(BdSet(k == "bdsk" ? 6 : 7, v)); return 1; }   /* (dropfix 303) in front of the chain */
+    if (k == "heelsnap") { const float s = std::isfinite(v) ? clampf((float)v, 1.0f, 8.0f) : 4.0f; if (s != g_heelSnap) Log("heel stop: the board's PID x%.1f quicker while the tail drags (HeelStopSnap; pidsnap 304)", s); g_heelSnap = s; lua.set_integer(1); return 1; }   /* (pidsnap 304) in front of the chain */
+    if (k == "hsbs") { lua.set_integer(HsBsAdd(v)); return 1; }   /* (snap 303) in front of the chain */
+    if (k == "bigdrop" || k == "bigdropcm" || k == "bdbs" || k == "bdidx" || k == "bdorig" || k == "bdanim") { lua.set_integer(BdSet(k == "bigdrop" ? 0 : k == "bigdropcm" ? 1 : k == "bdbs" ? 2 : k == "bdidx" ? 3 : k == "bdorig" ? 4 : 5, v)); return 1; }   /* (bigdrop 302) in front of the chain */
+    if (k == "bsbs" || k == "bsidx" || k == "bsexp" || k == "bsanim") { lua.set_integer(BsStage(k == "bsbs" ? 0 : k == "bsidx" ? 1 : k == "bsexp" ? 2 : 3, v)); return 1; }   /* (sketch 301) in front of the chain */
+    if (k == "heelstop" || k == "heeldecel" || k == "heelanim" || k == "heelsound") { HsSet(k == "heelstop" ? 0 : k == "heeldecel" ? 1 : k == "heelanim" ? 2 : 3, v); lua.set_integer(1); return 1; }   /* (heelstop 299) in front of the chain */
+    if (k == "altnostallslide") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_asNsSlide, o) != o) Log("alt stalls: the no stall %s (AltNoStallSlide=%ld)", o ? "INTO THE GAME'S OWN NOSE SLIDE: caught at the lip by the stall's own hold (no turn), its leading wheels put on the coping top, then the game's ground grind check opened and the grind it begins taken as GRIND_FS_Noseslide, held there by the lock -- before the drop-in hand-over; the game owns the pop / flip-out (forcegrind 287, lockgrind3 290)" : "as build 286", (long)o); lua.set_integer(1); return 1; }   /* (forcegrind 287) AltNoStallSlide, in front of the chain (C1061) */
     if (k == "grindexit") { lua.set_integer(GrindExit(v < 0 ? -1 : 1)); return 1; }   /* (v171 grind3) GrindGrabs=2: L3 / R3 in a grind = the game's lean-out, -1 left (LB's) / +1 right (RB's) */
     if (k == "clickhold") {                                      // (v123) in front of the chain: the stick clicks wait for the Lua's answer (HJN_Click)
         g_clickHold = v != 0 ? 1 : 0;
@@ -24350,6 +27233,9 @@ int nSet(const Lua& lua) {
     else if (k == "altnolway") g_altNolWay = (v >= 0.5) ? 1 : 0;       // (248) AltNollieFlipWay: the nollie set's end over end the other way (the note at AltNolSense)
     else if (k == "altkickunder") InterlockedExchange(&g_altKickUnder, (v >= 0.5) ? 1 : 0);   // (251) AltKickUnderflip (the note at AltUnderKindFor)
     else if (k == "altunderfeetbig") InterlockedExchange(&g_altUnderFeetBig, (v >= 0.5) ? 1 : 0);   // (255) AltUnderFeetBig (the note at UfDrop)
+    else if (k == "altunderownspeed") InterlockedExchange(&g_altUnderOwnSpeed, (v >= 0.5) ? 1 : 0);   /* (279) AltUnderOwnSpeed (the note at UfFlick) */
+    else if (k == "altunderflickref") g_altUnderFlickRef = (std::isfinite(v) && v > 0.0) ? clampf((float)v, 1.0f, 80.0f) : 0.0f;   /* (285) AltUnderFlickRef (the note at UfRefApply) */
+    else if (k == "altshuvscoopspeed") InterlockedExchange(&g_altShuvScoopSpeed, (v >= 0.5) ? 1 : 0);   /* (285) AltShuvScoopSpeed (the note at UfRefApply) */
     else if (k == "altundertouch") InterlockedExchange(&g_altUnderTouch, (v >= 0.5) ? 1 : 0);   /* (261) AltUnderTouch (the note at UfShoe) */
     else if (k == "altunderfeet") InterlockedExchange(&g_altUnderFeet, (v >= 0.5) ? 1 : 0);   // (254) AltUnderFeet (the note at UfDrop)
     else if (k == "altunderleg") { InterlockedExchange(&g_altUnderLeg, (v >= 0.5) ? 1 : 0); if (v < 0.5) g_ufW = 0.0f; }   // (253) AltUnderLeg (the note at UfStep)
@@ -24373,6 +27259,17 @@ int nSet(const Lua& lua) {
     else if (k == "althospkickonly") InterlockedExchange(&g_hospKickOnly, (v >= 0.5) ? 1 : 0);   /* (262) AltHospitalKickOnly (the note at HospKickNm) */
     else if (k == "altcaspercatch") InterlockedExchange(&g_casAuto, (v >= 0.5) ? 1 : 0);   /* (271) AltCasperCatch (the note at CasAutoFor) */
     else if (k == "altcaspermatch") InterlockedExchange(&g_casMatch, (v >= 0.5) ? 1 : 0);   /* (274) AltCasperMatch (the note at CasMatch) */
+    else if (k == "stalllog") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_stallLog, o) != o) Log("stall log %s (StallLog=%ld): approach lines \"stall:\", one \"stall sum:\" per attempt, \"stall ref:\" at a drop-in's set-down", o ? "ON" : "off", (long)o); }   /* (stalllog 275) read only */
+    else if (k == "grindlog") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_grindLog, o) != o) Log("grind log %s (GrindLog=%ld): \"grind:\" lines at a grind's entry, 4 a second in it, its exit", o ? "ON" : "off", (long)o); }   /* (grindalt 279) read only */
+    else if (k == "altgrinds") AgSet(v);   /* (altgrind 280) AltGrinds (the note at AgPick) */
+    else if (k == "altgrindflipout") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_agFlipOut, o) != o) Log("alt grinds: the alt flip-out %s (AltGrindFlipOut=%ld)%s", o ? "ON" : "off", (long)o, o ? ": with the mirror on in a grind the game's flip-out is taken by the alt set as an alt pop ('altgrind:' ARMED / CLAIMED lines; needs AltGrinds and AltFlips)" : ""); if (!o) { g_agArm = -1; g_agArmPull = false; } }   /* (grindalt3 283) AltGrindFlipOut (the note at AgArmStep) */
+    else if (k == "altgrindsingrind") AgInSet(v);
+    else if (k == "altdoublevarialname") DvnSet(v);   /* (grindfix5 286) AltDoubleVarialName (the note at DvnPoll) */   /* (grindalt4 285) AltGrindsInGrind (the note at AgInGrind) */
+    else if (k == "altstall") { const LONG o = (LONG)AltStallMode(v); if (InterlockedExchange(&g_altStall, o) != o) Log("alt stalls %s (AltStall=%ld)%s", o ? "ON" : "off", (long)o, o ? ": up a ramp to the lip with the ALT NOLLIE crouch held = a no stall, with the ALT crouch held = a blunt (handed to the game's Blunt grind: blunt 281); the wheels held on the coping until a crouch is pressed and let go (stall3 278)" : ""); if (!o) { g_as.st = 0; g_asBluntPick = 0; g_asb.hand = false; } }   /* (altstall 276) (blunt 281) */
+    else if (k == "altstallpitch") { g_asPitch = clampf((float)v, 0.0f, 45.0f); }   /* (altstall 276) the no stall's lie: DropInPitch */
+    else if (k == "altbluntgame") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_asBluntGame, o) != o) Log("alt stalls: the blunt %s (AltBluntGame=%ld)", o ? "FORCED INTO THE GAME'S OWN BLUNT GRIND: held at the coping the game's grind check is opened (+0x918 bit 0 lent), its pick answered Blunt (its own side; none = BS), the speed along the coping zeroed in the hold and the grind -- the game owns the pop / flip-out (bsblunt 286); the grind it begins is made a grind, not a lip trick, and set to GRIND_BS_Blunt (forcegrind 287); its trailing wheels held +5 past the edge on the coping top by the lock, every direction (lockgrind3 290)" : "as build 285", (long)o); }   /* (bsblunt 286) AltBluntGame */
+    else if (k == "altnostalldrop") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_asNsDrop, o) != o) Log("alt stalls: the no stall %s (AltNoStallDropIn=%ld)", o ? "HANDED TO THE DROP-IN: caught at the lip the board tips UP about the wheels on the coping into the drop-in's stance (the drop-in played backwards, ~0.35 s), the stick UP drops him back in (nostall2 283)" : "as build 280 (held on the coping)", (long)o); if (!o) { g_asNs.pend = 0; g_asNs.cap = false; } }   /* (nostall 281) */
+    else if (k == "altnostallrev") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_asNsRev, o) != o) Log("alt stalls: the no stall's body %s (AltNoStallReverse=%ld)", o ? "PLAYED IN REVERSE with the board's tip (revnostall 286; the Lua moves him: the drop-in's GO stepped backwards, from the wall up to the drop-in's spot; needs AltNoStallDropIn)" : "left where it is (build 285: the board alone tips)", (long)o); }   /* (revnostall 286) */
     else if (k == "altcasperland") { const int m = (int)floor(v + 0.5); InterlockedExchange(&g_casLand, m < 1 ? 1 : (m > 3 ? 3 : m)); }   /* (272) AltCasperLand 1..3 (the note at CasLandStep) */
     else if (k == "althospfootback") g_hospFootBack = clampf((float)v, 0.0f, 25.0f);   /* (262) AltHospitalFootBack (the note at HospToeFront) */
     else if (k == "althosptoescoop") g_hospToe = clampf((float)v, 0.0f, 20.0f);   /* (262) AltHospitalToeScoop (the note at HospToeFront) */
