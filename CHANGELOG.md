@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.2 -- fix: Steam crash on spawning
+Lua build 313, native v211. A 1.0.0, 1.1.x or 1.2.x install with *Automatic updates* at 2 installs it by itself at its next start.
+
+- Fixed: on Steam (the game update of 28 Oct), the game closed seconds after you spawned, with *"Failed to find function MulticastRPCStopBraking in SkateboardExMovementComponent"*. The big drop landing called a game function at the address it has in the Epic exe; on Steam's exe that address is a different function. It is now found by signature on any build of the game, as the mod's other functions are.
+- Fixed the same way before it could happen: the tail stop's switch check, which would have crashed on Steam at the first tail stop.
+- If either function is not found on some future build, only that feature (big drop landing or tail stop) turns off, and the log says so.
+
 ## 1.2.1 -- one switch for the grind flip-outs, a tidier Flip Tricks page, the trick guide pictures redrawn
 Lua build 312, native v210. A 1.0.0, 1.1.x or 1.2.0 install with *Automatic updates* at 2 installs it by itself at its next start, pictures included.
 

@@ -43,7 +43,7 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 210
+#define HJN_VERSION 211
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
@@ -7654,13 +7654,13 @@ bool VtHookFromMesh(void* mesh) {
 void FaInstall();   // (v138)
 void WrBtInstall();   // (v140)
 void FbInstall();   // (242) the FlipBoard veto and the NativeUpdateAnimation hook (the notes at hkSkFlipBoard, hkNua)
-void FeatSigScan(const wchar_t* path); void WsInstall();   // (steam: FeatSigScan = the second signature group, with the feature tables) (wallsound) the wallride's rolling sound from the wall's material (the note at hkIdleRoll)
+void FeatSigScan(const wchar_t* path); void WsInstall(); bool ForceSigs(); void OwnSigScan(const wchar_t* path);   // (steam: FeatSigScan = the second signature group, with the feature tables) (wallsound) the wallride's rolling sound from the wall's material (the note at hkIdleRoll)
 bool InstallHook() {
     if (g_hooked) return true;
     uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr);
     const IMAGE_DOS_HEADER* dos = (const IMAGE_DOS_HEADER*)exe;
     const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(exe + dos->e_lfanew);
-    if (!KnownStamp(nt->FileHeader.TimeDateStamp)) {
+    if (!KnownStamp(nt->FileHeader.TimeDateStamp) || ForceSigs()) {   /* (hot313) or the test switch */
         Log("the game exe is ANOTHER BUILD than this mod was written against (stamp %08x, image %u KB; written against %08x) -- its functions are looked for by signature in the exe on disk",
             nt->FileHeader.TimeDateStamp, (unsigned)(nt->OptionalHeader.SizeOfImage / 1024), kExeStamp);
         static HnSigFound found[kSigN];
@@ -7673,7 +7673,7 @@ bool InstallHook() {
         }
         HnSigApply(found);
         g_sigMode = 1; g_vtPending = true; g_hooked = true;
-        Log("signatures: all %d found -- the mod runs on this build of the game. The pose hook goes in when your skater is there (its place is read off the skater's own mesh)", kSigN); FeatSigScan(path);
+        Log("signatures: all %d found -- the mod runs on this build of the game. The pose hook goes in when your skater is there (its place is read off the skater's own mesh)", kSigN); FeatSigScan(path); OwnSigScan(path);
         return true;
     }
     void** slot = (void**)(exe + RVA_SKM_VT_FBT);
@@ -10759,7 +10759,7 @@ int BoardGroundedNow(uint8_t* bm) {
 //  of the game's tables are wrapped for the run, as the ground hold's is; each answers as the game's own unless the
 //  gate is up for OUR board (0.6 s at the most). Not on another build of the game, and not where a slot holds
 //  something else: the set-down then goes build 211's way.)
-constexpr uintptr_t RVA_BD_ONBOARD = 0xf9b2a0, RVA_BM_ISFALLING = 0xfc3500, RVA_BM_GRINDSHAPE = 0xfbd4b0;   // ASkateboardEx::SetOnBoardMode(bool, bool) | USkateboardExMovementComponent::IsFalling() const | ...::GetGrindDetectionShape() const ("lea rax,[rcx+0x8d8] / ret")
+constexpr uintptr_t RVA_BD_ONBOARD = 0xf9b2a0, RVA_BM_GRINDSHAPE = 0xfbd4b0; uintptr_t RVA_BM_ISFALLING = 0xfc3500;   /* (hot313) IsFalling: by signature on another build (OwnSigScan) */   // ASkateboardEx::SetOnBoardMode(bool, bool) | USkateboardExMovementComponent::IsFalling() const | ...::GetGrindDetectionShape() const ("lea rax,[rcx+0x8d8] / ret")
 constexpr int BD_IFACE = 0x280, VT_BD_ONBOARD = 0x90, VT_BM_ISFALLING = 0x568, VT_BM_GRINDSHAPE = 0x138;   // the board's ISkateboardInterface and its SetOnBoardMode slot (called at exe+0x1005f6a) | IsFalling in the movement component's own table (asked at exe+0xfc2f22) | the shape in its interface table, the one at BM_IFACE (asked at exe+0xfc3075)
 typedef void (*SdOnBoardFn)(void* iface, bool bForce, bool bUseBoardLoc);
 typedef bool (*SdFallingFn)(void* bm);
@@ -14842,6 +14842,39 @@ void FeatSigScan(const wchar_t* path) {
     Log("feature group: drop-in set-down, BoardGo, ledge face, ground hold and the other Epic-only reads: OFF on another build (as before)");
 }
 // ---- (steam, w35) end of the feature group's search
+// (hot313) THE TWO SMALL GETTERS the big drop landing (302) and the tail stop (307) call. Both were called at the Epic exe's
+// address on every build: on Steam's 28 Oct exe IsFalling's address is ServerRPCStopBraking_Implementation (the crash
+// "Failed to find function MulticastRPCStopBraking in SkateboardExMovementComponent"). On another build each is now found
+// by its whole body (field offsets included, so a match also says the fields are where they were); not found exactly
+// once = only its own feature off. g_bdFallOk / g_hsSwOk: 1 = callable (Epic's exe, or found), 0 = not.
+uintptr_t RVA_HS_SKSWITCH = 0xff86c0;   // bool ASkaterCharacterBase::IsSkatingSwitch() const
+volatile int g_bdFallOk = 1, g_hsSwOk = 1;
+static const uint8_t kOSigB0[] = { 0xf3,0x0f,0x10,0x81,0xa4,0x07,0x00,0x00,0x0f,0x2f,0x81,0xa0,0x07,0x00,0x00,0x76,0x0c,0x80,0xb9,0x34,0x05,0x00,0x00,0x03,0x74,0x03,0x32,0xc0,0xc3,0xb0,0x01,0xc3 };
+static const uint8_t kOSigM0[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+static const uint8_t kOSigB1[] = { 0x0f,0xb6,0x81,0x98,0x05,0x00,0x00,0x2c,0x02,0xa8,0xfd,0x0f,0x94,0xc0,0xc3 };
+static const uint8_t kOSigM1[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+static const HnSig kOSigs[] = {
+    { "BM_ISFALLING", &RVA_BM_ISFALLING, kOSigB0, kOSigM0, 32, -1, 0, 0, -1, -1, -1, 0 },   // USkateboardExMovementComponent::IsFalling
+    { "HS_SKSWITCH", &RVA_HS_SKSWITCH, kOSigB1, kOSigM1, 15, -1, 0, 0, -1, -1, -1, 0 },     // ASkaterCharacterBase::IsSkatingSwitch
+};
+bool ForceSigs() {   /* (hot313) the test switch: Mods\ExpandedTricksNative\force-signatures.txt beside the mod = the signature path on any exe */
+    static int v = -1;
+    if (v < 0) {
+        wchar_t p[1024]; const DWORD n = GetModuleFileNameW(nullptr, p, 1000); v = 0;
+        if (n > 0 && n < 1000) { wchar_t* s = wcsrchr(p, L'\\'); if (s) { wcscpy_s(s + 1, 1024 - (s + 1 - p), L"Mods\\ExpandedTricksNative\\force-signatures.txt"); v = (GetFileAttributesW(p) != INVALID_FILE_ATTRIBUTES) ? 1 : 0; } }
+        if (v) Log("TEST SWITCH: force-signatures.txt is there -- the functions are looked for by signature even on this exe (delete the file to end the test)");
+    }
+    return v == 1;
+}
+void OwnSigScan(const wchar_t* path) {   /* (hot313) on another build, after the feature group: the two getters, each on its own */
+    g_bdFallOk = 0; g_hsSwOk = 0;
+    static HnSigFound of[2];
+    __try { HnSigScanTabPath(path, kOSigs, 2, of, &Log); } __except (EXCEPTION_EXECUTE_HANDLER) { of[0].ok = of[1].ok = false; Log("signatures (getters): fault while reading the exe (code %08x)", GetExceptionCode()); }
+    if (of[0].ok) { RVA_BM_ISFALLING = of[0].rva; g_bdFallOk = 1; }
+    if (of[1].ok) { RVA_HS_SKSWITCH = of[1].rva; g_hsSwOk = 1; }
+    Log("big drop landing: %s (USkateboardExMovementComponent::IsFalling %s)", g_bdFallOk ? "can run on this build" : "OFF on this build", of[0].ok ? "found by signature" : "NOT found exactly once");
+    Log("tail stop: %s (ASkaterCharacterBase::IsSkatingSwitch %s)", g_hsSwOk ? "can run on this build" : "OFF on this build", of[1].ok ? "found by signature" : "NOT found exactly once");
+}
 int WgCrankUse(uint8_t* sk) {
     uint8_t* pc = (uint8_t*)g_pc;
     if (FeatSigOff() || !g_hooked || g_wgCrankDead || !pc || !sk || !PtrOk(pc, PC_FLIPTRICKS + 8) || *(uint8_t**)(pc + PC_SKATER) != sk) return -1;
@@ -26363,7 +26396,7 @@ void GcFind() {
     uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr);
     const IMAGE_DOS_HEADER* dos = (const IMAGE_DOS_HEADER*)exe;
     const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(exe + dos->e_lfanew);
-    if (KnownStamp(nt->FileHeader.TimeDateStamp)) {
+    if (KnownStamp(nt->FileHeader.TimeDateStamp) && !ForceSigs()) {   /* (hot313) the test switch too */
         g_gcA = (uintptr_t)exe + 0x4e65a48; g_gcB = (uintptr_t)exe + 0x4e65ce8; g_gcKnown = 1;
         Log("objects: the engine's purge flags are read at their known places (in progress %d, required %d; it destroys objects on another thread: %d)",
             *(const uint8_t*)g_gcA, *(const uint8_t*)g_gcB, *(const int*)(exe + 0x4e65b20));
@@ -26735,7 +26768,7 @@ void HsPsLearn(const uint8_t* anim) {   /* (heelanim 300) your own tail-down pow
 }
 // ==== (switchstop 307) THE HEEL STOP OUT OF REGULAR (the note in v144/w75/switchstop/mk_switchstop_native.pl): the trailing end dragged,
 // the game's manual exit clock held.
-constexpr uintptr_t RVA_HS_SKSWITCH = 0xff86c0, RVA_HS_BMVT = 0x3c89b48;   /* ASkaterCharacterBase::IsSkatingSwitch | the board movement's own vtable (at bm +0x138) */
+constexpr uintptr_t RVA_HS_BMVT = 0x3c89b48;   /* (hot313) RVA_HS_SKSWITCH is found by signature on another build: defined at OwnSigScan */   /* ASkaterCharacterBase::IsSkatingSwitch | the board movement's own vtable (at bm +0x138) */
 constexpr int HS_BM_ITF = 0x138;
 struct HsSwT { float p0, d; int key, want, held; bool decided; };
 HsSwT g_hsSw = {};
@@ -26808,7 +26841,7 @@ void HsTick(void* mesh) {
     HeelT& H = g_hs;
     const double now = NowS();
     if (ReplayNow()) { if (H.on) HsEnd("the replay editor (heelfix 301: nothing of the heel stop's there)"); H.wasMan = false; H.wrote = false; return; }   /* (heelfix 301) */
-    if (!g_heelStop || FeatSigOff() || !g_hooked) { if (H.on) HsEnd(!g_heelStop ? "HeelStop turned off" : "not on this build of the game"); H.wasMan = false; return; }
+    if (!g_heelStop || FeatSigOff() || !g_hsSwOk || !g_hooked) {   /* (hot313) !g_hsSwOk: IsSkatingSwitch not found on this build */ if (H.on) HsEnd(!g_heelStop ? "HeelStop turned off" : "not on this build of the game"); H.wasMan = false; return; }
     uint8_t* pc = (uint8_t*)g_pc; uint8_t* sk = (uint8_t*)g_skater; const uint8_t* anim = (const uint8_t*)g_anim;
     uint8_t* bm = BoardMC();
     const bool ok = pc && PtrOk(pc, 0x7c8) && sk && PtrOk(sk, 0xa40) && anim && PtrOk(anim, 0x600) && bm && PtrOk(bm, 0x8a0) && mesh == g_mesh;
@@ -27008,7 +27041,7 @@ void BdDisarm(const char* why) {
 void BdTick(void* mesh) {
     BdT& B = g_bd;
     const bool rp = ReplayNow();
-    if (!g_bigDrop || g_bdN <= 0 || FeatSigOff() || rp) { if (B.armed) BdDisarm(!g_bigDrop ? "BigDropLanding turned off" : rp ? "the replay editor" : "not on this build of the game"); B.air = false; return; }
+    if (!g_bigDrop || g_bdN <= 0 || FeatSigOff() || !g_bdFallOk || rp) {   /* (hot313) !g_bdFallOk: IsFalling not found on this build */ if (B.armed) BdDisarm(!g_bigDrop ? "BigDropLanding turned off" : rp ? "the replay editor" : "not on this build of the game"); B.air = false; return; }
     uint8_t* bm = BoardMC();
     const uint8_t* m = (const uint8_t*)mesh;
     if (!bm || !m || mesh != g_mesh || !PtrOk(m, SC_C2W + 0x30)) { if (B.armed) BdDisarm("no skater or board this pose"); B.air = false; return; }
