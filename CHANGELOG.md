@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1 -- the trick guide pictures redrawn
+Lua build 310, native v208. A 1.0.0 or 1.1.x / 1.2.0 install with *Automatic updates* at 2 installs it by itself at its next start, pictures included.
+
+- **Trick Guide pictures** (Pause menu, Expanded Tricks, Trick Guide): *Other tricks* adds the **tail stop** and the **grind flip-outs** (monster and dolphin flips out of an alt crouch grind); *Flip tricks* adds the **auto casper** (and the hospital flip and underflip out of it); *Grabs* adds **grabs in grinds** and leaning off a grind with the stick clicks.
+
 ## 1.2.0 -- the tail stop, the big drop landing, alt crouch grinds
 Lua build 309, native v207. A 1.0.0 or 1.1.x install with *Automatic updates* at 2 installs it by itself at its next start.
 

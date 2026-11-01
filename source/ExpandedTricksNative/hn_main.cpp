@@ -43,7 +43,7 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 207
+#define HJN_VERSION 208
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
