@@ -52,10 +52,10 @@ The full list of tricks with their inputs is in [docs/TRICKS.md](docs/TRICKS.md)
   press Y. The board is set tail-down on the coping and you step on. Then push a stick up to drop in, press LB or RB to
   step back, or press Y to step off. Tap Y twice to be put on in switch, facing away from the drop. Farther from an
   edge, Y is the game's own throwdown.
-- **Heel stop.** In a manual (not a nose manual), push the back-foot stick **all the way down**: instead of crouching,
+- **Tail stop.** In a manual (not a nose manual), push the back-foot stick **all the way down**: instead of crouching,
   the tail drops onto the ground in the game's one-foot powerslide pose and drags, with the game's tail-slide sound,
   until you stop or ease off (ease off and you ride on in the manual). It drags whichever end is behind you, so it
-  works riding switch, fakie and nollie too. *Heel stop: friction* on the General gameplay page sets how hard it
+  works riding switch, fakie and nollie too. *Tail stop: friction* on the General gameplay page sets how hard it
   slows you.
 - **Big drop landing.** Land 2.5 m or more below where you left the ground and the trick lands with the game's unused
   big sketchy landing instead of its usual one. The game had the animations but never used them.
@@ -231,7 +231,7 @@ The pages:
 
 - **General gameplay settings:** max speed, push strength, throwdown speed, left-stick steering, trick names and
   automatic updates. They all ship at the game's own behaviour (100 %, steering on).
-  The heel stop and its friction, and the big drop landing, are on this page too (both on as the mod ships).
+  The tail stop and its friction, and the big drop landing, are on this page too (both on as the mod ships).
 - **Hippie Jumps:** the hippie and mini hippie jumps, their heights, spinning, bailing on a bad spin, jumping onto the
   board, and the caveman.
 - **Drop-ins:** the drop-in, its launch speed, the arms and crouch on the way down, and vert walls.

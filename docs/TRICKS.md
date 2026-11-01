@@ -167,17 +167,17 @@ The caveman's settings are on the Hippie Jumps page.
   (**L3** or **R3**). You jump onto it and ride away the way you face. Run at it and your speed is carried onto the
   board.
 
-## Heel stop
+## Tail stop
 
-*Heel stop* on the General gameplay settings page (on as the mod ships).
+*Tail stop* on the General gameplay settings page (on as the mod ships).
 
 In a **manual** (not a nose manual), push the **back-foot stick all the way down**. The game would crouch out of the
-manual there; with the heel stop on, the tail drops onto the ground in the one-foot powerslide pose, drags with the
+manual there; with the tail stop on, the tail drops onto the ground in the one-foot powerslide pose, drags with the
 game's tail-slide sound, and slows you down. Hold it to come to a stop. Ease the stick off and you ride on in the
-manual; turn it away from straight down and the heel stop ends.
+manual; turn it away from straight down and the tail stop ends.
 
 It always drags the end of the board that is **behind you**, so it works the same riding switch, fakie and nollie.
-*Heel stop: friction* sets how hard it slows you, in km/h lost per second (10 = a fast roll to a stop in about two
+*Tail stop: friction* sets how hard it slows you, in km/h lost per second (10 = a fast roll to a stop in about two
 seconds; the game's own unused tail brake would be 22). How quickly the tail goes down is `HeelStopSnap` in the ini
 (4 = about a fifth of a second; 1 = the game's own slow ease).
 
