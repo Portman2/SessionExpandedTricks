@@ -1,7 +1,7 @@
-# Expanded Tricks 1.2.3 for Session: Skate Sim
+# Expanded Tricks 1.3.0 for Session: Skate Sim
 
 New flip tricks (monster, dolphin, porpoise, nightmare, daydream, underflips, the hospital flip), wallrides, the caveman,
-hippie jumps, grabs, no complies, bonelesses, finger flips and drop-ins for Session, with its own settings pages in the
+hippie jumps, grabs, the airwalk, no complies, bonelesses, finger flips and drop-ins for Session, with its own settings pages in the
 pause menu. Source and releases: https://github.com/Portman2/SessionExpandedTricks
 
 The full list of tricks with their inputs is in [docs/TRICKS.md](docs/TRICKS.md). What changed since 1.0.0 is in
@@ -55,13 +55,18 @@ The full list of tricks with their inputs is in [docs/TRICKS.md](docs/TRICKS.md)
   press Y. The board is set tail-down on the coping and you step on. Then push a stick up to drop in, press LB or RB to
   step back, or press Y to step off. Tap Y twice to be put on in switch, facing away from the drop. Farther from an
   edge, Y is the game's own throwdown.
-- **Tail stop.** In a manual (not a nose manual), push the back-foot stick **all the way down**: instead of crouching,
-  the tail drops onto the ground in the game's one-foot powerslide pose and drags, with the game's tail-slide sound,
-  until you stop or ease off (ease off and you ride on in the manual). It drags whichever end is behind you, so it
+- **Airwalk.** In a Nose grab, press **A** or **X**: your feet come off the board, the front one kicked out in front of
+  you and the back one behind, while the board's nose lifts. Let go and they come back for the landing. *Stride*,
+  *Board angle* and *Leg speed* under *Airwalk* on the Grabs page.
+- **Tail stop.** Hold **B** while rolling, or in a manual (not a nose manual) push the back-foot stick **all the way
+  down**: the tail drops onto the ground in the game's one-foot powerslide pose and drags, with the game's tail-slide
+  sound, until you stop or let go. The *Tail stop* slider picks the way: 1 = the manual, 2 = B, 3 = both (as it ships);
+  with B on, B is no longer the game's foot brake while you roll. It drags whichever end is behind you, so it
   works riding switch, fakie and nollie too. *Tail stop: friction* on the General gameplay page sets how hard it
   slows you; the board stays on its line, even with the friction turned right up.
-- **Big drop landing.** Land 2.5 m or more below where you left the ground and the trick lands with the game's unused
-  big sketchy landing instead of its usual one. The game had the animations but never used them.
+- **Big drop landing.** Land 2.5 m or more below where you left the ground and, 30 % of the time (the *Big drop
+  landing* slider), the trick lands with one of the game's two unused big sketchy landings instead of its usual one.
+  The game had the animations but never used them.
 - **Alt flips out of grinds** (Flip Tricks page, off as the mod ships). With the alternate flip set on, get into a grind
   as normal, push the back-foot stick up (the alternate crouch), then flick out as on the ground: the front-foot stick
   down for a monster flip, up for a dolphin flip, and the varials and underflips.
@@ -85,10 +90,10 @@ The full list of tricks with their inputs is in [docs/TRICKS.md](docs/TRICKS.md)
   lists it as 1.0.6.42; its exe was built on 30 March 2026). On any other exe (Steam's is one, and so is any game
   update) it looks for the game's functions by their byte patterns when the game starts and runs only if it finds
   every one of them. Otherwise it switches itself off and says so in `ExpandedTricks.log`. Steam's exe has been run
-  by a tester (every function found) but not by the author.
-  **On any exe other than Epic's**, the alternate flip set (the monster, dolphin, porpoise, nightmare and daydream flips,
-  the underflips and the hospital flip), wallrides and the drop-in set-down on the coping stand down, and the log says
-  so. They write parts of the game that were only checked on Epic's exe. Everything else runs.
+  by testers (every function found) but not by the author.
+  **On any exe other than Epic's**, every feature runs once its own game functions are found, each group on its own
+  (the log lists them). The one exception is leaning off a grind with the stick clicks (*Grabs in grinds* at 2):
+  Epic's exe only.
 - The game's stick mode (Options > Gameplay) set to *front foot / back foot* or *left foot / right foot* for the
   alternate flip set. It is off in the *Legacy* mode.
 - Steam Deck / Linux: copy the files by hand (the installer is Windows-only) and set the game's launch option to
@@ -236,7 +241,8 @@ The pages:
 
 - **General gameplay settings:** max speed, push strength, throwdown speed, left-stick steering, trick names and
   automatic updates. They all ship at the game's own behaviour (100 %, steering on).
-  The tail stop and its friction, and the big drop landing, are on this page too (both on as the mod ships).
+  The tail stop (its slider: 0 off, 1 manual, 2 B, 3 both) and its friction, and the big drop landing's chance
+  (30 %), are on this page too.
 - **Hippie Jumps:** the hippie and mini hippie jumps, their heights, spinning, bailing on a bad spin, jumping onto the
   board, and the caveman.
 - **Drop-ins:** the drop-in, its launch speed, the arms and crouch on the way down, and vert walls.
@@ -281,8 +287,8 @@ and before removing UE4SS if this installer was what put it in and no other mod 
 
 ## Known limits
 
-- Written against one game build. Other builds (Steam, game updates) run only if the start-up check passes, and even
-  then without the alternate flip set and wallrides (see Requirements).
+- Written against one game build. Other builds (Steam, game updates) run only if the start-up check passes (see
+  Requirements).
 - The game's grab animations are unfinished; the mod poses the hand, arm, legs and deck on top of them. Odd poses
   happen, and the per-grab numbers in the ini are there to tune them.
 - In the replay editor the mod's poses are replayed as recorded, not re-made.

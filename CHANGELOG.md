@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.3.0 -- the airwalk, the tail stop on B, a big drop landing that comes and goes, Steam fixes
+Lua build 343, native v239. A 1.0.0, 1.1.x or 1.2.x install with *Automatic updates* at 2 installs it by itself at its next start, pictures included.
+
+- **Airwalk** (new): in a Nose grab press **A** or **X**. Your feet come off the board, the front one kicked out in front and the back one behind, the board's nose lifts, and they come back for the landing. The trick display says *Airwalk*. *Stride*, *Board angle* and *Leg speed* under *Airwalk* on the Grabs page.
+- **Tail stop on B:** hold **B** while rolling to drag the tail and slow down, no manual needed; let go to ride on. The *Tail stop* row is now a slider: 0 off, 1 the manual way, 2 B, 3 both (as it ships). The trick display no longer shows *Manual* for a B tail stop.
+- **Tail stop:** the tail goes all the way down every time, regular and switch alike (it could go only half way, or not at all, after you had done a shallow powerslide of your own); switch tips as far as regular; the first stop in switch no longer pops the board; no more slow, spongy stops.
+- **Big drop landing:** now a chance (the *Big drop landing* slider, 0-100 %, 30 % as it ships), and each one plays the regular or the switch sketchy landing at random.
+- **Steam:** the alt flips out of grinds work on Steam (they stood down without a word); the drop-in's set-down on the coping, the grab tweak that moves the board, the ledge look and the tail stop's switch handling run on Steam too; the automatic casper catch's *bail* landing no longer risks closing the game on Steam; the mod reads your pad through the game's own XInput first (Steam Input pads).
+- **Trick Guide pictures:** *Other tricks* adds the tail stop on B; *Grabs* adds the airwalk.
+- **Tidier settings file:** 18 settings that no longer did anything are gone from `ExpandedTricks.ini` (your other values are kept).
+
+### Build by build
+- Builds 324-343, native v220-v239: the airwalk (324-333); AltGrinds on Steam and the big drop's chance (334); the tail stop on B (335); the Steam pass (336); dead settings and code removed, and the big drop's chance fixed (337); the tail stop slider, the first-stop and spongy-stop fixes, the big drop's random clip, the manual's name hidden (338-340); the tail stop's pose held at its full values and switch at regular's angle (342-343).
+
 ## 1.2.3 -- a steadier tail stop, greyed-out settings, the underflips at the game's own speed
 Lua build 323, native v219. A 1.0.0, 1.1.x or 1.2.x install with *Automatic updates* at 2 installs it by itself at its next start.
 

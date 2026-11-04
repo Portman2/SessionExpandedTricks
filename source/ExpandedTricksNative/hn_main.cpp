@@ -43,7 +43,7 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 219
+#define HJN_VERSION 239
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
@@ -1807,7 +1807,7 @@ constexpr int SKB_MC = 0x550, SKB_CATCH = 0x63e;   // skater: its USkaterMovemen
 constexpr int MCB_DB = 0xb38, MCB_CACHE = 0xc10, MCB_FLAGS = 0xc84, MCB_OFF = 0xe9c, CODB_SPEED = 0x3c;   // the component: its catch-orient database, the copy of the field's X,Y the game keeps, the flags, the board offset; the database: its lerp speed
 extern volatile int g_sigMode;                 // (defined with the hook)
 bool BoneBoardUsable() {
-    if (g_sigMode) return false;                                 // the offsets were verified on the exe this mod was written against, no other
+    /* (steam 336) any build: was "if (g_sigMode) return false" (v113); the Lua's layout check stands the mod down on moved classes */
     const uint8_t* sk = (const uint8_t*)g_skater; if (!sk || !PtrOk(sk, 0x700)) return false;
     const uint8_t* mc = *(const uint8_t* const*)(sk + SKB_MC); if (!mc || !PtrOk(mc, 0xeb0)) return false;
     // (v113) ...and only with a smoothing the writer below can time the game's lerp by. One of 60 or more (or not over 0)
@@ -1835,7 +1835,7 @@ void BoneOwnNote(V3 own, double now) {           // (v114, review) the game's ow
 }
 void BoneOwnWatch() {                            // ...on a pose with nothing of ours in the field: read, never written
     const uint8_t* sk = (const uint8_t*)g_skater;
-    const uint8_t* mc = (!g_sigMode && sk && PtrOk(sk, 0x700)) ? *(const uint8_t* const*)(sk + SKB_MC) : nullptr;
+    const uint8_t* mc = (sk && PtrOk(sk, 0x700)) ? *(const uint8_t* const*)(sk + SKB_MC) : nullptr;
     if (!mc || !PtrOk(mc, 0xeb0)) { g_boneOwnHave = false; return; }
     const float* f = (const float*)(mc + MCB_OFF);
     BoneOwnNote(v3(f[0], f[1], f[2]), NowS());
@@ -1852,7 +1852,7 @@ void BoneBoardTick(float wantCm, V3 dir) {       // every pose of our mesh; want
     }
     uint8_t* sk = (uint8_t*)g_skater;
     const double now = NowS();
-    uint8_t* mc = (!g_sigMode && sk && PtrOk(sk, 0x700)) ? *(uint8_t**)(sk + SKB_MC) : nullptr;
+    uint8_t* mc = (sk && PtrOk(sk, 0x700)) ? *(uint8_t**)(sk + SKB_MC) : nullptr;   /* (steam 336) */
     if (!mc || !PtrOk(mc, 0xeb0)) { g_boneOffLive = false; g_boneOffW = v3(0, 0, 0); return; }
     float* f = (float*)(mc + MCB_OFF);
     if (!std::isfinite(f[0]) || !std::isfinite(f[1]) || !std::isfinite(f[2])) { g_boneOffLive = false; g_boneOffW = v3(0, 0, 0); return; }
@@ -1995,7 +1995,7 @@ void BoneTrace(const void* mesh, bool inGrab) {
     lines++;
     char bd[768] = "its numbers are not read (another build of the game, or no skater)";
     const uint8_t* sk = (const uint8_t*)g_skater;
-    const uint8_t* mc = (!g_sigMode && sk && PtrOk(sk, 0x700)) ? *(const uint8_t* const*)(sk + SKB_MC) : nullptr;
+    const uint8_t* mc = (sk && PtrOk(sk, 0x700)) ? *(const uint8_t* const*)(sk + SKB_MC) : nullptr;
     if (mc && PtrOk(mc, 0xeb0)) {
         const float* f = (const float*)(mc + MCB_OFF); const float* c = (const float*)(mc + MCB_CACHE);
         const uint8_t* db = *(const uint8_t* const*)(mc + MCB_DB);
@@ -2209,7 +2209,7 @@ bool DeckFoot(const void* mesh, const void* anim, int k, V3& p, Q4& q) {
 struct GrabProfile { bool fixed; int riseFoot; float pitch; int frontFoot; float frontRoll; float backRoll; int spot; float spotAlong; int route; bool set2; };
 volatile float g_indyPitch = 15.0f;            // (pre-v34 settings, no longer read: every grab has its own numbers in g_gp)
 volatile float g_melonPitch = 25.0f;
-volatile float g_melonFwd = 6.0f;              // HJN_Set("melonfwd", cm): the Melon spot this far toward the front foot from the feet's midpoint
+float AwPitch(float base); V3 g_awT = { 0, 0, 0 }; V3 AwPivot(int front, Q4 dq0, V3 Lc, V3 Ac, float capP, int sense, float w); void AwBody(); extern float g_awInc; void AwLevelRocket(V3 Lc, V3 Ac, float capP, int sense, float w); volatile float g_melonFwd = 6.0f;              // HJN_Set("melonfwd", cm): the Melon spot this far toward the front foot from the feet's midpoint
 GrabProfile ProfileFor(int kind, int sd) {
     GrabProfile p = { false, sd, 0.0f, sd, 0.0f, 0.0f, 0, 0.0f, 0, false };
     if (GrabSlot(kind) < 0) return p;
@@ -2221,7 +2221,7 @@ GrabProfile ProfileFor(int kind, int sd) {
     p.pitch = GP(kind, GP_TILT); p.frontRoll = GP(kind, GP_ROLLF); p.backRoll = GP(kind, GP_ROLLB);
     p.riseFoot = back;                                 // the tail's end rises...
     switch (kind) {
-    case 1:   p.riseFoot = front; p.spot = 1; break;                       // Nose: front hand, the nose up
+    case 1:   p.riseFoot = front; p.spot = 1; p.pitch = AwPitch(p.pitch); break;   /* (aw 325) an airwalk rockets it */                       // Nose: front hand, the nose up
     case 105: p.riseFoot = front; p.spot = 1; break;                       // Crail: back hand on the nose
     case 100: p.spot = 2; p.route = 2; break;                              // Tail: back hand, round the outside of the back leg
     case 6:   p.spot = 2; break;                                           // Seatbelt: front hand across to the tail
@@ -2645,7 +2645,7 @@ void DeckBoard(const void* mesh, const void* anim, int sd, float w) {
         // (v31) the command goes to the bone at once (0.5/frame): the game's own smoothing eases the deck you see,
         // and the feet ride the drawn deck, not the bone -- v30's 0.12 ease on top of the lag left a 45-frame Tail at +29 of 35
         g_pFF += ((targetP - g_pBase) - g_pFF) * 0.5f;          // the tilt the bone must add
-        if (g_grabFrames > 12 && g_holdLive) g_trim = clampf(g_trim + 0.04f * (targetP - pitchNow), -15.0f, 15.0f);   // (v47) from frame 12, twice the gain: the regular Nose sat 10-15 over its aim for 30 frames   // a deck answering with a gain other than 1
+        if (g_grabFrames > 12 && g_holdLive && !(g_awInc > 0.5f)) g_trim = clampf(g_trim + 0.04f * (targetP - pitchNow), -15.0f, 15.0f);   // (v47) from frame 12, twice the gain: the regular Nose sat 10-15 over its aim for 30 frames   // a deck answering with a gain other than 1
         g_rFF += (g_rBase - g_rFF) * 0.5f;                      // level: undo the roll the deck has on its own
         (void)gain;
         g_pI = clampf((g_pFF + g_trim) * (float)sense, -capP, capP);
@@ -2676,7 +2676,7 @@ void DeckBoard(const void* mesh, const void* anim, int sd, float w) {
             // of its length with its knee thrown 37-51 cm. For a two-hand grab DeckRoll is measured from LEVEL, in both stances.
             const float rollTarget = rollGame + clampf(GP(g_grabKind, GP_ROLL), -45.0f, 45.0f) * tsL * clampf(w, 0.0f, 1.0f);
             if (!g_rollLevel) g_rI = 0.0f;
-            else if (g_holdLive) g_rI = clampf(g_rI + 0.15f * (rollNow - rollTarget) * (float)sense, -30.0f, 30.0f);   // (v110: the roll's turn too)
+            else if (g_awInc > 0.5f) (void)0; else if (g_holdLive) g_rI = clampf(g_rI + 0.15f * (rollNow - rollTarget) * (float)sense, -30.0f, 30.0f);   // (v110: the roll's turn too)
             else g_rI *= 0.9f;
             g_lastRollTarget = rollTarget;
         }
@@ -2684,7 +2684,7 @@ void DeckBoard(const void* mesh, const void* anim, int sd, float w) {
         // about A by +t: L -> L cos t + U sin t (L.z UP), so the levelling turn (L.z down by rI) is -rI
         const Q4 dq0 = qnorm(qmul((sense < 0) ? g_tq : qconj(g_tq), g_dq));   // the deck as the game has it, our last tweak taken off (v110: as the deck shows it)
         const V3 Lc = norm(qrot(dq0, latd)), Ac = norm(qrot(dq0, ar));   // its axes in component space
-        g_tq = qnorm(qmul(qaxis(Lc, -g_pI), qaxis(Ac, -g_rI)));   // (v47) back to the algebra: -rI brings the lateral axis down by rI
+        g_tq = qnorm(qmul(qaxis(Lc, -g_pI), qaxis(Ac, -g_rI))); AwLevelRocket(Lc, Ac, capP, sense, w); g_awT = AwPivot(pr.frontFoot, dq0, Lc, Ac, capP, sense, w);   // (v47) back to the algebra: -rI brings the lateral axis down by rI   (aw 326) an airwalk's rocket about the nose
         g_lastFitRes = fabsf(errP);
         g_lastDeckPitch = pitchNow;
         g_lastRollNow = rollNow; g_lastSense = sense;
@@ -2747,12 +2747,12 @@ g_grabKind, g_grabFrames, w, g_holdLive ? "held" : "released", pitchNow, targetP
     }
     const int fl = g_flipper;
     TurnComp(fl, g_tq);
-    SetComp(fl, g_Ct[fl].q, add(g_Ct[fl].p, v3(0, 0, g_tz)));
+    SetComp(fl, g_Ct[fl].q, add(add(g_Ct[fl].p, v3(0, 0, g_tz)), v3(0, 0, g_awT.z)));   /* (aw 326) g_awT: the airwalk's pivot (aw 328: its height only -- the drawn deck takes no other move; the rest is the body's, AwBody) */
     g_lastPull = g_tz;
 }
 void DeckRelax() {                             // no grab: the held tweak lets go
     g_tq = qslerpTo(g_tq, q4(0, 0, 0, 1), 0.15f);
-    g_tz *= 0.85f;
+    g_tz *= 0.85f; g_awT = mul(g_awT, 0.7f);   /* (aw 326; 328: quicker, the body's shift goes with it) */
 }
 bool DeckHeld() { return qangle(g_tq) > 0.3f || fabsf(g_tz) > 0.2f; }
 
@@ -2964,7 +2964,7 @@ void LegSearch(int k, V3 F, Q4 fq, const float* wh, float rollS, float splay) {
     }
     g_lastPlant[k] = len(sub(g_Ct[ft].p, Fs));
     g_lastHeel[k] = g_legHeelS[k]; g_lastSwing[k] = g_legThS[k]; g_lastRoll[k] = g_legRollS[k];
-}
+} void AwFeet(int k, V3& F, Q4& fq, int front, float wf);   /* (aw 324) the airwalk's feet (the note at AwFeet) */
 
 // THE FEET: on the drawn deck (eased in by the grab weight); a foot without a learned offset is left alone
 void DeckLegs(const void* mesh, const void* anim, const float* w, const float* wh) {
@@ -2986,8 +2986,8 @@ void DeckLegs(const void* mesh, const void* anim, const float* w, const float* w
                 if (k == 1 - pr.frontFoot && tailHeld) p = add(p, qrot(g_dq, mul(a, slide)));
             }
         }
-        const V3 F = lerp(g_Ct[g_foot[k]].p, p, wf);
-        const Q4 fq = qslerpTo(g_Ct[g_foot[k]].q, q, wf);
+        V3 F = lerp(g_Ct[g_foot[k]].p, p, wf);
+        Q4 fq = qslerpTo(g_Ct[g_foot[k]].q, q, wf); AwFeet(k, F, fq, pr.frontFoot, wf);   /* (aw 324) an airwalk: the feet off the deck */
         g_lastFeetDeck[k] = len(sub(p, g_C[g_foot[k]].p));
         const bool front = (k == pr.frontFoot);
         const float rollS = (front ? pr.frontRoll : pr.backRoll) * wf;
@@ -4711,32 +4711,6 @@ void FootUnderWatch(const void* mesh, const void* anim, unsigned on) {
         (on & 0x10) ? " foot-ground" : "", (on & 0x20) ? " bone-hand" : "", (on & 0x40) ? " PLANT" : "",
         (int)g_riding, g_stCur, g_plantFoot, g_plantStage, g_plantD);
 }
-// ==== (v83) THE BODY TURNED TO THE FEET ===============================================================================
-// The switch no comply rides you in the other stance with the mesh turned half round; the stance and the turn are two
-// writes, and on the frames where only one of them shows (going in, and coming out at the landing: the trace of 23:24:19
-// has the animation's feet at -17 / +18 cm along the deck with the held ones at +25 / -13) the whole body stands half a
-// turn round from the feet the mod holds on the board -- "the lower half spins 180", "the feet do squirrely things". On a
-// pose where the hips' line is more than 125 deg round from the line of the feet's riding spots, the body is turned half
-// round about the mesh's own axis (as the missing write would have turned it); the held feet then meet it.
-LONG g_bodyFlips = 0; float g_bodyAng = 0.0f; int g_bodyRun = 0;
-bool BodyToSpots(const char* where) {
-    g_bodyAng = 0.0f;
-    if (g_pelvis < 0 || g_thigh[0] < 0 || g_thigh[1] < 0 || !g_deckOk || g_stCur < 0 || !g_dFootOk[0] || !g_dFootOk[1]) return false;
-    const V3 fl = qrot(g_dq, sub(g_uFootP[0], g_uFootP[1]));
-    const V3 hl = sub(g_Ct[g_thigh[0]].p, g_Ct[g_thigh[1]].p);
-    g_bodyAng = flatAngle(hl, fl);
-    if (g_bodyAng <= 125.0f) { g_bodyRun = 0; return false; }
-    // a swap's frame is one or two poses: a body that STAYS turned from the feet's line is the animation's own twist
-    if (++g_bodyRun > 8) {
-        if (g_bodyRun == 9) Log("%s: the body has stood %.0f deg round from the feet's line for 9 poses running -- the animation's own twist: left alone from here", where, g_bodyAng);
-        return false;
-    }
-    const V3 pp = g_Ct[g_pelvis].p;
-    SetComp(g_pelvis, qnorm(qmul(qaxis(kUp, 180.0f), g_Ct[g_pelvis].q)), v3(-pp.x, -pp.y, pp.z));
-    if (InterlockedIncrement(&g_bodyFlips) <= 40)
-        Log("%s: the body stood %.0f deg round from the feet's line on this pose (a stance swap's frame) -- turned half round to them", where, g_bodyAng);
-    return true;
-}
 float g_hopExt[2] = { 0, 0 }; bool g_hopExtOk = false; double g_hopExtT = 0.0; LONG g_hopEased = 0; float g_hopEasedMost = 0.0f;
 bool HopLegs() {
     if (g_planFrom > 0.01f) { g_hopExtOk = false; return false; }   // (v94) the planned landing's legs lengthen 330 cm/s at most by construction: a cut here would only make the feet late
@@ -5306,7 +5280,7 @@ constexpr float HOP_SHIN_AIM_FADE = 15.0f;  // ...over this many (no jump where 
 constexpr float SHIN_AIM_MAX2 = 150.0f, SHIN_AIM_FADE2 = 25.0f; constexpr int SHIN_TAIL = 60; constexpr float SHIN_ROLL_FROM = 60.0f, SHIN_ROLL_OVER = 30.0f; int g_hopShinTail = SHIN_TAIL, g_plantShinTail = SHIN_TAIL; bool g_hopShinDid = false; ULONGLONG g_hopShinAt = 0;   // deg whole / gone at +25; poses held; deg of turn the roll starts / is whole by +30
 void ShinRoll(int s, int ca, int ft, float turn) { const int th = g_thigh[s]; const float rw = clampf((turn - SHIN_ROLL_FROM) / SHIN_ROLL_OVER, 0.0f, 1.0f); if (!(rw > 0.0f) || th < 0 || g_hingeOn == 0 || g_hingeN[s] < 30) return; const V3 ax = sub(g_Ct[ft].p, g_Ct[ca].p); const float al = len(ax); if (!(al > 1.0f)) return; const V3 t = mul(ax, 1.0f / al);   /* (shinwob 258) W. the shin about its own line (knee to ankle) until its hinge lies on the thigh's */
     V3 h = qrot(qnorm(g_Ct[ca].q), g_hingeCa[s]); h = sub(h, mul(t, dot(h, t))); V3 n = qrot(qnorm(g_Ct[th].q), g_hingeTh[s]); n = sub(n, mul(t, dot(n, t))); if (!finite3(h) || !finite3(n) || len(h) < 0.3f || len(n) < 0.3f) return; const V3 hn = norm(h), nn = norm(n); const float a = atan2f(dot(cross(hn, nn), t), dot(hn, nn)) * rw; if (!std::isfinite(a) || fabsf(a) < 0.002f) return; TurnComp(ca, qaxis(t, a * 57.2957795f)); }
-bool HopShinFix(bool win, bool ok) {        // win: a hop's air or landing window on this pose; ok: no other trick's legs drawn on it
+bool AwShinFix(); bool HopShinFix(bool win, bool ok) {        // win: a hop's air or landing window on this pose; ok: no other trick's legs drawn on it
     ok = ok && g_hopShinOn != 0;
     const ULONGLONG nowT = GetTickCount64(); if (!(win && ok) && g_hopShinW > 0.0f && nowT - g_hopShinAt > 250) { g_hopShinW = 0.0f; g_hopShinTail = SHIN_TAIL; }   /* (shinwob 258) W. a gap of 250 ms in the hook's calls ends the weight */
     if (win && ok) { g_hopShinW = fminf(1.0f, g_hopShinW + 1.0f / 9.0f); g_hopShinTail = 0; } else if (ok && g_hopShinW > 0.0f && g_hopShinTail < SHIN_TAIL) g_hopShinTail++; else { g_hopShinW = fmaxf(0.0f, g_hopShinW - 1.0f / 12.0f); g_hopShinTail = SHIN_TAIL; } if (ok && g_hopShinW > 0.0f) g_hopShinAt = nowT;   /* W. held through the landing's roll-away */
@@ -6709,7 +6683,7 @@ void PosePass(void* mesh) {
     LandNote(mesh);                                               // (v94) 'land +N' lines while a trace runs
     if (held) {                                      // the drawn deck eases back after a grab
         TurnComp(g_flipper, g_tq);
-        SetComp(g_flipper, g_Ct[g_flipper].q, add(g_Ct[g_flipper].p, v3(0, 0, g_tz)));
+        SetComp(g_flipper, g_Ct[g_flipper].q, add(add(g_Ct[g_flipper].p, v3(0, 0, g_tz)), v3(0, 0, g_awT.z))); AwBody();   /* (aw 326; 328) */
         changed = true;
     }
     if (grab) {
@@ -6803,7 +6777,7 @@ void PosePass(void* mesh) {
             else if (g_tweakMode >= 2 && finite3(tgtSd)) g_lastTweak = TweakFit(sd, w[sd], anim, tgtSd);
             else g_lastTweak = Tweak(sd, w[sd], anim);
         }
-        const V3 deckUpNow = g_boardOk ? DeckUp() : kUp;
+        AwBody(); const V3 deckUpNow = g_boardOk ? DeckUp() : kUp;   /* (aw 328) an airwalk's pivot: the body moved, before the legs and hands */
         // Melon (v12): the photo's "boned" melon has the board out in front -- the game locks the deck under the mesh
         // origin, so the body goes back instead (toward the heels), and the legs reach out to the deck
         const float backBy = GP(g_grabKind, GP_BACK);      // (v34: each grab's own; Melon 25)
@@ -7142,7 +7116,7 @@ void PosePass(void* mesh) {
             if (g_boneShift > g_bsMost) {
                 const uint8_t* sk = (const uint8_t*)g_skater;
                 g_bsMost = g_boneShift; g_bsTgt = g_boneTgtNow; g_bsAsk = g_boneAskNow; g_bsRoom = g_boneRoomNow; g_bsLeg = g_boneLegNow; g_bsArms = g_boneCap; g_bsBehind = g_boneBehindNow; g_bsLim = g_boneLim;
-                g_bsKind = g_grabKind; g_bsBoard = g_boneByBoard ? 1 : 0; g_bsState = (!g_sigMode && sk && PtrOk(sk, 0x700)) ? sk[SKB_CATCH] : -1;
+                g_bsKind = g_grabKind; g_bsBoard = g_boneByBoard ? 1 : 0; g_bsState = (sk && PtrOk(sk, 0x700)) ? sk[SKB_CATCH] : -1;
             }
         }
         for (int s = 0; s < 2; s++) {
@@ -7200,7 +7174,7 @@ void PosePass(void* mesh) {
     if (wdrawn) changed = true;
     if (SafeWallSmooth(wdrawn, g_pelvis >= 0 && g_boardOk && g_flipper >= 0 && !grab)) changed = true;   // (wallsmooth 254) the ride's body eased in, its arms calm, its release blended (the note at WallSmooth)
     if (g_altTuckCm > 0.5f && !grab && !wall && !GameFeet() && AltTuck(mesh)) changed = true;   // (v129) a monster flip: the feet drawn up toward the hips while the board turns under them
-    if (HopShinFix(air || land, !grab && !plant && !bone && !fhold && !phOn && !wall && !altAir && !dvAir && !gflip)) changed = true;   // (hipshin 256) H. last: a hop's shins onto their lines knee to ankle, the feet kept
+    if (grab && AwShinFix()) changed = true; if (HopShinFix(air || land, !grab && !plant && !bone && !fhold && !phOn && !wall && !altAir && !dvAir && !gflip)) changed = true;   // (hipshin 256) H. last: a hop's shins onto their lines knee to ankle, the feet kept
     {                                                // (plantshin 257) P. last: a no comply's / boneless's / bean plant's shins onto their lines knee to ankle, the feet kept
         const bool ncWin = plant || fhold || phOn || gfeet;   /* the no comply's own windows (its Lua alone opens them) */
         if (PlantShinFix(ncWin, !grab && !wall && !altAir && !dvAir && !gflip && !air && !land && !hk && !hdeck && !hfeet && !(bone && !ncWin))) changed = true;
@@ -8037,14 +8011,14 @@ int SafeBoardState() { __try { return BoardState(); } __except (GrabFilter(GetEx
 // it happen all the same, ("throwanim", -1) hands back 0 and the log says "the game put its type back to 0".)
 // NOT RUN IN THE GAME when written: whether the state starts from the type alone is what the experiment is to show.
 // Neither does anything on another build of the game (these are raw offsets of the exe this was written against).
-constexpr int PC_TOGGLE_TIMER = 0x744;                          // ASessionPlayerController: the toggle cooldown, seconds (ToggleGates reads it too)
+constexpr int PC_TOGGLE_TIMER = 0x744; uintptr_t RVA_SK_ONGRIND = 0xff84c0; volatile int g_onGrindOk = 1;   // ASessionPlayerController: the toggle cooldown, seconds (ToggleGates reads it too) | (steam 336) ASkaterCharacterBase::IsOnGrind() const, by signature on another build (OwnSigScan); 1 = callable
 constexpr int AI_FOOT2BOARD = 0x308, AI_GOOFY = 0x304, AI_MIRROR = 0x3d5;   // USkaterAnimInstance::FootToBoardTransitionType | IsSkatingGoofy | IsAnimMirrorOn (the note above)
 constexpr ULONGLONG kThrowAnimHoldMs = 400;                     // what one asking keeps the type for
 volatile LONG g_throwAnimOn = 0; volatile ULONGLONG g_throwAnimUntil = 0; void* volatile g_throwAnimAt = nullptr;   // the mod's type is up | until this tick | on this anim instance
 // -> 1 the game's own Y is refused for (at least) that long, 0 not written
 int YGate(float s) {
     uint8_t* pc = (uint8_t*)g_pc;
-    if (g_sigMode || !g_hooked || !pc || !PtrOk(pc, 0x7d0) || !g_skater || !std::isfinite(s)) return 0;
+    if (!g_hooked || !pc || !PtrOk(pc, 0x7d0) || !g_skater || !std::isfinite(s)) return 0;   /* (steam 336) any build */
     if (*(void* const*)(pc + PC_SKATER) != g_skater) return 0;  // (a controller that does not name our skater is not written through, as LateHandler)
     float* t = (float*)(pc + PC_TOGGLE_TIMER);
     s = clampf(s, 0.0f, 2.0f);
@@ -8073,7 +8047,7 @@ void ThrowAnimEnd(const char* why) {
 // 1 = regular, 2 = switch: started -> the clip type written (1 or 2). -1: kept, 0.4 s more -> the type still there.
 // 0: ended -> 1. 0 back = refused, not on, or the game has put the type back to 0
 int ThrowAnim(int v) {
-    if (g_sigMode || !g_hooked) return 0;
+    if (!g_hooked) return 0;   /* (steam 336) any build: the anim instance's own field */
     if (v == 0) { ThrowAnimEnd("the Lua ended it"); return 1; }
     uint8_t* an = ThrowAnimInst(); const uint8_t* sk = (const uint8_t*)g_skater;
     if (!an || !sk || !PtrOk(sk, 0xa40)) return 0;
@@ -8138,9 +8112,9 @@ int ToggleGates(char* b, size_t n) {
     // (v112) the one test of ASessionPlayerController::CanToggleOnBoard no reading covered: the skater's IsOnGrind().
     // The game's own function is asked (known build only). And the controller's timer above says more than its sign:
     // ToggleOnBoardRegular sets it to 0.5 the moment CanToggleOnBoard passes, so far under 0 = it did not pass or was never called.
-    if (!g_sigMode) {
+    if (g_onGrindOk) {   // (steam 336) IsOnGrind: Epic's address, or found by signature (OwnSigScan)
         typedef bool (*OnGrindFn)(const void*);
-        const bool og = ((OnGrindFn)((uint8_t*)GetModuleHandleW(nullptr) + 0xff84c0))(sk);
+        const bool og = ((OnGrindFn)((uint8_t*)GetModuleHandleW(nullptr) + RVA_SK_ONGRIND))(sk);
         const size_t len = strlen(b);
         if (len + 64 < n) _snprintf_s(b + len, n - len, _TRUNCATE, "; the game says you are on a grind: %s", og ? "YES (= no)" : "no");
     }
@@ -8240,7 +8214,7 @@ int BoardMount(int sw, int flip, int wipe, int told, float vx, float vy, float v
     // numbers were read after them, a call into the game among them. A fault there answered 0 with the writes made:
     // the Lua then says "the native half refused the mount" and walks him off, and the loose board is left with its
     // ragdoll bit cleared, which no later click gets past. No such fault is known on this exe: it is the order only
-    const bool rd = !g_sigMode && PtrOk(bm, 0x7f0);
+    const bool rd = PtrOk(bm, 0x7f0);   /* (steam 336) any build */
     V3 was = v3(0, 0, 0); int grounded = -1, swNow = 0, swDir = 0;
     if (rd) {
         const float* md0 = (const float*)(bm + BM_MOVEDIR);
@@ -8271,7 +8245,7 @@ int BoardMount(int sw, int flip, int wipe, int told, float vx, float vy, float v
             was.x, was.y, was.z, wipe ? "ZEROED" : "left as it was", moved,
             grounded > 0 ? "grounded" : (grounded == 0 ? "NOT grounded" : "(grounded or not: not asked)"), swNow, swDir ? "on" : "off");
     }
-    else if (wipe) _snprintf_s(note, sizeof(note), _TRUNCATE, "; the board's old move direction NOT zeroed (%s)", g_sigMode ? "another build of the game" : "the board's movement could not be read that far");
+    else if (wipe) _snprintf_s(note, sizeof(note), _TRUNCATE, "; the board's old move direction NOT zeroed (%s)", "the board's movement could not be read that far");
     Log("board hop: mounting where the board lies (foot position %d, flip flag %d, board flags now %02x)%s", sw ? 4 : 1, flip ? 1 : 0, bd[BD_FLAGS], note);
     return 1;
 }
@@ -9774,14 +9748,14 @@ void TrickTraceLine(const void* mesh, const void* anim) {
     const V3 lt = qrot(g_dq, v3(0, 1, 0));
     auto acr = [&](V3 p) { return dot(sub(p, g_dp), lt); };                        // (v75) cm toward the deck's +Y edge
     auto along = [&](V3 p) { return dot(sub(p, g_dp), fw); };                    // (v74) cm toward the deck's +X end
-    Log("tt  +%4llu ms | root %4.0f, deck %4.0f cm over the ground (pitch %+4.0f) | hips over the ground: anim %4.0f drawn %4.0f | L ankle over the ground: anim %4.0f drawn %4.0f (over the deck %+4.0f) | R ankle: anim %4.0f drawn %4.0f (over the deck %+4.0f) | plant foot %d w %.2f step %.2f hips down %2.0f | foot IK L %.2f R %.2f | hand w %.2f gap %2.0f crouch %2.0f lean %2.0f | along the deck: L anim %+3.0f drawn %+3.0f, R anim %+3.0f drawn %+3.0f | across: L %+3.0f R %+3.0f | deck in the mesh: at %+4.0f %+4.0f, yaw %+4.0f | hips' line to the feet's: anim %3.0f drawn %3.0f, turned on %ld poses | legs drawn (thigh+shin, hip to ankle) L %.0f+%.0f %.0f R %.0f+%.0f %.0f; the game's bones L %.0f+%.0f R %.0f+%.0f | in the mesh (x y): hips %+.0f %+.0f, L hip %+.0f %+.0f, L %+.0f %+.0f, R %+.0f %+.0f",
+    Log("tt  +%4llu ms | root %4.0f, deck %4.0f cm over the ground (pitch %+4.0f) | hips over the ground: anim %4.0f drawn %4.0f | L ankle over the ground: anim %4.0f drawn %4.0f (over the deck %+4.0f) | R ankle: anim %4.0f drawn %4.0f (over the deck %+4.0f) | plant foot %d w %.2f step %.2f hips down %2.0f | foot IK L %.2f R %.2f | hand w %.2f gap %2.0f crouch %2.0f lean %2.0f | along the deck: L anim %+3.0f drawn %+3.0f, R anim %+3.0f drawn %+3.0f | across: L %+3.0f R %+3.0f | deck in the mesh: at %+4.0f %+4.0f, yaw %+4.0f | hips' line to the feet's: anim %3.0f drawn %3.0f | legs drawn (thigh+shin, hip to ankle) L %.0f+%.0f %.0f R %.0f+%.0f %.0f; the game's bones L %.0f+%.0f R %.0f+%.0f | in the mesh (x y): hips %+.0f %+.0f, L hip %+.0f %+.0f, L %+.0f %+.0f, R %+.0f %+.0f",
         GetTickCount64() - g_ttT0, mp.z - gz, deckG, pitch, hgt(g_C[P].p), hgt(g_Ct[P].p),
         hgt(g_C[L].p), hgt(g_Ct[L].p), over(g_Ct[L].p), hgt(g_C[R].p), hgt(g_Ct[R].p), over(g_Ct[R].p),
         g_plantFoot, g_plantW, (g_plantStage == 2) ? g_plantU : 0.0f, g_plantD * g_plantW, ReadF(anim, AI_LFOOT_A), ReadF(anim, AI_RFOOT_A), g_boneW, g_boneGap, g_boneDrop, g_boneLean,
         along(g_C[L].p), along(g_Ct[L].p), along(g_C[R].p), along(g_Ct[R].p), acr(g_Ct[L].p), acr(g_Ct[R].p),
         g_dp.x, g_dp.y, atan2f(fw.y, fw.x) * 57.2957795f,
         (g_thigh[0] >= 0 && g_thigh[1] >= 0 && g_stCur >= 0) ? flatAngle(sub(g_C[g_thigh[0]].p, g_C[g_thigh[1]].p), qrot(g_dq, sub(g_uFootP[0], g_uFootP[1]))) : -1.0f,
-        (g_thigh[0] >= 0 && g_thigh[1] >= 0 && g_stCur >= 0) ? flatAngle(sub(g_Ct[g_thigh[0]].p, g_Ct[g_thigh[1]].p), qrot(g_dq, sub(g_uFootP[0], g_uFootP[1]))) : -1.0f, g_bodyFlips,
+        (g_thigh[0] >= 0 && g_thigh[1] >= 0 && g_stCur >= 0) ? flatAngle(sub(g_Ct[g_thigh[0]].p, g_Ct[g_thigh[1]].p), qrot(g_dq, sub(g_uFootP[0], g_uFootP[1]))) : -1.0f,
         BoneLen(g_Ct, g_thigh[0], g_calf[0]), BoneLen(g_Ct, g_calf[0], g_foot[0]), BoneLen(g_Ct, g_thigh[0], g_foot[0]),
         BoneLen(g_Ct, g_thigh[1], g_calf[1]), BoneLen(g_Ct, g_calf[1], g_foot[1]), BoneLen(g_Ct, g_thigh[1], g_foot[1]),
         BoneLen(g_C, g_thigh[0], g_calf[0]), BoneLen(g_C, g_calf[0], g_foot[0]), BoneLen(g_C, g_thigh[1], g_calf[1]), BoneLen(g_C, g_calf[1], g_foot[1]),
@@ -9903,7 +9877,7 @@ int LedgeScan(float range, float minDrop, float faceYaw, float faceCone, int gty
     // such ground then sends the look behind you as well, but only to ANOTHER surface -- level, flatter and higher
     // than the one under your middle (the deck behind a coping; not a spot further up the bank you stand on).
     const V3 Preal = c.P; float backBy = 0.0f;
-    if (!g_sigMode) {
+    {   // (steam 336) was "if (!g_sigMode)": the capsule's half height, a plain read
         const float hh = *(const float*)((const uint8_t*)root + 0x114);
         if (std::isfinite(hh) && hh > 40.0f && hh < 140.0f && std::isfinite(faceYaw)) {
             const float feet = c.P.z - hh;
@@ -10089,7 +10063,7 @@ ground_found:
 int LedgeScan2(float range, float minDrop, float faceYaw, float faceCone, int gtype, char* out, size_t n) {
     g_ledgeShallow = 0;
     const int r = LedgeScan(range, minDrop, faceYaw, faceCone, gtype, out, n);
-    if (g_ledgeFaced || !g_ledgeLow || g_ledgeBack > 0.0f || faceCone <= 0.0f || g_sigMode) return r;
+    if (g_ledgeFaced || !g_ledgeLow || g_ledgeBack > 0.0f || faceCone <= 0.0f) return r;   /* (steam 336) */
     const int32_t mask1 = g_rayMask; const int complex1 = g_rayComplex;
     char b2[400]; b2[0] = 0;
     g_ledgeShallow = 1;
@@ -10528,7 +10502,7 @@ int SafeBoardKick(V3 v, float spin, V3 o) { __try { return BoardKick(v, spin, o)
 constexpr int BM_HOLD = 0x7eb;
 int BoardGo() {
     uint8_t* bm = BoardMC();
-    if (g_sigMode || !g_hooked || !bm || !PtrOk(bm, 0x7f0)) return 0;
+    if (!g_hooked || !bm || !PtrOk(bm, 0x7f0)) return 0;   /* (steam 336) any build */
     return (_InterlockedAnd8((char*)(bm + BM_HOLD), (char)~0x30) & 0x30) ? 1 : 2;
 }
 int SafeBoardGo() { __try { return BoardGo(); } __except (GrabFilter(GetExceptionCode())) { Log("fault letting go of the board's hold-still"); return 0; } }
@@ -10728,7 +10702,7 @@ int nGroundHold(const Lua& lua) {
 // game's own function nor the mod's). For the hop's mount line: UpdateMoveDirection does nothing on a board that is
 // not grounded. The game's IsGrounded only reads (nine "is this part down" calls on the same object, exe+0xfc36e0).
 int BoardGroundedNow(uint8_t* bm) {
-    if (g_sigMode || !bm || !PtrOk(bm, BM_IFACE + 8)) return -1;
+    if (!bm || !PtrOk(bm, BM_IFACE + 8)) return -1;   /* (steam 336) any build: the slot is checked against IsGrounded (a core signature) */
     void* iface = bm + BM_IFACE;
     void** vt = *(void***)iface;
     if (!PtrOk(vt, VT_ISGROUNDED + 8)) return -1;
@@ -10759,7 +10733,7 @@ int BoardGroundedNow(uint8_t* bm) {
 //  of the game's tables are wrapped for the run, as the ground hold's is; each answers as the game's own unless the
 //  gate is up for OUR board (0.6 s at the most). Not on another build of the game, and not where a slot holds
 //  something else: the set-down then goes build 211's way.)
-constexpr uintptr_t RVA_BD_ONBOARD = 0xf9b2a0, RVA_BM_GRINDSHAPE = 0xfbd4b0; uintptr_t RVA_BM_ISFALLING = 0xfc3500;   /* (hot313) IsFalling: by signature on another build (OwnSigScan) */   // ASkateboardEx::SetOnBoardMode(bool, bool) | USkateboardExMovementComponent::IsFalling() const | ...::GetGrindDetectionShape() const ("lea rax,[rcx+0x8d8] / ret")
+uintptr_t RVA_BD_ONBOARD = 0xf9b2a0, RVA_BM_GRINDSHAPE = 0xfbd4b0; uintptr_t RVA_BM_ISFALLING = 0xfc3500; volatile int g_sdSigOk = 1, g_skBailOk = 1; extern volatile int g_bdFallOk;   /* (steam 336) by signature on another build (OwnSigScan): the set-down's two, Bail; 1 = callable */   /* (hot313) IsFalling: by signature on another build (OwnSigScan) */   // ASkateboardEx::SetOnBoardMode(bool, bool) | USkateboardExMovementComponent::IsFalling() const | ...::GetGrindDetectionShape() const ("lea rax,[rcx+0x8d8] / ret")
 constexpr int BD_IFACE = 0x280, VT_BD_ONBOARD = 0x90, VT_BM_ISFALLING = 0x568, VT_BM_GRINDSHAPE = 0x138;   // the board's ISkateboardInterface and its SetOnBoardMode slot (called at exe+0x1005f6a) | IsFalling in the movement component's own table (asked at exe+0xfc2f22) | the shape in its interface table, the one at BM_IFACE (asked at exe+0xfc3075)
 typedef void (*SdOnBoardFn)(void* iface, bool bForce, bool bUseBoardLoc);
 typedef bool (*SdFallingFn)(void* bm);
@@ -10872,7 +10846,7 @@ bool SdHooksIn(uint8_t* bd, uint8_t* bm) {
 // the deck's middle, cm past the edge and over the ledge top, level over the stance (0) and in the stance (1); "" = no
 int SdArm(const double* a, char* out, size_t n) {
     out[0] = 0;
-    if (g_sigMode || !g_hooked) { Log("set-down: not on this build of the game"); return 0; }
+    if ((g_sigMode && !(g_sdSigOk && g_bdFallOk)) || !g_hooked) { Log("set-down: not on this build of the game (its board functions were not all found by signature)"); return 0; }   /* (steam 336) */
     for (int i = 0; i < 12; i++) if (!std::isfinite(a[i])) { Log("set-down: a number of the stance is not a number -- not armed"); return 0; }
     if (a[5] * a[5] + a[6] * a[6] < 0.25) { Log("set-down: no way out over the edge was given -- not armed"); return 0; }
     uint8_t* sk = (uint8_t*)g_skater; uint8_t* bm = BoardMC();
@@ -11719,7 +11693,7 @@ void CvAfter(void* mesh, const uint8_t* mc, ULONGLONG now) {
     CvT& C = g_cv;
     const float ms = (float)(now - C.mountAt);
     const uint8_t* skb = (const uint8_t*)g_skater;
-    if (!mc[MC_ONBOARD] || g_bail || (!g_sigMode && (mc[0x169] == 5 || (skb && PtrOk(skb, 0x718) && (skb[0x710] & 2))))) { CvAfterEnd("you are off the board again, or bailing -- let go"); return; }   // (not the Lua's "offboard": it is still up on the first poses on the board) (v131, review A) the game's own bail state (skater +0x710 bit 2, the movement's custom mode 5 = WR_SK_FLAGS / WR_SMC_CUSTOM, defined after this block), a pose or more before the Lua's HJN_Set("bail")
+    if (!mc[MC_ONBOARD] || g_bail || ((mc[0x169] == 5 || (skb && PtrOk(skb, 0x718) && (skb[0x710] & 2))))) { CvAfterEnd("you are off the board again, or bailing -- let go"); return; }   // (not the Lua's "offboard": it is still up on the first poses on the board) (v131, review A) the game's own bail state (skater +0x710 bit 2, the movement's custom mode 5 = WR_SK_FLAGS / WR_SMC_CUSTOM, defined after this block), a pose or more before the Lua's HJN_Set("bail")
     if (!PtrOk(mesh, SKM_EDIT + 8)) return;
     const int idx = *(const int*)((const uint8_t*)mesh + SKM_EDIT);
     if (idx < 0 || idx > 1) return;
@@ -13432,18 +13406,6 @@ int WrHitsWallOnly(const uint8_t* bm, V3 Nw) {
     }
     return wall ? 1 : 0;
 }
-// 1 = held this pose; 0 = given back (why says why) or nothing held
-int WrGraceAfter(uint8_t* bm, const uint8_t* board, V3 Pw, V3 Nw, const char*& why) {
-    why = nullptr;
-    if (!g_wrGraceBm) return 0;
-    if (!bm || bm != g_wrGraceBm || !board || !PtrOk(bm, WR_BM_FLOORS + 0x10) || bm[BM_MODE] != 3) { why = "the board is down, or not the one held"; WrGraceGive(); return 0; }
-    const int k = WrHitsWallOnly(bm, Nw);
-    if (k < 0) { why = "a board part touches something other than the wall (the game's own test decides)"; WrGraceGive(); return 0; }
-    if (k == 0 && WrClear(board, Pw, Nw) > WR_GRACE_CLEAR) { why = "the board is clear of the wall"; WrGraceGive(); return 0; }
-    if (WrGraceHold(bm, false)) return 1;
-    why = "it could not be held"; WrGraceGive();
-    return 0;
-}
 // (wallin, build 243) THE WAY OFF'S HOLD (the crouch report 5.6). Build 241's backside ride #2 bailed 0.01 s into its way off: the deck
 // still rolled 70 deg off the board controller's up, still closing on the wall, a wheel 0.2 cm off it ("Board was about to land upside
 // down or not upright"). The hold is now kept on the way off while the board is ON the wall (a blocking hit on its face), within
@@ -14853,9 +14815,27 @@ static const uint8_t kOSigB0[] = { 0xf3,0x0f,0x10,0x81,0xa4,0x07,0x00,0x00,0x0f,
 static const uint8_t kOSigM0[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
 static const uint8_t kOSigB1[] = { 0x0f,0xb6,0x81,0x98,0x05,0x00,0x00,0x2c,0x02,0xa8,0xfd,0x0f,0x94,0xc0,0xc3 };
 static const uint8_t kOSigM1[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// (steam 336) GENERATED by audit/gen_osigs.pl from the game exe with PE stamp 69ca6d05 (all bytes fixed: nothing the linker moves)
+extern uintptr_t RVA_SK_BAIL;
+// BD_ONBOARD  ?SetOnBoardMode@ASkateboardEx@@UEAAX_N0@Z
+static const uint8_t kOSigBX0[] = { 0x48,0x89,0x5c,0x24,0x08,0x57,0x48,0x83,0xec,0x50,0xc6,0x81,0x01,0x05,0x00,0x00,0x01,0x48,0x8b,0xd9,0x48,0x8b,0x49,0x18,0x41,0x0f,0xb6,0xf8,0x48,0x81,0xc1,0x38,0x01,0x00,0x00 };
+static const uint8_t kOSigMX0[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// BM_GRINDSHAPE  ?GetGrindDetectionShape@USkateboardExMovementComponent@@UEBAAEBUFCollisionShape@@XZ
+static const uint8_t kOSigBX1[] = { 0x48,0x8d,0x81,0xd8,0x08,0x00,0x00,0xc3 };
+static const uint8_t kOSigMX1[] = { 1,1,1,1,1,1,1,1 };
+// SK_BAIL  ?Bail@ASkaterCharacterBase@@QEAAXAEBVFString@@_N1@Z
+static const uint8_t kOSigBX2[] = { 0x48,0x89,0x5c,0x24,0x10,0x48,0x89,0x6c,0x24,0x18,0x48,0x89,0x74,0x24,0x20,0x57,0x48,0x83,0xec,0x70,0x80,0xb9,0x49,0x06,0x00,0x00,0x00,0x41,0x0f,0xb6,0xf9,0x41,0x0f,0xb6,0xf0 };
+static const uint8_t kOSigMX2[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// SK_ONGRIND  ?IsOnGrind@ASkaterCharacterBase@@QEBA_NXZ
+static const uint8_t kOSigBX3[] = { 0x48,0x83,0xec,0x28,0x80,0xb9,0xf0,0x00,0x00,0x00,0x01,0x76,0x45,0x48,0x8b,0x81,0x50,0x05,0x00,0x00,0x48,0x85,0xc0,0x74,0x47,0x48,0x8b,0x88,0x28,0x0b,0x00,0x00 };
+static const uint8_t kOSigMX3[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
 static const HnSig kOSigs[] = {
     { "BM_ISFALLING", &RVA_BM_ISFALLING, kOSigB0, kOSigM0, 32, -1, 0, 0, -1, -1, -1, 0 },   // USkateboardExMovementComponent::IsFalling
     { "HS_SKSWITCH", &RVA_HS_SKSWITCH, kOSigB1, kOSigM1, 15, -1, 0, 0, -1, -1, -1, 0 },     // ASkaterCharacterBase::IsSkatingSwitch
+    { "BD_ONBOARD", &RVA_BD_ONBOARD, kOSigBX0, kOSigMX0, 35, -1, 0, 0, -1, -1, -1, 0 },      // (steam 336) ASkateboardEx::SetOnBoardMode (the set-down)
+    { "BM_GRINDSHAPE", &RVA_BM_GRINDSHAPE, kOSigBX1, kOSigMX1, 8, -1, 0, 0, -1, -1, -1, 0 },  // (steam 336) USkateboardExMovementComponent::GetGrindDetectionShape (the set-down)
+    { "SK_BAIL", &RVA_SK_BAIL, kOSigBX2, kOSigMX2, 35, -1, 0, 0, -1, -1, -1, 0 },            // (steam 336) ASkaterCharacterBase::Bail (the auto casper's Landing 3)
+    { "SK_ONGRIND", &RVA_SK_ONGRIND, kOSigBX3, kOSigMX3, 32, -1, 0, 0, -1, -1, -1, 0 },      // (steam 336) ASkaterCharacterBase::IsOnGrind (HJN_ToggleGates)
 };
 bool ForceSigs() {   /* (hot313) the test switch: Mods\ExpandedTricksNative\force-signatures.txt beside the mod = the signature path on any exe */
     static int v = -1;
@@ -14867,11 +14847,17 @@ bool ForceSigs() {   /* (hot313) the test switch: Mods\ExpandedTricksNative\forc
     return v == 1;
 }
 void OwnSigScan(const wchar_t* path) {   /* (hot313) on another build, after the feature group: the two getters, each on its own */
-    g_bdFallOk = 0; g_hsSwOk = 0;
-    static HnSigFound of[2];
-    __try { HnSigScanTabPath(path, kOSigs, 2, of, &Log); } __except (EXCEPTION_EXECUTE_HANDLER) { of[0].ok = of[1].ok = false; Log("signatures (getters): fault while reading the exe (code %08x)", GetExceptionCode()); }
+    g_bdFallOk = 0; g_hsSwOk = 0; g_sdSigOk = 0; g_skBailOk = 0; g_onGrindOk = 0;   /* (steam 336) + the set-down's two, Bail, IsOnGrind */
+    constexpr int kON = (int)(sizeof(kOSigs) / sizeof(kOSigs[0]));
+    static HnSigFound of[kON];
+    __try { HnSigScanTabPath(path, kOSigs, kON, of, &Log); } __except (EXCEPTION_EXECUTE_HANDLER) { for (int i = 0; i < kON; i++) of[i].ok = false; Log("signatures (getters): fault while reading the exe (code %08x)", GetExceptionCode()); }
     if (of[0].ok) { RVA_BM_ISFALLING = of[0].rva; g_bdFallOk = 1; }
     if (of[1].ok) { RVA_HS_SKSWITCH = of[1].rva; g_hsSwOk = 1; }
+    if (of[2].ok && of[3].ok) { RVA_BD_ONBOARD = of[2].rva; RVA_BM_GRINDSHAPE = of[3].rva; g_sdSigOk = 1; }   /* (steam 336) */
+    if (of[4].ok) { RVA_SK_BAIL = of[4].rva; g_skBailOk = 1; }
+    if (of[5].ok) { RVA_SK_ONGRIND = of[5].rva; g_onGrindOk = 1; }
+    Log("drop-in set-down: %s (SetOnBoardMode %s, GetGrindDetectionShape %s, IsFalling %s); the auto casper's bail: %s; IsOnGrind: %s (steam 336)", (g_sdSigOk && g_bdFallOk) ? "can run on this build" : "OFF on this build (build 211's way)",
+        of[2].ok ? "found" : "NOT found", of[3].ok ? "found" : "NOT found", of[0].ok ? "found" : "NOT found", g_skBailOk ? "can run" : "off (the game's own end)", g_onGrindOk ? "found" : "not found");
     Log("big drop landing: %s (USkateboardExMovementComponent::IsFalling %s)", g_bdFallOk ? "can run on this build" : "OFF on this build", of[0].ok ? "found by signature" : "NOT found exactly once");
     Log("tail stop: %s (ASkaterCharacterBase::IsSkatingSwitch %s)", g_hsSwOk ? "can run on this build" : "OFF on this build", of[1].ok ? "found by signature" : "NOT found exactly once");
 }
@@ -15004,7 +14990,6 @@ float WgWallieW(float pe, float target, float rate, float dt, float pull) {
     return fminf(need, pe >= target - WG_WALLIE_NEAR ? most : fminf(rate + p / d, most));   /* rising: the rate net of the pull */
 }
 bool WgSameWall(V3 P0, V3 N0, V3 P1, V3 N1) { return dot(N0, N1) >= cosf(WG_SAME_DEG * 0.0174532925f) && fabsf(dot(sub(P1, P0), N0)) <= WG_SAME_CM; }
-float WgRise(float up, float g) { return up * up / (2.0f * fmaxf(fminf(g, g_wrCfg.g), 1.0f)) * 1.08f + 5.0f; }   // cm the take-off can lift the deck at the most: its rise at the lower of the body's own fall and the game's gravity, 8 % and 5 cm over (WG_MARGIN)
 // the take-off's arc as the in-air ride will meet it: the board leaves at vz0 cm/s up from h0 cm over the ground, closing on a
 // wall gap cm away at vin; the game makes the air `air` s later; the ride can start once the wall is inside its own window
 // (WallFan: within reachEff and tw s of it, or 35 cm) -- tStart s after the take-off, h cm over the ground, rising at vz
@@ -21023,51 +21008,6 @@ const char* HospStance(const char* nm) {           /* the stance's prefix from t
    2.5 s after the landing or 6 s after the flick at the most. With TrickNames 0 nothing is renamed. */
 struct HospNm { int on; LONG n; uintptr_t def; uint64_t defName; double t0, tLand; bool idxSeen; int evSlot; };   /* on: 0 off, 1 in its turn / air, 2 landed (its line still to be shown) */
 HospNm g_hospNm = {};
-// (grindfix5, build 286) ALTDOUBLEVARIALNAME. The user on 285: "the nightmare flip calls itself a double varial flip, which I'm guessing the
-// game must have had programmed in there, because I see that from time to time as well ... just stifle that from ever popping up and always
-// show nightmare flip." The game writes "Double" from the pending line's flip (the event's +0x10: ~720 = Double); the alt nightmare's own line
-// is halved by AltEventFix (n.log: "display: Double -> fixed"), the game's OWN double varial flip / heel never was. AltDoubleVarialName
-// (HJN_Set("altdoublevarialname", 0/1); 0 = nothing here runs: DvnPoll is called only with the key on and DvnLive answers false): every pose
-// (AltTick, the alt set on) a pending line of one of the 8 varial flip / heel definitions (RGS/SWS/NLS/FKS) with its flip at 700..1000 (a
-// double) is halved (no "Double"), not an alt trick's own while it runs (AltEventFix's), and HJN_Alt("state") says kind 13 with that
-// definition until its line has been shown (HospNamePoll's way, 8 s at most): the Lua writes NATIVE.ALT_NAMES' texts on it ("[Switch |Nollie
-// |Fakie ]Nightmare Flip" / "... Daydream Flip" and their body varial texts) as for an alt one. 'alt flips: double varial' lines.
-struct DvnT { int on, kind, evSlot; bool idxSeen; uintptr_t def; uint64_t defName; double t0; float was; };
-DvnT g_dvn = {}; volatile LONG g_altDvn = 0; LONG g_dvnSaid = 0;
-bool DvnLive(double now) { return g_altDvn != 0 && g_dvn.on != 0 && g_dvn.def != 0 && now - g_dvn.t0 <= 8.0; }
-void DvnPoll(const AltT& A, const uint8_t* pc, double now) {
-    DvnT& D = g_dvn;
-    if (!pc || !PtrOk(pc, ALT_PC_WIDGET + 8)) return;
-    if (D.on) {   /* its line looked for on the trick display: the names go back once it has been shown */
-        int idx = -1;
-        const int i = AltEventFind(pc, D.defName, nullptr, &idx);
-        if (i >= 0 && D.evSlot < 0) D.evSlot = i;
-        if (idx >= 0) D.idxSeen = true;
-        if (!DvnLive(now) || (D.idxSeen && (idx < 0 || (D.evSlot >= 0 && idx > D.evSlot)))) D.on = 0;
-    }
-    for (int s = 4; s < 12; s++) {
-        const uintptr_t d = g_altDef[s];
-        if (!d || !PtrOk((const void*)d, ALT_FTD_NAME + 8)) continue;
-        if (A.t.phase != 0 && A.t.def == d) continue;   /* an alt nightmare / daydream running: AltEventFix's line */
-        uint64_t nm = 0; memcpy(&nm, (const void*)(d + ALT_FTD_NAME), 8);
-        uint8_t* ev = nullptr; int idx = -1;
-        const int i = AltEventFind(pc, nm, &ev, &idx);
-        if (i < 0 || !ev) continue;
-        float* r = (float*)(ev + ALT_TDW_EV_ROLL);
-        const float was = *r, a = fabsf(was);
-        if (!(a >= 700.0f && a < 1000.0f)) continue;
-        *r = copysignf(a * 0.5f, was);
-        if (!D.on || D.def != d) { D = DvnT{}; D.on = 1; D.kind = (s < 8) ? 2 : 4; D.evSlot = i; D.def = d; D.defName = nm; D.t0 = now; D.was = was; }
-        if (InterlockedIncrement(&g_dvnSaid) <= 200)
-            Log("alt flips: double varial: the game's pending line of definition slot %d (a varial %s) read a flip of %.0f (\"Double\") -> %.0f; named the %s until its line is shown (AltDoubleVarialName=1)",
-                s, s < 8 ? "flip" : "heel", was, *r, s < 8 ? "Nightmare Flip" : "Daydream Flip");
-    }
-}
-void DvnSet(double v) {   /* HJN_Set("altdoublevarialname") */
-    const LONG o = (v >= 0.5) ? 1 : 0;
-    if (InterlockedExchange(&g_altDvn, o) != o) Log("alt flips: a double varial flip / heel shown as the Nightmare / Daydream Flip %s (AltDoubleVarialName=%ld)", o ? "ON" : "off", (long)o);
-    if (!o) g_dvn.on = 0;
-}
 bool HospNameLive(double now) { const HospNm& M = g_hospNm; return M.on != 0 && M.def != 0 && now - M.t0 <= 6.0 && (M.on != 2 || now - M.tLand <= 2.5); }
 void HospNamePoll(const uint8_t* pc, double now) {   /* every pose of the watch: a landed one's line looked for on the trick display (AltPending's way) */
     HospNm& M = g_hospNm;
@@ -21411,7 +21351,7 @@ void CasLandStep(AltT& A, uint8_t* pc, uint8_t* sk, uint8_t* bm, double now) {  
                 L.ride = 1; L.tRide = now; iah[HOSP_IAH_IN] = 1; *(float*)(iah + CAS_IAH_GRACE) = 0.0f;
                 Log("casper land: #%ld landed IN the auto casper %.2f s after the lock (AltCasperLand=2): ridden as the game's casper -- until a trick out of it (the game's way out), a bail; no stick needed", (long)C.n, now - C.t0);
             } else if (land == 3) {
-                if (FeatSigOff() || g_hospFnOk <= 0) Log("casper land: #%ld touched down in the auto casper (AltCasperLand=3) but the game's Bail is not the one this build was read off (another exe): not bailed -- the game's own end", (long)C.n);
+                if ((g_sigMode && !g_skBailOk) || g_hospFnOk <= 0) Log("casper land: #%ld touched down in the auto casper (AltCasperLand=3) but the game's Bail is not the one this build was read off (another exe): not bailed -- the game's own end", (long)C.n);
                 else { g_casBailN = C.n; InterlockedExchangePointer((void* volatile*)&g_casBailSk, (void*)sk);
                     Log("casper land: #%ld touched down in the auto casper %.2f s after the lock (AltCasperLand=3): the game's own bail asked (Bail \"Failed casper\", at the next engine tick)", (long)C.n, now - C.t0); }
             }
@@ -21428,7 +21368,7 @@ void CasLandStep(AltT& A, uint8_t* pc, uint8_t* sk, uint8_t* bm, double now) {  
 }
 void CasBailRun() {   /* (272) AltCasperLand=3: the bail asked at the touchdown, made here at the start of an engine tick (hkEngineTick) */
     uint8_t* sk = (uint8_t*)InterlockedExchangePointer((void* volatile*)&g_casBailSk, nullptr);
-    if (!sk) return;
+    if (!sk || (g_sigMode && !g_skBailOk)) return;   /* (334) Bail at Epic's address; (steam 336) or found by signature */
     __try {
         if (!PtrOk(sk, HOSP_SK_RATIO + 4) || !(sk[HOSP_SK_CASPER] & 1) || (sk[ALT_SK_FLAGS] & 2) || g_bail) { Log("casper land: #%ld not bailed: by the next tick %s", (long)g_casBailN, (!PtrOk(sk, HOSP_SK_RATIO + 4)) ? "the skater could not be read" : !(sk[HOSP_SK_CASPER] & 1) ? "the casper was already off" : "a bail was running"); return; }
         static wchar_t kFail[] = L"Failed casper";
@@ -21631,7 +21571,6 @@ void AltTick(void* mesh) {
     if (!g_altCfg.on && T.phase == 0 && A.s.in == 0 && A.sn.in == 0) { A.lastOk = false; return; }   /* (246) the nollie set's crouch ends by its machine first */   // off: nothing read at all
     uint8_t* fth = LateHandler();                  // the controller, its flip tricks handler and our skater all name each other
     uint8_t* pc = (uint8_t*)g_pc; uint8_t* sk = (uint8_t*)g_skater;
-    if (g_altDvn) DvnPoll(A, pc, now);   /* (grindfix5 286) AltDoubleVarialName (the note at DvnPoll) */
     uint8_t* ih = nullptr; uint8_t* mc = nullptr; uint8_t* board = nullptr; uint8_t* bm = nullptr;
     const uint8_t* anim = (const uint8_t*)g_anim;
     bool ok = fth && PtrOk(fth, 0x70) && pc && PtrOk(pc, 0x7c8) && sk && PtrOk(sk, 0xa40);
@@ -22745,9 +22684,8 @@ int nAlt(const Lua& lua) {                                       // (a std::stri
         const int tph = g_altForgetAsk ? 0 : A.t.phase;   // (243) a new skater, mesh or map: the trick being forgotten is not reported (the Lua lets go of its trick slot at once)
         const int ph = (FeatSigOff() || !g_hooked || g_altDead) ? -1 : (tph ? tph : ((A.s.in || A.sn.in) ? 1 : 0));   /* (246) + the nollie set's crouch */
         char b[128];
-        const bool dv = !tph && g_altDvn && !HospNameLive(NowS()) && DvnLive(NowS());   /* (grindfix5 286) AltDoubleVarialName: a double varial's names (kind 13, the note at DvnPoll) */
         const bool hn = !tph && HospNameLive(NowS());   /* (253 review) no alt trick: a driven hospital's name (kind 11, the note at HospNm) */
-        snprintf(b, sizeof(b), "%d %d %llu %ld %d %d %d", ph, ((tph && !A.t.dol && A.t.kind == 9 && A.t.usSweep) ? 3 : 0) + (tph ? (A.t.dol ? (A.t.por ? 10 : 5) : A.t.kind) : 0) + (hn ? 11 : 0) + (dv ? 13 : 0), (unsigned long long)(tph ? A.t.def : (hn ? g_hospNm.def : (dv ? g_dvn.def : 0))), (long)A.t.n, tph ? A.t.names : ((hn || dv) ? 1 : 0), (A.s.in == 1) ? (A.engLeft ? 2 : 1) : (A.sn.in == 1 && A.nMir) ? (A.nLeft ? 2 : 1) : 0, A.nFlip ? (A.nFlipLeft ? 2 : 1) : (A.fwrote && !A.nMir && !A.fwPor) ? (A.fwLeft ? 2 : 1) : 0);   // (review F10) + the mirror now: 0 none, 1 the right stick, 2 the left stick; (v134 review) + the front stick turned over now (the dolphin's), the same way
+        snprintf(b, sizeof(b), "%d %d %llu %ld %d %d %d", ph, ((tph && !A.t.dol && A.t.kind == 9 && A.t.usSweep) ? 3 : 0) + (tph ? (A.t.dol ? (A.t.por ? 10 : 5) : A.t.kind) : 0) + (hn ? 11 : 0), (unsigned long long)(tph ? A.t.def : (hn ? g_hospNm.def : 0)), (long)A.t.n, tph ? A.t.names : (hn ? 1 : 0), (A.s.in == 1) ? (A.engLeft ? 2 : 1) : (A.sn.in == 1 && A.nMir) ? (A.nLeft ? 2 : 1) : 0, A.nFlip ? (A.nFlipLeft ? 2 : 1) : (A.fwrote && !A.nMir && !A.fwPor) ? (A.fwLeft ? 2 : 1) : 0);   // (review F10) + the mirror now: 0 none, 1 the right stick, 2 the left stick; (v134 review) + the front stick turned over now (the dolphin's), the same way
         lua.set_string(b);
         return 1;
     }
@@ -23231,7 +23169,7 @@ void SafeLoopWrite(uint8_t* a, LONG bits) {
 }
 /* (heelanim 300) the heel stop's pose, written after NativeUpdateAnimation (the note in mk_heelanim_native.pl): 1 = the manual let go for the
    graph's BreakTail state, 2 = the one-foot powerslide's flags and ratios (g_hsPs: learned from your own tail-down powerslide) */
-volatile LONG g_hsNua = 0; float g_hsPs[6] = { -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f }; volatile LONG g_hsPsLearned = 0, g_hsNuaN = 0; float g_hsCom = -1.0f;   /* COM offset, pitch ratio, ratio, target, exit ratio, exit time; (switchstop 307) the COM side written (-1 the regular tail's) */
+volatile LONG g_hsNua = 0; float g_hsPs[6] = { -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f };   /* (pose 342) held: the full tail-down pose */ volatile LONG g_hsPsLearned = 0, g_hsNuaN = 0; float g_hsCom = -1.0f;   /* COM offset, pitch ratio, ratio, target, exit ratio, exit time; (switchstop 307) the COM side written (-1 the regular tail's) */
 void HsNua(uint8_t* a, LONG how) {   /* POD only (the caller's __try) */
     a[ALT_AI_MANUAL] = 0; a[ALT_AI_NOSEMANUAL] = 0;
     if (how == 2) {
@@ -23753,6 +23691,312 @@ void CkPoll() {                          // the game thread (each pose, the engi
         else if (GetTickCount64() - c.at > 600) { InterlockedIncrement(&g_ckLate); CkApply(i, 0, "no answer from the Lua in 0.6 s"); }
     }
 }
+// (aw 324) THE AIRWALK. The user (1 Nov): "There's a trick called an airwalk. It's basically a nose grab, but then the player removes his
+// feet from the board and splays one to his front and one to his back before catching and landing on the board ... once it's triggered,
+// detach his feet from the board and then kick him forward and kick him back". In the game's Nose grab (kind 1, one hand) A or X (cross or
+// square) takes the feet off the deck: the front foot AirwalkKick cm toward his toes (he faces them: out in front of him) and AW_ALONG past
+// the nose's end of its spot, the back foot as far toward his heels (behind him) and toward the tail, both AirwalkDrop cm under the grip,
+// the front toes up and the back toes down by AW_POINT -- a stride. Out in AW_IN s, held while the button is (AW_HOLD s at the least),
+// back onto their spots in AW_BACK s. The hand stays on the nose (the grab's own). The press and its release are kept from the game. It
+// is all scaled by the grab's weight, as the feet on the deck are: a grab let go takes the feet back with it. 'airwalk' lines in the log.
+constexpr float AW_IN = 0.12f, AW_HOLD = 0.30f, AW_BACK = 0.18f, AW_ALONG = 8.0f, AW_POINT = 10.0f, AW_REACH = 0.95f, AW_SOLE = 50.0f, AW_FRONT = 55.0f, AW_THIGH = 15.0f, AW_SHIN = 80.0f, AW_FLEXF = 10.0f, AW_FLEXB = -20.0f, AW_FKNEE = 10.0f, AW_KNEEMAX = 140.0f;   /* (aw 330) the back foot hangs (-35 -> -20); the back knee's most */   /* (aw 329) the front knee's soft bend: thigh +10, shin -10 of the leg's line */   /* (aw 328) the front leg's swing; the back thigh's and shin's (from straight down); the feet's flex on their shins */   /* (aw 327) the hip -> foot at most 90% of the leg (a bent knee); the soles turned toward the ground up to 50 deg */   // (aw 325: the foot turns with the leg now; 25 on top was too much)
+volatile LONG g_awOn = 1, g_awHeld = 0, g_awNose = 0, g_awN = 0; volatile float g_awKick = 30.0f, g_awDrop = 10.0f;   // HJN_Set("airwalk" / "awkick" / "awdrop")
+volatile double g_awAt = -1.0e9, g_awRel = -1.0e9, g_awPosed = -1.0e9;   // the press, its release, the last pose of a grab's feet
+uint64_t g_fnA = 0, g_fnX = 0, g_awBtn = 0; float g_awPk = 0.0f, g_awMiss[2] = { 0.0f, 0.0f };
+float g_awFixW = 0.0f, g_awShinMax[2] = { 0.0f, 0.0f }, g_awPitchPk = 0.0f; double g_awFixAt = -1.0e9; volatile float g_awPitch = 75.0f; float g_awInc = 0.0f, g_awAnkMax[2] = { 0.0f, 0.0f }, g_awPivPk = 0.0f, g_awSoleMax[2] = { 0.0f, 0.0f }; int g_awFront = 0; V3 g_awF = { 0, 0, 0 }; float g_awTwMax[2] = { 0.0f, 0.0f }, g_awKneeMax[2] = { 0.0f, 0.0f }; float g_awInLine = 0.0f; volatile float g_awSp = 0.8f; float AwSp() { return clampf(g_awSp, 0.2f, 1.5f); }   /* (aw 331) AirwalkSpeed: the legs' out and back times / this */   /* (aw 330) the back knee's further bend (deg) */   /* (aw 329) his toes' way, level (AwFeet); the thighs' twist put right (deg) */   /* (aw 328) the front foot */   /* (aw 327) the soles' turn (deg) */   /* (aw 326) the rocket's part of the pitch now; the ankles put back (deg); the pivot's most (cm) */   // (aw 325) the shin fix's weight, its most; the deck's most over the horizon; AirwalkRocket (HJN_Set "awpitch")
+float AwWeight(double now) {   /* 0..1: how far out the feet are */
+    if (g_awAt < -1.0e8) return 0.0f;
+    const float out = Sm01((float)(now - g_awAt) / (AW_IN / AwSp()));   // (aw 331) / AirwalkSpeed
+    if (g_awHeld) return out;
+    return out * (1.0f - Sm01((float)(now - fmax(g_awAt + AW_HOLD, g_awRel)) / (AW_BACK / AwSp())));
+}
+void AwEnd(const char* why) {
+    if (g_awAt < -1.0e8) return;
+    Log("airwalk %ld: %s -- %.2f s from the press, the feet %.0f%% of the way out at the most; at full stride the L foot stopped %.0f cm and the R %.0f cm short of its mark (a straight leg); the shin fix turned the shins up to %.0f (L) / %.0f (R) deg; the nose asked up to %.0f deg (AirwalkRocket %.0f); the ankles put back up to %.0f (L) / %.0f (R) deg; the board moved up to %.0f cm to turn about the nose (aw 326); the feet flexed on their shins %.0f (L) / %.0f (R) deg; the body moved up to that much the other way, the board only up or down (aw 328); the thighs twisted onto the hip's plane up to %.0f (L) / %.0f (R) deg (aw 329); the back knee bent a further %.0f (L) / %.0f (R) deg (aw 330); the front foot turned in line with its leg up to %.0f deg (aw 333)",
+        (long)g_awN, why, NowS() - g_awAt, g_awPk * 100.0f, g_awMiss[0], g_awMiss[1], g_awShinMax[0], g_awShinMax[1], g_awPitchPk, g_awPitch, g_awAnkMax[0], g_awAnkMax[1], g_awPivPk, g_awSoleMax[0], g_awSoleMax[1], g_awTwMax[0], g_awTwMax[1], g_awKneeMax[0], g_awKneeMax[1], g_awInLine);
+    g_awAt = -1.0e9; g_awHeld = 0;
+}
+void AwFeet(int k, V3& F, Q4& fq, int front, float wf) {   /* DeckLegs: foot k's target on the deck -> the airwalk's */
+    const double now = NowS();
+    if (now - g_awPosed > 0.25) AwEnd("its grab was over");
+    const bool nose = g_awOn && g_grabKind == 1 && g_double == 0;
+    if (k == 0 || now - g_awFixAt > 0.005) g_awFixW = 0.0f;         // (aw 325) a new pose: its own weight
+    g_awPosed = now; g_awNose = nose ? 1 : 0;
+    if (g_awAt < -1.0e8) return;
+    if (!nose) { AwEnd("the grab is not a one-hand Nose grab now"); return; }
+    if (!g_awHeld && now > fmax(g_awAt + AW_HOLD, g_awRel) + AW_BACK / AwSp()) { AwEnd("the feet are back on the board"); return; }
+    const float w = AwWeight(now), ww = w * clampf(wf, 0.0f, 1.0f);
+    if (w > g_awPk) g_awPk = w;
+    if (w > 0.95f && k >= 0 && k < 2 && g_lastPlant[k] > g_awMiss[k]) g_awMiss[k] = g_lastPlant[k];
+    V3 a, lat;
+    if (ww < 0.001f || !DeckAxes(front, a, lat) || g_thigh[k] < 0 || g_calf[k] < 0 || g_foot[k] < 0) return;
+    // (aw 328) THE STRIDE FROM THE HIPS. 324-327 moved each foot from its spot on the deck, in the deck's frame: at 70 deg of deck "out"
+    // and "under" were sideways and down by turns, and the front leg ended 20 deg off vertical, the back shin 45 ("the front foot ... could
+    // be closer to like 50 or more ... the calf should be closer to parallel to the ground"). Now the targets come from the hip, level and
+    // down as the body has them: the front leg AW_FRONT out toward his toes at AW_REACH of its length; the back thigh AW_THIGH back toward
+    // his heels and the shin AW_SHIN back from straight down. AirwalkKick scales the angles (30 = these).
+    V3 L = qrot(g_dq, lat), toe = v3(0.0f, 0.0f, 0.0f);
+    for (int j = 0; j < 2; j++) if (g_toe[j] >= 0) toe = add(toe, sub(g_C[g_toe[j]].p, g_C[g_foot[j]].p));
+    if (dot(toe, L) < 0.0f) L = mul(L, -1.0f);                     // toward his toes: the way he faces
+    L.z = 0.0f;
+    if (!(len(L) > 0.3f)) return;
+    L = norm(L); g_awF = L;                                       // (aw 329) AwLegs'
+    const float s = (k == front) ? 1.0f : -1.0f, sc = clampf(g_awKick / 30.0f, 0.0f, 2.0f);
+    const V3 hip = g_Ct[g_thigh[k]].p, dn = v3(0.0f, 0.0f, -1.0f), fw = mul(L, s);
+    const float th = len(sub(g_Ct[g_calf[k]].p, hip)), sh = len(sub(g_Ct[g_foot[k]].p, g_Ct[g_calf[k]].p));
+    if (!(th > 10.0f) || !(sh > 10.0f)) return;
+    V3 T;
+    if (k == front) {
+        const float an = fminf(AW_FRONT * sc, 85.0f) * 0.01745329f;
+        T = add(hip, mul(add(mul(dn, cosf(an)), mul(fw, sinf(an))), (th + sh) * AW_REACH));
+    } else {
+        const float at = fminf(AW_THIGH * sc, 60.0f) * 0.01745329f, as = fminf(AW_SHIN * sc, 110.0f) * 0.01745329f;
+        const V3 kn = add(hip, mul(add(mul(dn, cosf(at)), mul(fw, sinf(at))), th));
+        T = add(kn, mul(add(mul(dn, cosf(as)), mul(fw, sinf(as))), sh));
+    }
+    if (k != front) T = add(hip, sub(g_C[g_foot[k]].p, g_C[g_thigh[k]].p));   // (aw 330) the back foot: the game's own leg from the drawn hip (AwBackLeg bends its knee)
+    const V3 F2 = lerp(F, T, ww);
+    // (aw 325) the foot turns with its leg (the swing hip -> deck spot onto hip -> this spot); AwShinFix then puts it on its shin
+    const Q4 q2 = qnorm(qmul(qfromto(sub(F, hip), sub(F2, hip)), fq));
+    g_awFixW = fmaxf(g_awFixW, ww); g_awFixAt = now; g_awFront = front;   // (aw 325) the shin fix's weight on this pose; (aw 328) the front foot
+    if (!finite3(F2) || !std::isfinite(q2.w)) return;
+    F = F2; fq = q2;
+}
+// (aw 325) THE ROCKET. "for this trick, the board should be almost vertical from nose to tail ... Right now ... maybe 25": the Nose grab's
+// own pitch (TiltNose, the rising end over the horizon) goes to AirwalkRocket by the airwalk's weight, and back with it. The grab's pitch
+// loop (ProfileFor's number, its feed-forward, trim and lag model) takes the deck there.
+float AwPitch(float base) {
+    const double now = NowS();
+    if (g_awAt < -1.0e8 || !g_awNose || now - g_awPosed > 0.25) { g_awInc = 0.0f; return base; }
+    const float p = base + (fmaxf(base, clampf(g_awPitch, 0.0f, 85.0f)) - base) * AwWeight(now);
+    if (p > g_awPitchPk) g_awPitchPk = p;
+    g_awInc = p - base;                                          // (aw 326) AwPivot's
+    return p;
+}
+// (aw 325) THE SHIN FIX ON THE AIRWALK. "the ankles are severely torn ... don't forget about this thing called the shin fix": the legs'
+// solve carries the game's shin-axis error (Leg() turns the shin from the old line to the new). As HopShinFix: after every other leg edit
+// of the pose the shin bone is turned the least way onto its line knee to ankle by min(1, 3 w) (w = the airwalk's weight x the grab's),
+// faded out past SHIN_AIM_MAX2, a big turn rolled onto the thigh's hinge (ShinRoll), the foot put back exactly as drawn: no joint moves.
+// (aw 329) THE LEGS IN THE HIP'S PLANE. "the whole motion should really be in line with the hip joint ... straight forward or straight
+// back ... the hip joint flips around": 328's targets went to LegSearch, which mid-stride took the back leg's OTHER knee (the thigh swung
+// straight back, the hinge reversed: +73 for the game's -90) and stood the front thigh 45% out to the side. Now both legs are put in
+// the plane of down and his toes' way (g_awF): the thigh turned onto its line and twisted about it until its knee's hinge -- the game's
+// own, carried on the bone -- lies across that plane (the bend's own side, -S), then the shin turned onto its line. Front: thigh at
+// AW_FRONT + AW_FKNEE, shin at AW_FRONT - AW_FKNEE from straight down; back: AW_THIGH and AW_SHIN back. AirwalkKick scales them.
+// (aw 330) THE BACK LEG: THE GAME'S, ITS KNEE BENT ON. "The upper thigh doesn't have to go back at all ... pretty much stay vertical. It's
+// just the calf needs to rotate by the knee. And then the foot just has to naturally hang." 329 built the back leg anew and the shin fix
+// then turned its shin 71-73 deg ("severely warped"). Now the thigh and the shin take the game's own turns on the drawn hips (by st),
+// and the knee alone bends further about the game's own hinge (carried on the thigh), until the shin stands AW_SHIN from straight down
+// or the knee reaches AW_KNEEMAX. The foot then hangs on the game's ankle (AwShinFix, AW_FLEXB).
+bool AwBackLeg(int s, float st) {
+    const int th = g_thigh[s], ca = g_calf[s], ft = g_foot[s], P = (th >= 0) ? g_parent[th] : -1;
+    if (th < 0 || ca < 0 || ft < 0 || P < 0) return false;
+    const Q4 qth = qnorm(qmul(qmul(qnorm(g_Ct[P].q), qconj(qnorm(g_C[P].q))), qnorm(g_C[th].q)));
+    if (std::isfinite(qth.w)) SetComp(th, qslerpTo(g_Ct[th].q, qth, st), g_Ct[th].p);
+    const Q4 qca = qnorm(qmul(qmul(qnorm(g_Ct[th].q), qconj(qnorm(g_C[th].q))), qnorm(g_C[ca].q)));
+    if (std::isfinite(qca.w)) SetComp(ca, qslerpTo(g_Ct[ca].q, qca, st), g_Ct[ca].p);
+    const V3 tg = sub(g_C[ca].p, g_C[th].p), sg = sub(g_C[ft].p, g_C[ca].p);
+    if (!(len(tg) > 5.0f) || !(len(sg) > 5.0f)) return true;
+    const V3 ng = cross(norm(tg), norm(sg));
+    if (!(len(ng) > 0.17f)) return true;                           // the game's knee nearly straight: its hinge not known
+    const V3 hw = norm(qrot(qmul(qnorm(g_Ct[th].q), qconj(qnorm(g_C[th].q))), norm(ng)));   // + = more bend
+    const V3 t1 = sub(g_Ct[ca].p, g_Ct[th].p), s0 = sub(g_Ct[ft].p, g_Ct[ca].p);
+    if (!(len(t1) > 5.0f) || !(len(s0) > 5.0f) || !finite3(hw)) return true;
+    const float want = fminf(AW_SHIN * clampf(g_awKick / 30.0f, 0.0f, 2.0f), 110.0f);   // deg from straight down
+    float best = 0.0f, bestErr = 1.0e9f;
+    for (int i = 0; i <= 75; i++) {
+        const float a = 2.0f * (float)i;
+        const V3 sv = qrot(qaxis(hw, a), norm(s0));
+        if (acosf(clampf(dot(norm(t1), sv), -1.0f, 1.0f)) * 57.2957795f > AW_KNEEMAX) break;
+        const float e = fabsf(acosf(clampf(-sv.z, -1.0f, 1.0f)) * 57.2957795f - want);
+        if (e < bestErr) { bestErr = e; best = a; }
+    }
+    if (best * st > 0.5f) TurnComp(ca, qaxis(hw, best * st));
+    if (best * st > g_awKneeMax[s]) g_awKneeMax[s] = best * st;
+    return true;
+}
+bool AwLegs(float st) {
+    if (!(st > 0.001f) || !(len(g_awF) > 0.5f)) return false;
+    const V3 F = norm(g_awF), D = v3(0.0f, 0.0f, -1.0f), S = norm(cross(D, F));
+    const float sc = clampf(g_awKick / 30.0f, 0.0f, 2.0f), fa = fminf(AW_FRONT * sc, 85.0f);
+    bool did = false;
+    for (int s = 0; s < 2; s++) {
+        const int th = g_thigh[s], ca = g_calf[s], ft = g_foot[s];
+        if (th < 0 || ca < 0 || ft < 0) continue;
+        const bool fr = (s == g_awFront);
+        if (!fr) { if (AwBackLeg(s, st)) did = true; continue; }   // (aw 330) the back leg: the game's, its knee bent on
+        const V3 fw = fr ? F : mul(F, -1.0f);
+        const float aT = (fr ? fa + AW_FKNEE : fminf(AW_THIGH * sc, 60.0f)) * 0.01745329f;
+        const float aS = (fr ? fmaxf(fa - AW_FKNEE, 0.0f) : fminf(AW_SHIN * sc, 110.0f)) * 0.01745329f;
+        const V3 t1 = norm(add(mul(D, cosf(aT)), mul(fw, sinf(aT)))), s1 = norm(add(mul(D, cosf(aS)), mul(fw, sinf(aS))));
+        const V3 n1 = mul(S, -1.0f);                               // cross(thigh, shin) of a knee bent this way, either leg
+        const V3 t0 = sub(g_Ct[ca].p, g_Ct[th].p);
+        if (!(len(t0) > 5.0f)) continue;
+        Q4 R = qfromto(norm(t0), t1);
+        const V3 tg = sub(g_C[ca].p, g_C[th].p), sg = sub(g_C[ft].p, g_C[ca].p);
+        const V3 ng = cross(norm(tg), norm(sg));
+        if (len(tg) > 5.0f && len(sg) > 5.0f && len(ng) > 0.17f) {    // the game's knee bent 10 deg or more: its hinge is known
+            const V3 hL = qrot(qconj(qnorm(g_C[th].q)), norm(ng));
+            V3 nr = qrot(R, qrot(qnorm(g_Ct[th].q), hL));
+            nr = sub(nr, mul(t1, dot(nr, t1)));
+            if (len(nr) > 0.2f) {
+                nr = norm(nr);
+                const float tw = atan2f(dot(cross(nr, n1), t1), dot(nr, n1)) * 57.2957795f;
+                if (std::isfinite(tw)) { R = qnorm(qmul(qaxis(t1, tw), R)); if (fabsf(tw) * st > g_awTwMax[s]) g_awTwMax[s] = fabsf(tw) * st; }
+            }
+        }
+        if (!std::isfinite(R.w)) continue;
+        TurnComp(th, qscale(R, st));
+        // (aw 332) THE FRONT SHIN ON THE GAME'S KNEE. "the front ankle seems to ... twist and waver throughout the trick ... floppy ... pushed
+        // around": 329-331 turned this shin with qfromto from wherever LegSearch had left it, so its roll -- and the foot riding on it -- was
+        // LegSearch's, pose by pose (the drawn twist -48, -16, -47, -15, +5 in a few poses; the game's -50 .. -59). Now the game's own knee
+        // (the shin's turn against the thigh, on the drawn thigh), then a bend about the game's own hinge onto the shin's line, as AwBackLeg.
+        if (len(tg) > 5.0f && len(sg) > 5.0f && len(ng) > 0.17f) {
+            const Q4 qca = qnorm(qmul(qmul(qnorm(g_Ct[th].q), qconj(qnorm(g_C[th].q))), qnorm(g_C[ca].q)));
+            if (std::isfinite(qca.w)) SetComp(ca, qslerpTo(g_Ct[ca].q, qca, st), g_Ct[ca].p);
+            const V3 hw = norm(qrot(qmul(qnorm(g_Ct[th].q), qconj(qnorm(g_C[th].q))), norm(ng)));
+            V3 a0 = sub(g_Ct[ft].p, g_Ct[ca].p), a1 = s1;
+            a0 = sub(a0, mul(hw, dot(a0, hw))); a1 = sub(a1, mul(hw, dot(a1, hw)));
+            if (finite3(hw) && len(a0) > 2.0f && len(a1) > 0.2f) {
+                a0 = norm(a0); a1 = norm(a1);
+                const float bend = atan2f(dot(cross(a0, a1), hw), dot(a0, a1)) * 57.2957795f;
+                if (std::isfinite(bend)) TurnComp(ca, qaxis(hw, bend * st));
+            }
+        } else {
+            const V3 s0 = sub(g_Ct[ft].p, g_Ct[ca].p);
+            if (len(s0) > 5.0f) TurnComp(ca, qscale(qfromto(norm(s0), s1), st));
+        }
+        did = true;
+    }
+    return did;
+}
+// (aw 329) THE ROCKET ABOUT A LEVEL AXIS. The landings of 23:14-23:17 came down 15-34 deg off straight: the rocket pitched the deck
+// about its own lateral axis, which the game's Nose pose rolls 10-15 deg, so the long axis swung round as it rose (tan(pitch) x
+// sin(roll): 20-30 deg at 60-70) and the game levels the board along its long axis when the grab is let go. The rocket's part of the
+// pitch is now turned about the level axis across the deck's long one: the long axis rises in its own upright plane.
+void AwLevelRocket(V3 Lc, V3 Ac, float capP, int sense, float w) {
+    if (!(g_awInc > 0.01f) || !g_awNose || sense < 0) return;
+    const float pT = clampf(g_pI, -capP, capP), pB = clampf(g_pI - g_awInc * clampf(w, 0.0f, 1.0f), -capP, capP);
+    const Q4 tqB = qnorm(qmul(qaxis(Lc, -pB), qaxis(Ac, -g_rI)));
+    V3 Lh = cross(v3(0.0f, 0.0f, 1.0f), qrot(tqB, Ac));
+    if (!(len(Lh) > 0.2f)) return;
+    Lh = norm(Lh);
+    if (dot(Lh, Lc) < 0.0f) Lh = mul(Lh, -1.0f);                   // the deck's lateral's sense
+    const Q4 q = qnorm(qmul(qaxis(Lh, -(pT - pB)), tqB));
+    if (std::isfinite(q.w)) g_tq = q;
+}
+bool AwShinFix() {
+    if (NowS() - g_awFixAt > 0.1 || !(g_awFixW > 0.001f)) return false;
+    const float st = clampf(3.0f * g_awFixW, 0.0f, 1.0f);
+    bool did = AwLegs(st);                                      // (aw 329) the legs in the hip's plane first
+    for (int s = 0; s < 2; s++) {
+        const int ca = g_calf[s], ft = g_foot[s];
+        if (ca < 0 || ft < 0 || g_shinAxN[s] < 30) continue;
+        const V3 sh = sub(g_Ct[ft].p, g_Ct[ca].p); const float sl = len(sh);
+        const V3 ax = qrot(qnorm(g_Ct[ca].q), g_shinAx[s]);
+        if (!(sl > 5.0f) || !finite3(ax) || !(len(ax) > 0.5f)) continue;
+        const V3 a0 = norm(ax), a1 = mul(sh, 1.0f / sl);
+        const float off = acosf(clampf(dot(a0, a1), -1.0f, 1.0f)) * 57.2957795f;
+        const V3 n = cross(a0, a1); const float nl = len(n);
+        if (!std::isfinite(off) || off <= HOP_SHIN_AIM_MIN || off >= SHIN_AIM_MAX2 + SHIN_AIM_FADE2 || !(nl > 1.0e-4f)) continue;
+        const float turn = off * st * clampf((SHIN_AIM_MAX2 + SHIN_AIM_FADE2 - off) / SHIN_AIM_FADE2, 0.0f, 1.0f);
+        if (!std::isfinite(turn) || !(turn > 0.01f)) continue;
+        const Q4 fq0 = g_Ct[ft].q; const V3 fp0 = g_Ct[ft].p;
+        TurnComp(ca, qaxis(mul(n, 1.0f / nl), turn));
+        ShinRoll(s, ca, ft, turn);
+        SetComp(ft, fq0, fp0);
+        if (turn > g_awShinMax[s]) g_awShinMax[s] = turn;
+        did = true;
+    }
+    // (aw 326) THE GAME'S OWN ANKLE. 325's foot was still the deck's foot swung with its leg: with the deck at 60-70 deg the drawn ankle
+    // (shin -> foot) was up to 125 deg off the animation's ("the front foot is basically spun upside down ... attached to the plane of
+    // the board"). Each foot now takes the animation's own shin -> foot turn on the drawn shin, by the same min(1, 3 w): no deck in it.
+    for (int s = 0; s < 2; s++) {
+        const int ca = g_calf[s], ft = g_foot[s];
+        if (ca < 0 || ft < 0) continue;
+        const Q4 want = qnorm(qmul(qnorm(g_Ct[ca].q), qmul(qconj(qnorm(g_C[ca].q)), qnorm(g_C[ft].q))));
+        const float off = qangle(qmul(qconj(qnorm(g_Ct[ft].q)), want));
+        if (!std::isfinite(want.w) || !std::isfinite(off) || !(off > 0.5f)) continue;
+        Q4 fq = qslerpTo(g_Ct[ft].q, want, st);
+        SetComp(ft, fq, g_Ct[ft].p);
+        // (aw 333) THE FRONT FOOT IN LINE WITH ITS LEG. "In the middle of the trick, the foot is in line with the leg, but then it like pronates
+        // out ... Ideally, it could just stay straight": the game's ankle is the Nose grab's, a foot standing across the deck, its toes
+        // turned out from a leg now kicked forward. The front foot is turned about its shin until its toes lie in the leg's own plane.
+        if (s == g_awFront && g_toe[s] >= 0 && len(g_awF) > 0.5f) {
+            const V3 S = norm(cross(v3(0.0f, 0.0f, -1.0f), norm(g_awF)));
+            const V3 shn = norm(sub(g_Ct[ft].p, g_Ct[ca].p));
+            V3 tv = sub(g_Ct[g_toe[s]].p, g_Ct[ft].p);
+            tv = sub(tv, mul(shn, dot(tv, shn)));
+            V3 want = cross(S, shn);
+            if (dot(want, tv) < 0.0f) want = mul(want, -1.0f);
+            if (len(tv) > 1.0f && len(want) > 0.2f && finite3(shn)) {
+                tv = norm(tv); want = norm(want);
+                const float yw = atan2f(dot(cross(tv, want), shn), dot(tv, want)) * 57.2957795f;
+                if (std::isfinite(yw)) { TurnComp(ft, qaxis(shn, yw * st)); if (fabsf(yw * st) > g_awInLine) g_awInLine = fabsf(yw * st); }
+            }
+        }
+        // (aw 328) THE FOOT FOLLOWS ITS SHIN. 327 turned each sole toward the ground, up to 50 deg: through the first half of the stride the
+        // foot still lay as on the board ("that foot needs to follow it naturally instead of following ... the surface of the board"). Now
+        // the game's ankle on the drawn shin, flexed about the ankle's hinge (shin x toe): AW_FLEXF toes up in front, AW_FLEXB pointed behind.
+        if (g_toe[s] >= 0) {
+            const V3 hx = cross(sub(g_Ct[ft].p, g_Ct[ca].p), sub(g_Ct[g_toe[s]].p, g_Ct[ft].p));
+            const float fl = ((s == g_awFront) ? AW_FLEXF : AW_FLEXB) * st;
+            if (len(hx) > 1.0f && fabsf(fl) > 0.1f) { TurnComp(ft, qaxis(norm(hx), fl)); if (fabsf(fl) > g_awSoleMax[s]) g_awSoleMax[s] = fabsf(fl); }
+        }
+        if (off * st > g_awAnkMax[s]) g_awAnkMax[s] = off * st;
+        did = true;
+    }
+    return did;
+}
+// (aw 326) THE ROCKET ABOUT THE HAND. "the board rotates almost around the back axle ... rotate around the hand ... the tip of the board": the
+// board's turn is made on the flipper bone, which sits at the deck's centre, so the rocket swung the nose -- and the hand on it -- in
+// toward the thigh. The rocket's part of the pitch (AwPitch's increment x the grab's weight) is now made about the nose tip: the bone is
+// moved by (tqBase d - tq d), d = centre -> nose on the deck as the game has it, tqBase = the turn without the rocket. A deck turned
+// round in this air (sense -1) is left as it was. The move eases away with the tweak after the grab (DeckRelax).
+// (aw 328) THE PIVOT, GIVEN TO THE BODY. The drawn deck takes the flipper bone's turn and height, not a sideways move (the note at THE
+// DRAWN DECK): 326-327's pivot never reached it and the nose still came 28 cm in toward his thigh. As the Melon's GP_BACK does, the body
+// goes the other way instead: the pelvis (all of him above the board) moved by minus the level part of the pivot, before the legs and
+// the hands are drawn. It eases away with the pivot.
+void AwBody() {
+    if (g_pelvis < 0) return;
+    const V3 h = v3(g_awT.x, g_awT.y, 0.0f);
+    if (!finite3(h) || !(len(h) > 0.05f) || len(h) > 90.0f) return;
+    SetComp(g_pelvis, g_Ct[g_pelvis].q, sub(g_Ct[g_pelvis].p, h));
+}
+V3 AwPivot(int front, Q4 dq0, V3 Lc, V3 Ac, float capP, int sense, float w) {
+    V3 a, lat;
+    if (!(g_awInc > 0.01f) || !g_awNose || sense < 0 || !DeckAxes(front, a, lat)) return mul(g_awT, 0.85f);
+    const float pB = clampf(g_pI - g_awInc * clampf(w, 0.0f, 1.0f) * (float)sense, -capP, capP);
+    const Q4 tqB = qnorm(qmul(qaxis(Lc, -pB), qaxis(Ac, -g_rI)));
+    const V3 d = qrot(dq0, mul(a, fmaxf(HalfLen() - g_spotIn, 10.0f)));
+    const V3 T = sub(qrot(tqB, d), qrot(g_tq, d));
+    if (!finite3(T) || len(T) > 90.0f) return v3(0.0f, 0.0f, 0.0f);
+    if (len(T) > g_awPivPk) g_awPivPk = len(T);
+    return T;
+}
+bool AwKey(const void* key, int ev) {   /* hkInputKey: A / X -- true = the airwalk's (kept from the game) */
+    if (!g_awOn) return false;
+    uint64_t n = 0;
+    __try {
+        if (!g_fnA) { MakeFName("Gamepad_FaceButton_Bottom", &g_fnA); MakeFName("Gamepad_FaceButton_Left", &g_fnX); }
+        n = *(const uint64_t*)key;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    if (!n || (n != g_fnA && n != g_fnX)) return false;
+    const double now = NowS();
+    if (ev != 0) {                                               // its release and repeats: the airwalk's if its press was
+        if (n != g_awBtn) return false;
+        if (ev == 1) { g_awBtn = 0; if (g_awHeld) { g_awHeld = 0; g_awRel = now; } }
+        return true;
+    }
+    if (!g_awNose || now - g_awPosed > 0.12) return false;       // not in a Nose grab: the game's press
+    g_awBtn = n;
+    if (g_awAt > -1.0e8) return true;                            // one is on already: kept, nothing more
+    g_awAt = now; g_awRel = -1.0e9; g_awHeld = 1; g_awPk = 0.0f; g_awMiss[0] = g_awMiss[1] = 0.0f; g_awShinMax[0] = g_awShinMax[1] = 0.0f; g_awPitchPk = 0.0f; g_awAnkMax[0] = g_awAnkMax[1] = 0.0f; g_awPivPk = 0.0f; g_awSoleMax[0] = g_awSoleMax[1] = 0.0f; g_awTwMax[0] = g_awTwMax[1] = 0.0f; g_awKneeMax[0] = g_awKneeMax[1] = 0.0f; g_awInLine = 0.0f;   /* (aw 325; 326; 327; 329; 330) */
+    const LONG c = InterlockedIncrement(&g_awN);
+    Log("airwalk %ld: %s pressed in a Nose grab -- the feet come off the board: the front leg %.0f deg out, the back shin %.0f deg back (AirwalkKick %.0f; aw 328)",
+        (long)c, n == g_fnA ? "A (cross)" : "X (square)", fminf(AW_FRONT * g_awKick / 30.0f, 85.0f), fminf(AW_SHIN * g_awKick / 30.0f, 110.0f), g_awKick);
+    return true;
+}
 // hkInputKey's part: 1 = the event is dealt with (kept), 0 = it goes the usual way
 int CkKey(void* pc, const void* key, int ev) {
     const int i = CkIndex(key);
@@ -23776,6 +24020,24 @@ int CkKey(void* pc, const void* key, int ev) {
 // press that reaches the game with a menu up is the game's (or the menu's, once the Lua hands the menu the pad again); it is still queued
 // for the Lua (PadQueue), whose watcher needs it
 volatile LONG g_menuUp = 0;
+// (bstop 335) THE TAIL STOP ON B (experimental). "wire the tail stop to the b button, so it would not work through the manual process".
+// The pad's B while rolling on the ground (HsTick says so each pose: g_hsBOk) is kept from the game -- no foot brake (StartBraking) --
+// and held until its release; HsTick takes a held B as the back-foot stick all the way down (the note there).
+volatile LONG g_hsBtnOn = 1, g_hsBHeld = 0, g_hsBOk = 0, g_hsBN = 0, g_hsBGiveUp = 0, g_hsByB = 0; volatile double g_hsBOkT = -1.0e9, g_hsBWait = 0.0; uint64_t g_fnB = 0; volatile LONG g_hsManOn = 1; double g_hsLendT = 0.0; bool g_hsLendLate = false; double g_hsBActT = -1.0e9;   /* (tsname 339) the last pose B held a tail stop */   /* (mode 338) the manual's stick path; (first 338) when the stiff PID was lent, and a lend waiting for the side check */
+bool HsKey(const void* key, int ev) {   /* hkInputKey: B -- true = the tail stop's (kept from the game's foot brake) */
+    if (!g_hsBtnOn) { g_hsBHeld = 0; return false; }
+    uint64_t n = 0;
+    __try { if (!g_fnB) MakeFName("Gamepad_FaceButton_Right", &g_fnB); n = *(const uint64_t*)key; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    if (!n || n != g_fnB) return false;
+    if (ev != 0) {                                               // its release and repeats: the tail stop's if its press was
+        if (!g_hsBHeld) return false;
+        if (ev == 1) g_hsBHeld = 0;
+        return true;
+    }
+    if (!g_hsBOk || NowS() - g_hsBOkT > 0.12) return false;    // not rolling on the ground: the game's B
+    g_hsBHeld = 1; InterlockedIncrement(&g_hsBN);
+    return true;
+}
 bool hkInputKey(void* pc, const void* key, int ev, float amt, bool gamepad) {
     if (g_replayClicks && g_hooked && pc && key) {
         InputKeyFn past = nullptr; void* pi = nullptr;
@@ -23793,6 +24055,8 @@ bool hkInputKey(void* pc, const void* key, int ev, float amt, bool gamepad) {
         if (!g_fnRB) { MakeFName("Gamepad_RightShoulder", &g_fnRB); MakeFName("Gamepad_LeftShoulder", &g_fnLB); }
         if (g_fnRB && (*(const uint64_t*)key == g_fnRB || *(const uint64_t*)key == g_fnLB)) return true;   // (v69) LB too
     }
+    if (key && !g_menuUp && HsKey(key, ev)) return true;                                // (bstop 335) B while rolling: the tail stop's
+    if (key && !g_menuUp && AwKey(key, ev)) return true;                                // (aw 324) A / X in a Nose grab: the airwalk's
     if (ev == 0 && key && !g_menuUp) CvNoteKey(key);                                   // (v124) the time of a Y press, for the caveman ((263) not with a pause menu up)
     if (g_padOn && ev == 0 /* IE_Pressed */ && key) {
         __try { PadQueue(key); } __except (EXCEPTION_EXECUTE_HANDLER) { g_padOn = 0; Log("pad: fault reading a key's name -- the native controller read is OFF for this run"); }
@@ -23849,8 +24113,8 @@ XiGetStateFn g_xiGet = nullptr; bool g_xiTried = false; int g_xiUser = -1; ULONG
 DWORD WINAPI UfSampProc(void*) {   /* (280) the underflip's flick sampler (the note at UfFlick): the XInput pad every 1 ms while AltUnderOwnSpeed is on */
     HANDLE tm = CreateWaitableTimerExW(nullptr, nullptr, 0x00000002, TIMER_ALL_ACCESS);   /* CREATE_WAITABLE_TIMER_HIGH_RESOLUTION (Windows 10 1803 on); else Sleep(1) */
     XiGetStateFn get = g_xiGet;
-    const wchar_t* dlls[] = { L"xinput1_4.dll", L"xinput1_3.dll", L"xinput9_1_0.dll" };
-    for (int i = 0; i < 3 && !get; i++) { HMODULE h = LoadLibraryW(dlls[i]); if (h) get = (XiGetStateFn)GetProcAddress(h, "XInputGetState"); }
+    const wchar_t* dlls[] = { L"xinput1_3.dll", L"xinput1_4.dll", L"xinput9_1_0.dll" };   /* (steam 336) the game's own first (it imports XINPUT1_3) */
+    for (int i = 0; i < 3 && !get; i++) { HMODULE h = GetModuleHandleW(dlls[i]); if (!h) h = LoadLibraryW(dlls[i]); if (h) get = (XiGetStateFn)GetProcAddress(h, "XInputGetState"); }
     InterlockedExchange(&g_uoHr, tm ? 1 : 0);
     if (!get) return 0;
     int u = -1; ULONGLONG scan = 0;
@@ -23888,9 +24152,10 @@ int nPadSticks(const Lua& lua) {
     char out[96] = "";
     if (!g_xiTried) {
         g_xiTried = true;
-        const wchar_t* dlls[] = { L"xinput1_4.dll", L"xinput1_3.dll", L"xinput9_1_0.dll" };
-        for (int i = 0; i < 3 && !g_xiGet; i++) { HMODULE h = LoadLibraryW(dlls[i]); if (h) g_xiGet = (XiGetStateFn)GetProcAddress(h, "XInputGetState"); }
-        Log("pad sticks: XInputGetState %s", g_xiGet ? "found" : "NOT available (no XInput)");
+        const wchar_t* dlls[] = { L"xinput1_3.dll", L"xinput1_4.dll", L"xinput9_1_0.dll" };   /* (steam 336) the game's own first: it imports XINPUT1_3, and Steam Input's pad is read through the game's (1_4 first never saw the Steam tester's pad) */
+        int took = -1; bool had = false;
+        for (int i = 0; i < 3 && !g_xiGet; i++) { HMODULE h = GetModuleHandleW(dlls[i]); had = h != nullptr; if (!h) h = LoadLibraryW(dlls[i]); if (h) { g_xiGet = (XiGetStateFn)GetProcAddress(h, "XInputGetState"); if (g_xiGet) took = i; } }
+        Log("pad sticks: XInputGetState %s%s%s", g_xiGet ? "found in " : "NOT available (no XInput)", took >= 0 ? (took == 0 ? "xinput1_3.dll" : took == 1 ? "xinput1_4.dll" : "xinput9_1_0.dll") : "", took >= 0 ? (had ? " (the game's own, already loaded)" : " (loaded by the mod)") : "");
     }
     if (g_xiGet) {
         XiState st; memset(&st, 0, sizeof(st));
@@ -23957,7 +24222,6 @@ void StallSumLine(const char* how, double now) {
 void StallTick(void* mesh) {
     StallT& T = g_stallSt;
     if (!g_stallLog || !g_hooked) { if (T.on) StallSumLine("ended: StallLog was turned off", NowS()); return; }
-    if (g_sigMode) { if (!T.sigTold) { T.sigTold = true; Log("stall: another build of the game -- the stall log reads unsigned addresses and stands down"); } return; }
     const double now = NowS();
     if (now < T.nextT) return;
     T.nextT = now + 1.0 / 12.0;
@@ -24084,7 +24348,6 @@ void GrFlipName(const uint8_t* def, char* s, int cap) {
 void GrindLogTick(void* mesh) {
     GrindLogT& T = g_grSt;
     if (!g_grindLog || !g_hooked) { T.on = false; T.watch = false; return; }
-    if (g_sigMode) { if (!T.sigTold) { T.sigTold = true; Log("grind: another build of the game -- the grind log reads unsigned addresses and stands down"); } return; }
     const double now = NowS();
     if (now < T.nextT) return;
     T.nextT = now + 1.0 / 30.0;
@@ -24441,7 +24704,7 @@ void AgArmStep(AgT& G, const AltT& A, bool grind, bool bAltW, bool fAltW, uintpt
 void AgMirror(AltT& A, uint8_t* pc, const uint8_t* sk, const uint8_t* mc, const uint8_t* bm, const uint8_t* anim, const uint8_t* fth, bool backLeft, bool modeOk, bool winOpen, double now) {
     AgT& G = g_ag;
     const AltTrick& T = A.t;
-    if (!g_hooked || g_sigMode) return;
+    if (!g_hooked || FeatSigOff()) return;   /* (steamgrind 334) was g_sigMode: on Steam AltGrinds stood down silently; it reads only what the alt set reads (it runs once every feature signature is found) and FName::ToString is a core signature */
     if (G.lastT > 0.0 && now - G.lastT > 0.25) { AgMirOff(G, "the alt set's tick had stopped (AltFlips off, no skater, a pause)", now); G.mb = false; G.mf = false; G.grWas = false; }
     G.lastT = now;
     float* bp = (float*)(pc + ALT_PC_STICKS) + (backLeft ? 0 : 2);
@@ -26587,32 +26850,9 @@ int nNoBail(const Lua& lua) {
 }
 
 // HJN_Set(name, value): grab (0/1), strength (0..1), handup (cm)
-// (v64) THE STICK'S BANK OFF. In the game's foot-stick control mode the left stick's sideways push banks the board (the
-// triggers lean it as well), and that spoils a stick trick. ASkateboardPhysics::Skate_BankLeft/Right(float) write the bank
-// input (-value into the movement component's +0x154); with the stick's bank off their first byte is a `ret` (a RIP-relative
-// andps follows the first instruction, so no detour), put back when it is on again. The triggers' lean is another path
-// (Skate_LeanLeft/Right -> USkateboardExMovementComponent::LeanLeft/Right) and keeps working
+// (tidy 337) Skate_BankLeft / Skate_BankRight: in the core signature table (hn_sigs.h) only. StickBank, the v64 code patch they served
+// (their first byte made a ret), never ran since StickTurn=0 zeroes the bank through the pad read (the Lua's StickTurn block).
 uintptr_t RVA_BANK_LEFT = 0x1007d00, RVA_BANK_RIGHT = 0x1007d30;
-int g_bankPatched = 0; uint8_t g_bankSaved[2] = { 0x0f, 0x0f };
-void StickBank(bool on) {
-    const int wantPatched = on ? 0 : 1;
-    if (!g_hooked || g_bankPatched == wantPatched) return;
-    uint8_t* exe = Exe();
-    const uintptr_t rvas[2] = { RVA_BANK_LEFT, RVA_BANK_RIGHT };
-    static const uint8_t expect[6] = { 0x0f, 0x28, 0xc1, 0x0f, 0x54, 0x05 };
-    for (int i = 0; i < 2; i++) {
-        uint8_t* p = exe + rvas[i];
-        if (wantPatched && memcmp(p, expect, 6) != 0) { Log("stick bank: Skate_Bank%s does not start as expected -- left alone", i ? "Right" : "Left"); return; }
-        if (!wantPatched && p[0] != 0xC3) continue;
-        DWORD old = 0;
-        if (!VirtualProtect(p, 16, PAGE_EXECUTE_READWRITE, &old)) { Log("stick bank: VirtualProtect failed"); return; }
-        if (wantPatched) { g_bankSaved[i] = p[0]; p[0] = 0xC3; } else { p[0] = g_bankSaved[i]; }
-        VirtualProtect(p, 16, old, &old);
-        FlushInstructionCache(GetCurrentProcess(), p, 16);
-    }
-    g_bankPatched = wantPatched;
-    Log("stick bank: the stick's bank is %s", on ? "ON again (the game's own: Skate_BankLeft/Right restored)" : "OFF (Skate_BankLeft/Right return at once; the triggers' lean is untouched)");
-}
 // (v169) GRABS IN A GRIND (the Lua's GrindGrabs, off by default). In a grind the game's bumpers are its LEAN-OUT: the actions
 // Skate_LeanLeft / Skate_LeanRight (DefaultInput.ini: LB / RB, the keys of Skate_GrabLeft / Right too) call
 // USkateboardExMovementComponent::LeanLeft / LeanRight -> CalculateLeanOutInfo(-1 / +1), and Skate_CanLean is true ONLY on a grind
@@ -26704,7 +26944,7 @@ float HsSpeed(const uint8_t* sk) {   /* (heelanim 300) the skater mesh's own spe
 void HsSoundStop();   /* (heelanim 300) defined with the sound */
 // ==== (snap 303) THE HEEL STOP SNAPS IN (the note in v144/w71/snap/mk_snap_native.pl). While the heel stop is on, the anim graph's four
 // blends from the manual to the one-foot powerslide's pose take HS_BLEND and the slide blend spaces lose their smoothing; given back after.
-uintptr_t BsAddr(double d);   /* (sketch 301's, defined with the blend sample writer) */
+uintptr_t BsAddr(double d);   /* a Lua-sent object address (0 = none); defined before BdSet */
 constexpr float HS_BLEND = 0.08f;
 struct HsXfT { float* p; float orig; };
 HsXfT g_hsXf[12]; int g_hsXfN = 0, g_hsXfTold = 0; uintptr_t g_hsXfCls = 0; bool g_hsXfOn = false;
@@ -26801,10 +27041,11 @@ void HsPidLend(uint8_t* bm) {
         L.s = s; L.p0 = s[0]; L.d0 = s[2]; L.lent = true;
         s[0] = L.p0 * k * k; s[2] = L.d0 * k;
     }
+    g_hsLendT = NowS(); g_hsLendLate = false;   /* (first 338) */
     g_hsTd.armed = g_hsPid[0].lent || g_hsPid[1].lent; g_hsTd.pp = 0.0f; g_hsTd.pt = 0.0;   /* (settle 305) */
     g_hsTd.rs = g_hsTd.pk = 0.0f; g_hsTd.tf = g_hsTd.ptr = 0.0; g_hsTd.r0ok = false;   /* (guard 316) */
     g_hsTd.tr = g_hsTd.armed && ++g_hsTd.n <= 40;   /* (slip 317) every heel stop traced (40 a run) */
-    g_hsTd.hn = g_hs.n + 1;   /* (touch 306) the first 3 traced pose by pose (H.n is counted after) */
+    g_hsTd.hn = g_hs.on ? g_hs.n : g_hs.n + 1;   /* (first 338) lent after the count now */   /* (touch 306) the first 3 traced pose by pose (H.n is counted after) */
     if (g_hsPidTold++ < 6) Log("heelstop: (pidsnap 304) the board's PID lent x%.1f quicker: manual P %.0f -> %.0f, D %.2f -> %.2f; powerslide P %.0f -> %.0f, D %.2f -> %.2f (HeelStopSnap)",
         k, g_hsPid[0].p0, g_hsPid[0].lent ? g_hsPid[0].s[0] : -1.0f, g_hsPid[0].d0, g_hsPid[0].lent ? g_hsPid[0].s[2] : -1.0f, g_hsPid[1].p0, g_hsPid[1].lent ? g_hsPid[1].s[0] : -1.0f, g_hsPid[1].d0, g_hsPid[1].lent ? g_hsPid[1].s[2] : -1.0f);
 }
@@ -26820,8 +27061,13 @@ void HsPidBack() {
         L.lent = false;
     }
 }
+struct HsWT { bool on; uint8_t* bm; float w0, wMax; int told; };   /* (weight 343) the board's follow weight of the Flipper socket's pitch, scaled while on */
+HsWT g_hsW = {};
 void HsGiveBack() {   /* what the heel stop lent, given back (only what it set and is still its own) */
     HeelT& H = g_hs;
+    if (g_hsW.on && g_hsW.bm && g_hsW.bm == BoardMC() && PtrOk(g_hsW.bm, 0x8a0)) *(float*)(g_hsW.bm + 0x7dc) = g_hsW.w0;   /* (weight 343) */
+    if (g_hsW.on && g_hsW.told < 30) { g_hsW.told++; Log("heelstop: #%d (weight 343) the board's follow weight given back %.2f (it went up to %.2f)", H.n, g_hsW.w0, g_hsW.wMax); }
+    g_hsW.on = false;
     if (H.brk && H.bm && H.bm == BoardMC() && PtrOk(H.bm, 0x8a0) && H.bm[HS_BM_BRAKE] == 2) H.bm[HS_BM_BRAKE] = 0;
     if (H.flag && H.sk && H.sk == (uint8_t*)g_skater && PtrOk(H.sk, 0xa40)) H.sk[HS_SK_TAILBRK] = 0;
     if (H.lent && H.cfg && PtrOk(H.cfg, HS_CFG_TAILDEC + 4)) *(float*)(H.cfg + HS_CFG_TAILDEC) = H.cfg0;
@@ -26897,6 +27143,7 @@ void HsSound(uint8_t* board, float v) {   /* (heelanim 300) the game's tail-slid
     H.sndVol = vol; H.sndPit = pit;
 }
 void HsPsLearn(const uint8_t* anim) {   /* (heelanim 300) your own tail-down powerslide's anim values, for HeelStopTailAnim=2 (the deepest tail sample of each slide) */
+    (void)anim; return;   /* (pose 342) learning OFF: a shallow powerslide of the player's took the pose from 1.00 to 0.17 pitch ratio (half stroke, then a flat powerslide); the full values below are kept */
     if (!anim[0x2d9] || anim[0x2da]) return;
     const float com = *(const float*)(anim + 0x2dc);
     if (!std::isfinite(com) || com > -0.3f) return;
@@ -26919,10 +27166,16 @@ HsSwT g_hsSw = {};
 signed char g_hsSwMap[10] = {};   /* by foot position x2 + IsBoardReversed: the COM side that puts the end axis's end A down; 0 = not seen */
 float g_hsCal = 1.0f; bool g_hsCalSeen = false;
 typedef bool (*HsBoolFn)(void*);
+bool ExeHolds(const void* p, size_t n) {   /* (steam 336) p .. p+n inside the game exe's image */
+    static uintptr_t lo = 0, hi = 0;
+    if (!lo) { uint8_t* e = Exe(); const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(e + ((const IMAGE_DOS_HEADER*)e)->e_lfanew); hi = (uintptr_t)e + nt->OptionalHeader.SizeOfImage; lo = (uintptr_t)e; }
+    const uintptr_t a = (uintptr_t)p;
+    return a >= lo && a + n <= hi;
+}
 int HsBmQ(uint8_t* bm, int off) {   /* (switchstop 307) the board movement's own bool getters through its vtable at +0x138 (IsBoardReversed 0x240, front wheels 0x3f8 / 0x400, back 0x418 / 0x420); -1 = not this build's */
     if (!bm || !PtrOk(bm, HS_BM_ITF + 8)) return -1;
     void** vt = *(void***)(bm + HS_BM_ITF);
-    if ((uint8_t*)vt != Exe() + RVA_HS_BMVT) return -1;
+    if ((uint8_t*)vt != Exe() + RVA_HS_BMVT && !(g_sigMode && ExeHolds(vt, (size_t)off + 8) && ExeHolds(vt[off / 8], 1))) return -1;   /* (steam 336) another build: its own table, if it lies in the exe (the slots are the class's) */
     return ((HsBoolFn)vt[off / 8])(bm + HS_BM_ITF) ? 1 : 0;
 }
 float HsTrail(const uint8_t* board) {   /* (switchstop 307) the travel along AsFgLeadPitch's end axis (cos: -1 = its end A trails, +1 = A leads); 0 = not known */
@@ -26949,7 +27202,7 @@ void HsSwStart(uint8_t* sk, uint8_t* bm, int n) {   /* (switchstop 307) at a hee
     W.decided = false; W.held = 0;
     W.want = fabsf(W.d) >= 0.3f ? (W.d * g_hsCal < 0.0f ? -1 : 1) : 0;   /* the end axis's pitch wanted: -1 = A down (A trails), +1 = A up (the other end trails) */
     g_hsCom = -1.0f;   /* regular: the game's tail, as ever */
-    if (fp != 1 && W.want != 0) { const float aDown = g_hsSwMap[W.key] ? (float)g_hsSwMap[W.key] : -1.0f; g_hsCom = W.want < 0 ? aDown : -aDown; }
+    if (fp != 1 && W.want != 0) { const float aDown = g_hsSwMap[W.key] ? (float)g_hsSwMap[W.key] : -1.0f; g_hsCom = W.want < 0 ? aDown : -aDown; if (!g_hsSwMap[W.key] && fp == 4) g_hsCom = 1.0f; }   /* (first 339) switch not seen yet: COM +1 (8 of 8 first switch stops in the logs ended there) */
     Log("heelstop: #%d (switchstop 307) foot position %d (1 regular, 2 fakie, 3 nollie, 4 switch), IsSkatingSwitch %d, IsBoardReversed %d; the wheels down: front %d %d, back %d %d; the travel along the end axis %+.2f -> the trailing end %s; the pose's COM side %+.0f%s",
         n, fp, (int)swg, rev, HsBmQ(bm, 0x3f8), HsBmQ(bm, 0x400), HsBmQ(bm, 0x418), HsBmQ(bm, 0x420), W.d, W.want < 0 ? "A (the regular tail's)" : W.want > 0 ? "B (the regular nose's)" : "not known", g_hsCom,
         fp == 1 ? " (regular: as ever)" : g_hsSwMap[W.key] ? " (as learned in this stance)" : " (first time in this stance: watched)");
@@ -27009,8 +27262,10 @@ void HsTick(void* mesh) {
     if (H.wrote && bxp == H.wp && bx == H.wx && by == H.wy) { bx = H.px; by = H.py; }   /* still our own write (a second pose in one frame): the physical values read before it */
     else if (g_alt.wrote && bxp == g_alt.wp && bx == g_alt.wx && by == g_alt.wy) { bx = g_alt.px; by = g_alt.py; }   /* the alt set's write: its physical values */
     H.wrote = false;
-    const float mag = sqrtf(bx * bx + by * by);
     const float ds = g_alt.downSign != 0.0f ? g_alt.downSign : -1.0f;   /* the buffer's "down" (the alt set learns it from the game's own crouches) */
+    const bool bHeld = g_hsBtnOn && g_hsBHeld;   /* (bstop 335) B held: the back-foot stick taken as all the way down */
+    if (bHeld) { bx = 0.0f; by = ds; g_hsBActT = now; }   /* (tsname 339) */
+    const float mag = sqrtf(bx * bx + by * by);
     const float u = by * ds;
     const bool down = u > 0.0f && fabsf(bx) <= 0.839f * u;   /* within 40 deg of straight down */
     const uint8_t mf = sk[HS_SK_MAN];
@@ -27019,24 +27274,36 @@ void HsTick(void* mesh) {
     const bool pop = ((PopPendingFn)(Exe() + RVA_POP_PENDING))(sk);
     const float exitClk = *(const float*)(pc + HS_PC_EXIT);
     const bool past = H.on ? mag > fminf(mx, H.engMag) - 0.03f : (mag > mx || (exitClk > 0.0f && mag > 0.5f * (mn + mx)));   /* past the manual's max (where the game would crouch), or the game's own exit clock running with the stick well in (its length another scale); once on, held down to 0.03 under where it began */
-    const bool want = man && riding && !pop && down && past;
-    if (H.wasMan && !man && !H.on && H.lastMag > mx - 0.05f) HsMiss(!down ? "the stick was not pushed straight down" : !riding ? "the board was not riding" : pop ? "a pop was pending" : "the stick passed the max between two poses", H.lastMag);
+    const bool want = man && riding && !pop && down && past && (bHeld || g_hsManOn);   /* (mode 338) HeelStopMode 2: B only */
+    g_hsBOk = (riding && !pop && !(sk[ALT_SK_FLAGS] & 2) && !(mf & 4)) ? 1 : 0; g_hsBOkT = now;   /* (bstop 335) HsKey takes B only while this holds */
+    if (bHeld && !H.on && !man && riding && !pop && !(mf & 4)) {   /* (bstop 335) B before the game's manual: the back stick written into the manual's range */
+        if (g_hsBWait <= 0.0) { g_hsBWait = now; g_hsBGiveUp = 0; Log("heelstop: B pressed (bstop 335, #%ld): the back-foot stick written straight down at %.3f (the manual's range %.2f .. %.2f) for the game to take a manual; the tail stop begins in it", (long)g_hsBN, 0.985f * mx, mn, mx); }
+        else if (!g_hsBGiveUp && now - g_hsBWait > 0.5) { g_hsBGiveUp = 1; Log("heelstop: B (bstop 335): the game took NO manual in 0.5 s -- nothing more until B is let go (board mode %d, manual bits %d)", (int)bm[BM_MODE], (int)mf); }
+        if (!g_hsBGiveUp) { H.px = bx; H.py = by; H.wx = 0.0f; H.wy = ds * 0.985f * mx; H.wp = bxp; bxp[0] = H.wx; bxp[1] = H.wy; H.wrote = true; H.tWrote = now; }
+        H.wasMan = false; H.lastMag = 0.0f;
+        return;
+    }
+    if (!bHeld) { g_hsBWait = 0.0; g_hsBGiveUp = 0; }
+    else if (man && g_hsBWait > 0.0 && !H.on) { Log("heelstop: B (bstop 335): the game's manual came %.2f s after the press", now - g_hsBWait); g_hsBWait = -1.0; }
+    if (g_hsManOn && H.wasMan && !man && !H.on && H.lastMag > mx - 0.05f) HsMiss(!down ? "the stick was not pushed straight down" : !riding ? "the board was not riding" : pop ? "a pop was pending" : "the stick passed the max between two poses", H.lastMag);
     if (man) H.lastRatio = *(const float*)(sk + HS_SK_RATIO);
     H.wasMan = man; H.lastMag = mag;
     if (!want) {
-        if (H.on) HsEnd(!man ? "the manual ended" : !riding ? "the board left the ground" : pop ? "a pop" : !down ? "the stick turned away from down" : "the stick eased back into the manual");
+        if (H.on) HsEnd((g_hsByB && !bHeld) ? "B let go (bstop 335)" : !man ? "the manual ended" : !riding ? "the board left the ground" : pop ? "a pop" : !down ? "the stick turned away from down" : "the stick eased back into the manual");
         return;
     }
     uint8_t* msk = *(uint8_t* const*)(sk + SK_MC);
     uint8_t* cfg = (msk && PtrOk(msk, MCA_CONFIG + 8)) ? *(uint8_t* const*)(msk + MCA_CONFIG) : nullptr;
     if (cfg && !PtrOk(cfg, HS_CFG_TAILDEC + 4)) cfg = nullptr;
     if (!H.on) {
+        g_hsByB = bHeld ? 1 : 0;   /* (bstop 335) */
         if (g_heelAnim == 2) SafeHsXfSet(true);   /* (snap 303) the graph's blends to the slide's pose, quick */
-        HsPidLend(bm);   /* (pidsnap 304) the board's PID stiffer: down quick */
         H.on = true; H.n++; H.poses = 0; H.shrinks = 0; H.resets = 0; H.s = 0.985f; H.engMag = mag; H.t0 = now; H.sndSpawns = 0; H.sndRefused = 0; H.sndTold = false; H.surf = -1; H.sndVol = 0.0f; H.sndPit = 0.0f;   /* (heelanim 300) */
         Log("heelstop: #%d (heelanim 300) the pose: %s; the sound: %s", H.n, g_heelAnim == 2 ? (g_hsPsLearned ? "the one-foot powerslide's (learned from your own)" : "the one-foot powerslide's (defaults: no tail-down powerslide seen yet)") : g_heelAnim == 1 ? (sk[SK_FOOTPOS] == 4 ? "the game's tail brake (switch: the game has no switch BreakTail -- the manual's pose kept)" : "the game's tail brake (the manual let go for BreakTail)") : "the manual's", g_heelSound > 0.0f ? (g_wsRvaOk ? "the game's tail-slide loop" : "none (the sound functions were not checked on this build)") : "off (HeelStopSound=0)"); H.tLog = now; H.sk = sk; H.bm = bm; H.cfg = cfg;
         H.v0 = HsSpeed(sk); H.vMin = H.v0; H.pMin = 999.0f; H.pMax = -999.0f;
         HsSwStart(sk, bm, H.n);   /* (switchstop 307) the trailing end, the pose's side */
+        if (sk[SK_FOOTPOS] != 1 && sk[SK_FOOTPOS] != 4 && !g_hsSwMap[g_hsSw.key]) {   /* (first 339) switch starts on its known side */ g_hsLendLate = true; Log("heelstop: #%d (first 338) the first stop in this stance: the board's own PID until its first 4 deg say which end goes down (no stiff push onto the wrong end)", H.n); }
+        else HsPidLend(bm);   /* (pidsnap 304) the board's PID stiffer: down quick; (first 338) lent after the side is known */
         H.cfg0 = cfg ? *(const float*)(cfg + HS_CFG_TAILDEC) : -1.0f;
         const float mult = *(const float*)(sk + HS_SK_BRKMULT);
         Log("heelstop: #%d ON at %.0f cm/s (%.1f km/h): the back-foot stick at %.2f (the manual's range %.2f .. %.2f) held at %.3f of the max (the deepest manual, not the crouch); the board's brake method %d -> 2 (the tail), the config's tail decel %.0f lent as %.0f (HeelStopDecel %.0f cm/s2 / the skater's brake multiplier %.2f)%s; the ratio %.2f",
@@ -27071,15 +27338,28 @@ void HsTick(void* mesh) {
     const uint8_t* board = *(const uint8_t* const*)(sk + SK_BOARD);
     const float p = (board && PtrOk(board, 0x530)) ? AsFgLeadPitch(board, 1) : -999.0f;
     if (p > -900.0f) { if (p < H.pMin) H.pMin = p; if (p > H.pMax) H.pMax = p; }
+    {   /* (weight 343) the pose's target to the full angle: SessionTweaks 1.3.4's pose leaves it +28 / -22 (was +40 / -34), short of the ground */
+        float* w = (float*)(bm + 0x7dc); const float tg = *(const float*)(bm + 0x620);
+        if (!g_hsW.on && std::isfinite(*w) && *w > 0.05f && *w < 5.0f) { g_hsW.on = true; g_hsW.bm = bm; g_hsW.w0 = *w; g_hsW.wMax = *w; }
+        if (g_hsW.on && g_hsW.bm == bm && std::isfinite(*w) && std::isfinite(tg) && fabsf(tg) > 8.0f && *w > 0.05f && sk[SK_FOOTPOS] != 1) {
+            const float want = 40.0f, base = fabsf(tg) / *w;   /* the socket's own pitch */
+            const float nw = clampf(want / fmaxf(base, 1.0f), g_hsW.w0, g_hsW.w0 * 1.3f);
+            *w = nw; if (nw > g_hsW.wMax) g_hsW.wMax = nw;
+        }
+    }
     if (g_hsTd.armed) {   /* (guard 316) the board thrown while the stiff PID is lent (a Steam player's log: the deck rolled onto an edge, +40-60 % speed, the manual ended -- the sideways slide): the game's own PID back at once */
         float rl = 0.0f, hd = 0.0f; HsDeckRH(board, rl, hd);
         if (!g_hsTd.r0ok) { g_hsTd.r0 = rl; g_hsTd.r0ok = true; }
         const float dr = fabsf(rl - g_hsTd.r0);
-        const bool fast = H.v0 > 50.0f && v > H.v0 * 1.10f + 20.0f;
+        static int fastRun = 0; static double fastT = 0.0;   /* (first 338) two poses running: one long frame's speed (671 -> 771 -> 671) is no throw */
+        static int rollRun = 0, slipRun = 0;   /* (first 339) roll / slip on two poses running too */
+        if (now - fastT > 0.1) { fastRun = 0; rollRun = 0; slipRun = 0; } fastT = now;
+        fastRun = (H.v0 > 50.0f && v > H.v0 * 1.10f + 20.0f) ? fastRun + 1 : 0;
+        const bool fast = fastRun >= 3 && dr > 1.5f;   /* (guard 340) a throw rolls the deck: a speed reading alone (368 -> 916 cm/s at 0.013 s, roll 0) is noise */
         float gs = 0.0f;   /* (touch 319) the travel's slip off the deck (as slip 317) */
         if ((now - g_spDirT < 0.25) && finite3(g_spDir) && len(g_spDir) > 0.2f) { gs = atan2f(g_spDir.y, g_spDir.x) * 57.2957795f - hd; while (gs > 180.0f) gs -= 360.0f; while (gs < -180.0f) gs += 360.0f; if (gs > 90.0f) gs -= 180.0f; else if (gs < -90.0f) gs += 180.0f; }
-        const bool slips = fabsf(gs) > 2.5f;   /* (guard 320) 2.5 deg (319: 4 -- caught at 10) */
-        if (dr > 1.5f || fast || slips) {   /* (guard 320) a roll of 1.5 deg (316: 8): the roll comes first, the wander after it */
+        slipRun = fabsf(gs) > 3.5f ? slipRun + 1 : 0; rollRun = dr > 3.0f ? rollRun + 1 : 0; const bool slips = slipRun >= 2;   /* (first 339) 3.5 deg / 3 deg, two poses (338: 2.5 / 1.5 at once tripped most stops: spongy) */   /* (guard 320) 2.5 deg (319: 4 -- caught at 10) */
+        if (rollRun >= 2 || fast || slips) {   /* (guard 320) a roll of 1.5 deg (316: 8): the roll comes first, the wander after it */
             if (g_hsTd.gTold++ < 40) Log("heelstop: #%d (guard 316) at %.3f s the board %s (the deck's roll %+.1f -> %+.1f deg, speed %.0f -> %.0f cm/s; the PID %s x%.2f): the game's own PID back at once", H.n, now - H.t0, slips ? "slipped sideways (touch 319)" : fast ? "sped up" : "rolled (guard 320)", g_hsTd.r0, rl, H.v0, v, g_hsTd.tf > 0.0 ? "easing" : "stiff", g_hsKNow);
             HsPidBack();
         }
@@ -27087,7 +27367,7 @@ void HsTick(void* mesh) {
     if (g_hsTd.armed) {   /* (settle 305) the tail down: the game's own (soft) PID back, so the stiff one does not drive the tail into the ground (the shake) */
         const double el = now - H.t0;
         const float ap = p > -900.0f ? fabsf(p) : 0.0f;
-        if (g_hsTd.tf <= 0.0) HsPidScale(el < HS_TD_RAMP ? 1.0f + (g_heelSnap - 1.0f) * HsSmooth((float)(el / HS_TD_RAMP)) : g_heelSnap);   /* (ramp 308) eased in: x1 at the first pose (the one it was lent on), full at 0.08 s */
+        if (g_hsTd.tf <= 0.0) { const double elL = now - g_hsLendT; HsPidScale(elL < HS_TD_RAMP ? 1.0f + (g_heelSnap - 1.0f) * HsSmooth((float)(elL / HS_TD_RAMP)) : g_heelSnap); }   /* (first 338) the ramp from the lend */   /* (ramp 308) eased in: x1 at the first pose (the one it was lent on), full at 0.08 s */
         if (g_hsTd.tf > 0.0) {   /* (touch 306) the easing: the stiff PID back to the game's own over HS_TD_EASE, not in one step (the pop) */
             const float u = (float)((now - g_hsTd.tf) / HS_TD_EASE);
             if (u >= 1.0f) { HsPidBack(); }
@@ -27118,6 +27398,7 @@ void HsTick(void* mesh) {
             tvh, slip, v, H.px, H.py, H.wx, H.wy, g_hsBrK);
     }
     HsSwTick(sk, pc, bm, p, now - H.t0, H.n);   /* (switchstop 307) */
+    if (g_hsLendLate && g_hsSw.decided) { HsPidLend(bm); Log("heelstop: #%d (first 338) the side checked at %.2f s: the stiff PID lent now", H.n, now - H.t0); }
     if (now - H.tLog >= (now - H.t0 < 0.5 ? 0.05 : now - H.t0 < 0.8 ? 0.1 : 0.25)) {   /* (pidsnap 304) every 0.05 s for 0.5 s */   /* (snap 303) every 0.1 s at first: how quickly the board gets down */
         H.tLog = now;
         if (now - H.t0 < 0.8) Log("heelstop: #%d (pidsnap 304) %.2f s: the board's pitch %+.1f deg, its target (+0x620) %+.1f, the socket weight (+0x7dc) %.2f", H.n, now - H.t0, p, *(const float*)(bm + 0x620), *(const float*)(bm + 0x7dc));
@@ -27143,41 +27424,17 @@ void HsSet(int which, double v) {   /* HJN_Set("heelstop" 0, "heeldecel" 1, "hee
     }
     else if (which == 1) { const float d = std::isfinite(v) ? clampf((float)v, 0.0f, 3000.0f) : 250.0f; if (d != g_heelDecel) Log("heel stop: braking %.0f cm/s2 (%.1f km/h a second; HeelStopDecel)", d, d * 0.036f); g_heelDecel = d; }
     else if (which == 2) { const LONG o = (v >= 1.5) ? 2 : (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_heelAnim, o) != o) Log("heel stop: the pose %s (HeelStopTailAnim=%ld)", o == 2 ? "is the one-foot powerslide's (heelanim 300)" : o == 1 ? "is the game's tail brake (IsBrakingTail, the manual let go for its BreakTail state: heelanim 300)" : "is the manual's", o); }
+    else if (which == 5) { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_hsManOn, o) != o) Log("heel stop: the manual's way (back-foot stick all the way down in a manual) %s (HeelStopMode; mode 338)", o ? "ON" : "off"); }
+    else if (which == 4) { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_hsBtnOn, o) != o) Log("heel stop: B %s (HeelStopButton=%ld; bstop 335, experimental)", o ? "ON: hold B while rolling to drag the tail (the game's manual taken for you); B is not the game's foot brake then" : "off: B is the game's own foot brake", (long)o); if (!o) g_hsBHeld = 0; }
     else { const float s = std::isfinite(v) ? clampf((float)v, 0.0f, 2.0f) : 1.0f; if (s != g_heelSound) Log("heel stop: the tail-slide sound x %.2f (HeelStopSound; heelanim 300)", s); g_heelSound = s; }
 }
-// ==== (sketch 301) HJN_Set("bsbs", blendspace) "bsidx" index "bsexp" expect, then "bsanim" anim -> 1 written, 0 no such sample, -1 fault / no object, -2 not the animation
-// expected there. One blend sample's animation: UBlendSpaceBase::SampleData (+0xc8, TArray<FBlendSample>), FBlendSample 0x18 a sample,
-// its Animation at +0x0 (UBlendSpaceBase::GetBlendSample 0x2a5d610: data + index * 24). The Lua (NATIVE.sketchApply) roots both objects.
-int BsAnimSet(uintptr_t bs, int i, uintptr_t an, uintptr_t expect) {
-    __try {
-        if (!PtrOk((const void*)bs, 0xd8)) return -1;
-        uint8_t* data = *(uint8_t**)(bs + 0xc8);
-        const int n = *(const int*)(bs + 0xd0);
-        if (!data || i < 0 || n <= 0 || n > 64 || i >= n || !PtrOk(data + 0x18 * i, 0x18)) return 0;
-        uintptr_t* slot = (uintptr_t*)(data + 0x18 * i);
-        if (expect && *slot != expect) return -2;
-        *slot = an;
-        return 1;
-    } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; }
-}
 uintptr_t BsAddr(double d) { return (d > 65536.0 && d < 1.8e19) ? (uintptr_t)d : 0; }
-uintptr_t g_bsB = 0, g_bsE = 0; int g_bsI = -1;
-int BsStage(int which, double v) {   /* HJN_Set("bsbs" 0 the blend space, "bsidx" 1 the sample, "bsexp" 2 the animation expected there, "bsanim" 3 the animation: written now) */
-    if (which == 0) { g_bsB = BsAddr(v); return g_bsB ? 1 : 0; }
-    if (which == 1) { g_bsI = std::isfinite(v) ? (int)v : -1; return 1; }
-    if (which == 2) { g_bsE = BsAddr(v); return 1; }
-    const uintptr_t an = BsAddr(v);
-    const int r = (g_bsB && an) ? BsAnimSet(g_bsB, g_bsI, an, g_bsE) : -1;
-    if (r != 1) Log("sketch: blend sample %d of %p not written (%d: %s)", g_bsI, (void*)g_bsB, r, r == 0 ? "no such sample" : r == -2 ? "another animation was there" : "fault or no object");
-    g_bsB = 0; g_bsE = 0; g_bsI = -1;
-    return r;
-}
 // ==== (bigdrop 302) THE BIG DROP LANDING (BigDropLanding / BigDropHeight; the note in v144/w70/bigdrop/mk_bigdrop_native.pl). The Lua hands
 // over each landing sample: HJN_Set "bdbs" the blend space, "bdidx" the sample, "bdorig" the game's animation there, then "bdanim" the sketch
 // (-> 1 added, 2 already there, -2 another animation is there now, -1 no object / full). In the air the take-off's height is kept; BigDropHeight
 // under it every sample gets its sketch (written only over the game's own), and the game's own go back after the landing.
 struct BdEnt { uintptr_t bs; int i; uintptr_t orig, sk; };
-BdEnt g_bdE[256]; volatile LONG g_bdN = 0, g_bigDrop = 0; float g_bigDropCm = 250.0f;
+BdEnt g_bdE[256]; volatile LONG g_bdN = 0, g_bigDrop = 0, g_bdChance = 3; float g_bigDropCm = 250.0f;   /* (dice 334) g_bdChance: BigDropChance, drops in ten that take the sketchy landing */
 // (gs314) BigDropSoundEarly (HJN_Set "bigdropearly", s; 0.9): the user (1 Nov) "the big drop landing seems to have a unique sound but it's
 // playing like a second too late". The sketch landing (AMXX_*_Ollie_Hi_Land_Sketch_*, 2.5 s) carries its own sound notifies at 0.34 squeak,
 // 0.44 scratch, 0.80 foot, 1.22 squeak, 1.29 push, 2.05 scratch. Each sketch animation's notifies (UAnimSequenceBase::Notifies +0x80,
@@ -27185,9 +27442,11 @@ BdEnt g_bdE[256]; volatile LONG g_bdN = 0, g_bigDrop = 0; float g_bigDropCm = 25
 // originals kept (a new value re-times from them). Only the sketch animations are touched: the game never plays them itself.
 constexpr int GS_NT_SZ = 0xb8;   /* (gs315) sizeof(FAnimNotifyEvent) in this exe (GetAnimNotifiesFromDeltaPositions: imul 0xb8); 314 stepped 0xa8 and wrote over the next entries' pointers (the GC crash) */
 struct BdNt { uintptr_t anim; int n; float orig[16]; float applied; };
+bool g_bdSwap = false; uintptr_t g_bdSk2[2] = { 0, 0 };   /* (swapclip 339) this drop takes the other stance's sketch; the two sketches */
+uintptr_t BdSkFor(const BdEnt& e) { return (g_bdSwap && g_bdSk2[0] && g_bdSk2[1]) ? (e.sk == g_bdSk2[0] ? g_bdSk2[1] : e.sk == g_bdSk2[1] ? g_bdSk2[0] : e.sk) : e.sk; }
 BdNt g_bdNt[16]; int g_bdNtN = 0; float g_bdEarly = 0.9f;
-struct BdT { bool air = false, armed = false; float z0 = 0.0f, top = 0.0f; double tAir = 0.0, tLand = 0.0; int n = 0, logs = 0, written = 0; } g_bd;
-uintptr_t g_bdB = 0, g_bdO = 0, g_bdSk = 0; int g_bdI = -1;   /* (dropfix 303) g_bdSk: the sketch for "bdall" */
+struct BdT { bool air = false, armed = false, skip = false; float z0 = 0.0f, top = 0.0f; double tAir = 0.0, tLand = 0.0; int n = 0, logs = 0, written = 0; } g_bd;
+uintptr_t g_bdSk = 0;   /* (dropfix 303) g_bdSk: the sketch for "bdall" */
 typedef bool (*BdFallFn)(void*);
 uintptr_t* BdSlotPtr(uintptr_t bs, int i) {
     if (!PtrOk((const void*)bs, 0xd8)) return nullptr;
@@ -27200,7 +27459,7 @@ int BdSlot(const BdEnt& e, bool sketch) {   /* 1 the one wanted is there now, 0 
     __try {
         uintptr_t* slot = BdSlotPtr(e.bs, e.i);
         if (!slot) return -1;
-        const uintptr_t want = sketch ? e.sk : e.orig, other = sketch ? e.orig : e.sk;
+        const uintptr_t skU = BdSkFor(e), want = sketch ? skU : e.orig, other = sketch ? e.orig : skU;   /* (swapclip 339) */
         if (*slot == want) return 1;
         if (*slot != other) return 0;
         *slot = want;
@@ -27242,6 +27501,20 @@ void BdDisarm(const char* why) {
     const int ok = BdAll(false);
     Log("bigdrop: #%d the game's own landings back (%d of %ld samples): %s", g_bd.n, ok, (long)g_bdN, why);
 }
+// (dice 334) BIG DROP CHANCE. "the big drop landing to have some variability ... a slider for 0-10 ... 10x % chance ... Ship it at
+// 30%": each drop is rolled ONCE, as it first passes BigDropHeight; a miss leaves that drop to the game's own landing.
+bool BdRoll(BdT& B, float z) {
+    const LONG c = g_bdChance;
+    if (c >= 10) return true;
+    static uint64_t s = 0;
+    if (!s) { LARGE_INTEGER q; QueryPerformanceCounter(&q); s = ((uint64_t)q.QuadPart * 0x9E3779B97F4A7C15ull) | 1; }
+    s ^= s << 13; s ^= s >> 7; s ^= s << 17;
+    const int r = (int)((s >> 11) % 10);   /* 0..9 */
+    if (r < c) return true;
+    B.skip = true;
+    if (B.logs < 60) { B.logs++; Log("bigdrop: %.2f m under the take-off: the roll said no (BigDropChance %ld0 %%) -- the game's own landing this drop", (B.z0 - z) / 100.0f, (long)c); }
+    return false;
+}
 void BdTick(void* mesh) {
     BdT& B = g_bd;
     const bool rp = ReplayNow();
@@ -27254,18 +27527,21 @@ void BdTick(void* mesh) {
     const bool fall = ((BdFallFn)(Exe() + RVA_BM_ISFALLING))(bm);
     const double now = NowS();
     if (fall) {
-        if (!B.air) { if (B.armed) BdDisarm("a new take-off"); B.air = true; B.z0 = B.top = z; B.tAir = now; }
+        if (!B.air) { if (B.armed) BdDisarm("a new take-off"); B.air = true; B.z0 = B.top = z; B.tAir = now; B.skip = false; }
         if (z > B.top) B.top = z;
-        if (!B.armed && B.z0 - z >= g_bigDropCm) {
+        if (!B.armed && !B.skip && B.z0 - z >= g_bigDropCm && BdRoll(B, z)) {   /* (dice 334) one roll a drop */
             B.armed = true; B.n++; { const LONG nn = g_bdN; uintptr_t done[8] = {}; int nd = 0; for (LONG k = 0; k < nn && nd < 8; k++) { bool seen = false; for (int q = 0; q < nd; q++) seen = seen || done[q] == g_bdE[k].sk; if (!seen) { done[nd++] = g_bdE[k].sk; BdRetime(g_bdE[k].sk); } } }   /* (gs314) the sounds earlier */
+            { uintptr_t a = 0, b = 0; for (LONG k = 0; k < g_bdN; k++) { const uintptr_t s = g_bdE[k].sk; if (!a) a = s; else if (s != a && !b) b = s; } g_bdSk2[0] = a; g_bdSk2[1] = b;
+              LARGE_INTEGER qc; QueryPerformanceCounter(&qc); g_bdSwap = b != 0 && (((((uint64_t)qc.QuadPart) * 0x9E3779B97F4A7C15ull) >> 41) & 1); }   /* (swapclip 339) 50/50 */
             B.written = BdAll(true);
-            Log("bigdrop: #%d %.2f m under the take-off (%.2f s in the air, %.2f m over it at the top): the sketchy landing put in (%d of %ld landing samples)", B.n, (B.z0 - z) / 100.0f, now - B.tAir, (B.top - B.z0) / 100.0f, B.written, (long)g_bdN);
+            Log("bigdrop: #%d %.2f m under the take-off (%.2f s in the air, %.2f m over it at the top): the sketchy landing put in (%d of %ld landing samples; %s)", B.n, (B.z0 - z) / 100.0f, now - B.tAir, (B.top - B.z0) / 100.0f, B.written, (long)g_bdN, g_bdSwap ? "the OTHER stance's clip this time" : "its own stance's clip");
         }
     }
     else if (B.air) {
         B.air = false; B.tLand = now;
         const float d = B.z0 - z;
         if (B.armed) Log("bigdrop: #%d landed %.2f m under the take-off after %.2f s in the air: the sketchy landing plays", B.n, d / 100.0f, now - B.tAir);
+        else if (B.skip) { if (B.logs < 60) { B.logs++; Log("bigdrop: a %.2f m drop (%.2f s in the air): the game's own landing this time (the roll, BigDropChance %ld0 %%)", d / 100.0f, now - B.tAir, (long)g_bdChance); } }
         else if (d >= 100.0f && B.logs < 60) { B.logs++; Log("bigdrop: a %.2f m drop (%.2f s in the air): under BigDropHeight %.2f m -- the game's own landing", d / 100.0f, now - B.tAir, g_bigDropCm / 100.0f); }
     }
     else if (B.armed && now - B.tLand >= 2.0) BdDisarm("the landing played out (2 s)");
@@ -27280,16 +27556,14 @@ void SafeBdTick(void* mesh) {
     }
 }
 void BdIdle() { if (g_bd.armed) { __try { BdDisarm("no controller this pose"); } __except (EXCEPTION_EXECUTE_HANDLER) { g_bd.armed = false; } } g_bd.air = false; }
-int BdSet(int which, double v) {   /* HJN_Set("bigdrop" 0, "bigdropcm" 1, "bdbs" 2, "bdidx" 3, "bdorig" 4, "bdanim" 5) */
+int BdSet(int which, double v) {   /* HJN_Set("bigdrop" 0, "bigdropcm" 1, "bdsk" 6, "bdall" 7, "bigdropchance" 8); (tidy 337) 302's per-sample bdbs / bdidx / bdorig / bdanim gone (303's bdall reads them all) */
     if (which == 0) {
         const LONG o = (v >= 0.5) ? 1 : 0;
         if (InterlockedExchange(&g_bigDrop, o) != o) Log("big drop landing: %s (BigDropLanding=%ld)", o ? "ON: BigDropHeight or more under the take-off, the trick lands with the game's unused big sketchy landing (Sketch_Max_Right; 'bigdrop:' lines)" : "off: the game's own landings", (long)o);
         return 1;
     }
+    if (which == 8) { const LONG c = std::isfinite(v) ? (LONG)clampf(floorf((float)v + 0.5f), 0.0f, 10.0f) : 3; if (InterlockedExchange(&g_bdChance, c) != c) Log("big drop landing: %ld0 %% of big drops take the sketchy landing (BigDropChance=%ld)", (long)c, (long)c); return 1; }   /* (dice 334) */
     if (which == 1) { const float c = std::isfinite(v) ? clampf((float)v, 50.0f, 2000.0f) : 250.0f; if (c != g_bigDropCm) Log("big drop landing: a big drop is %.2f m or more under the take-off (BigDropHeight)", c / 100.0f); g_bigDropCm = c; return 1; }
-    if (which == 2) { g_bdB = BsAddr(v); return g_bdB ? 1 : 0; }
-    if (which == 3) { g_bdI = std::isfinite(v) ? (int)v : -1; return 1; }
-    if (which == 4) { g_bdO = BsAddr(v); return g_bdO ? 1 : 0; }
     if (which == 6) { g_bdSk = BsAddr(v); return g_bdSk ? 1 : 0; }   /* (dropfix 303) "bdsk": the sketch for the blend spaces that follow */
     if (which == 7) {   /* (dropfix 303) "bdall": every sample of this blend space, read here (the Lua cannot), the game's own rooted -> how many held now */
         const uintptr_t bs = BsAddr(v);
@@ -27315,24 +27589,7 @@ int BdSet(int which, double v) {   /* HJN_Set("bigdrop" 0, "bigdropcm" 1, "bdbs"
         if (skipped) Log("bigdrop: blend space %p: %d of %d samples held, %d not (none there, the sketch already, unrooted or the list full)", (void*)bs, held, n, skipped);
         return held;
     }
-    const uintptr_t an = BsAddr(v);
-    int r = -1;
-    if (g_bdB && g_bdO && an && g_bdI >= 0) {
-        const LONG n = g_bdN;
-        r = 0;
-        for (LONG k = 0; k < n; k++) if (g_bdE[k].bs == g_bdB && g_bdE[k].i == g_bdI) { r = 2; break; }
-        if (!r) {
-            uintptr_t now = 0;
-            __try { uintptr_t* slot = BdSlotPtr(g_bdB, g_bdI); now = slot ? *slot : 0; } __except (EXCEPTION_EXECUTE_HANDLER) { now = 0; }
-            if (!now) r = -1;
-            else if (now != g_bdO) r = -2;
-            else if (n >= 256) r = -1;
-            else { g_bdE[n].bs = g_bdB; g_bdE[n].i = g_bdI; g_bdE[n].orig = g_bdO; g_bdE[n].sk = an; MemoryBarrier(); g_bdN = n + 1; r = 1; }
-        }
-    }
-    if (r < 0) Log("bigdrop: landing sample %d of %p not taken (%d: %s)", g_bdI, (void*)g_bdB, r, r == -2 ? "another animation is there now" : "no object, or the list is full");
-    g_bdB = 0; g_bdO = 0; g_bdI = -1;
-    return r;
+    return -1;
 }
 int nSet(const Lua& lua) {
     std::string k; double v = 0;
@@ -27342,13 +27599,21 @@ int nSet(const Lua& lua) {
         lua.set_integer(1);
         return 1;
     }
+    if (k == "airwalk") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_awOn, o) != o) Log("airwalk: %s (Airwalk=%ld; aw 324)", o ? "ON -- in a Nose grab, A or X kicks the feet off the board, one out in front and one behind" : "off", (long)o); lua.set_integer(1); return 1; }   /* (aw 324) in front of the chain */
+    if (k == "awcount") { lua.set_integer((int)g_awN); return 1; }   /* (aw 326) the airwalks so far: the Lua names a Nose grab with one in it "Airwalk" */
+    if (k == "awspeed") { g_awSp = std::isfinite(v) ? clampf((float)v / 100.0f, 0.2f, 1.5f) : 0.8f; lua.set_integer(1); return 1; }   /* (aw 331) AirwalkSpeed */
+    if (k == "awpitch") { g_awPitch = std::isfinite(v) ? clampf((float)v, 0.0f, 85.0f) : 75.0f; lua.set_integer(1); return 1; }   /* (aw 325) AirwalkRocket */
+    if (k == "awkick" || k == "awdrop") { const float c = std::isfinite(v) ? clampf((float)v, 0.0f, 60.0f) : (k == "awkick" ? 30.0f : 10.0f); if (k == "awkick") g_awKick = c; else g_awDrop = c; lua.set_integer(1); return 1; }   /* (aw 324) */
     if (k == "bigdropearly") { const float e = std::isfinite(v) ? clampf((float)v, 0.0f, 2.0f) : 0.9f; if (e != g_bdEarly) Log("big drop landing: its sounds %.2f s earlier than the animation's own (BigDropSoundEarly; gs314)", e); g_bdEarly = e; lua.set_integer(1); return 1; }   /* (gs314) in front of the chain */
     if (k == "altgamespeed") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_altGameSpeed, o) != o) Log("alt flips: %s (AltGameSpeeds=%ld; gs314)", o ? "the underflips and the alt shove-it at the GAME'S OWN speeds: its flip / rotation multipliers with your Flip / Scoop speed settings, from your flicks" : "the game's own speeds off: build 313's formulas", (long)o); lua.set_integer(1); return 1; }   /* (gs314) */
     if (k == "bdsk" || k == "bdall") { lua.set_integer(BdSet(k == "bdsk" ? 6 : 7, v)); return 1; }   /* (dropfix 303) in front of the chain */
     if (k == "heelsnap") { const float s = std::isfinite(v) ? clampf((float)v, 1.0f, 8.0f) : 4.0f; if (s != g_heelSnap) Log("heel stop: the board's PID x%.1f quicker while the tail drags (HeelStopSnap; pidsnap 304)", s); g_heelSnap = s; lua.set_integer(1); return 1; }   /* (pidsnap 304) in front of the chain */
     if (k == "hsbs") { lua.set_integer(HsBsAdd(v)); return 1; }   /* (snap 303) in front of the chain */
-    if (k == "bigdrop" || k == "bigdropcm" || k == "bdbs" || k == "bdidx" || k == "bdorig" || k == "bdanim") { lua.set_integer(BdSet(k == "bigdrop" ? 0 : k == "bigdropcm" ? 1 : k == "bdbs" ? 2 : k == "bdidx" ? 3 : k == "bdorig" ? 4 : 5, v)); return 1; }   /* (bigdrop 302) in front of the chain */
-    if (k == "bsbs" || k == "bsidx" || k == "bsexp" || k == "bsanim") { lua.set_integer(BsStage(k == "bsbs" ? 0 : k == "bsidx" ? 1 : k == "bsexp" ? 2 : 3, v)); return 1; }   /* (sketch 301) in front of the chain */
+    if (k == "bigdropchance") { lua.set_integer(BdSet(8, v)); return 1; }   /* (dice 334) BigDropChance; (tidy 337) case 8: 334 gave it 7, "bdall"'s, and the big drop never armed */
+    if (k == "bigdrop" || k == "bigdropcm") { lua.set_integer(BdSet(k == "bigdrop" ? 0 : 1, v)); return 1; }   /* (bigdrop 302) in front of the chain */
+    if (k == "heelon") { lua.set_integer((NowS() - g_hsBActT < 1.5) ? 1 : 0); return 1; }   /* (tsname 339) a B tail stop now or 1.5 s ago */
+    if (k == "heelman") { HsSet(5, v); lua.set_integer(1); return 1; }   /* (mode 338) */
+    if (k == "heelbtn") { HsSet(4, v); lua.set_integer(1); return 1; }   /* (bstop 335) HeelStopButton */
     if (k == "heelstop" || k == "heeldecel" || k == "heelanim" || k == "heelsound") { HsSet(k == "heelstop" ? 0 : k == "heeldecel" ? 1 : k == "heelanim" ? 2 : 3, v); lua.set_integer(1); return 1; }   /* (heelstop 299) in front of the chain */
     if (k == "altnostallslide") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_asNsSlide, o) != o) Log("alt stalls: the no stall %s (AltNoStallSlide=%ld)", o ? "INTO THE GAME'S OWN NOSE SLIDE: caught at the lip by the stall's own hold (no turn), its leading wheels put on the coping top, then the game's ground grind check opened and the grind it begins taken as GRIND_FS_Noseslide, held there by the lock -- before the drop-in hand-over; the game owns the pop / flip-out (forcegrind 287, lockgrind3 290)" : "as build 286", (long)o); lua.set_integer(1); return 1; }   /* (forcegrind 287) AltNoStallSlide, in front of the chain (C1061) */
     if (k == "grindexit") { lua.set_integer(GrindExit(v < 0 ? -1 : 1)); return 1; }   /* (v171 grind3) GrindGrabs=2: L3 / R3 in a grind = the game's lean-out, -1 left (LB's) / +1 right (RB's) */
@@ -27458,13 +27723,11 @@ int nSet(const Lua& lua) {
     else if (k == "tweakshare") g_tweakShare = (float)v;
     else if (k == "legs") g_legs = v != 0 ? 1 : 0;
     else if (k == "lean") g_leanMax = (float)v;
-    else if (k == "handclose") g_closeMax = clampf((float)v, 0.0f, 30.0f);   // (v84) cm the hips may go toward a grabbing hand's spot
     else if (k == "pull") g_pullMax = (float)v;
     else if (k == "feet") g_feet = v != 0 ? 1 : 0;
     else if (k == "altpace") g_altPace = clampf((float)v, 0.3f, 1.5f);          // (v139) AltFlipPace
     else if (k == "altsteer") g_fpSteer = clampf((float)v, 0.0f, 50.0f);   // (242) AltFlipSteer: cm of the flick's push (the note at FpStep)
     else if (k == "altloop") g_fpLoopCfg = (v >= 0.5) ? 1 : 0;           // (242) AltFlipLoop: the flip's loop held (hkNua)
-    else if (k == "altflipveto") { g_fbVeto = (v != 0) ? 1 : 0; Log("alt flips: the borrowed flip animation's empty flip under a monster / dolphin %s (HJN_Set altflipveto)", v != 0 ? "refused" : "LET THROUGH -- to compare: the board's frame may turn"); }   // (242)
     else if (k == "altdolspread") g_altDolSpread = (LONG)clampf((float)v, 120.0f, 330.0f);   // (243) AltDolphinSpread (the note at AltDolSpinW)
     else if (k == "altdolfinish") g_altDolFinish = (LONG)clampf((float)v, 60.0f, 300.0f);    // (243) AltDolphinFinish (the note at AltSnapRateT)
     else if (k == "altdolvar") g_altDolVar = (v >= 0.5) ? 1 : 0;       // (245) AltDolphinVarial: the dolphin = the game's own varial flip turned the nollie way (the note at AltDolVarSlot)
@@ -27504,7 +27767,6 @@ int nSet(const Lua& lua) {
     else if (k == "altgrinds") AgSet(v);   /* (altgrind 280) AltGrinds (the note at AgPick) */
     else if (k == "altgrindflipout") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_agFlipOut, o) != o) Log("alt grinds: the alt flip-out %s (AltGrindFlipOut=%ld)%s", o ? "ON" : "off", (long)o, o ? ": with the mirror on in a grind the game's flip-out is taken by the alt set as an alt pop ('altgrind:' ARMED / CLAIMED lines; needs AltGrinds and AltFlips)" : ""); if (!o) { g_agArm = -1; g_agArmPull = false; } }   /* (grindalt3 283) AltGrindFlipOut (the note at AgArmStep) */
     else if (k == "altgrindsingrind") AgInSet(v);
-    else if (k == "altdoublevarialname") DvnSet(v);   /* (grindfix5 286) AltDoubleVarialName (the note at DvnPoll) */   /* (grindalt4 285) AltGrindsInGrind (the note at AgInGrind) */
     else if (k == "altstall") { const LONG o = (LONG)AltStallMode(v); if (InterlockedExchange(&g_altStall, o) != o) Log("alt stalls %s (AltStall=%ld)%s", o ? "ON" : "off", (long)o, o ? ": up a ramp to the lip with the ALT NOLLIE crouch held = a no stall, with the ALT crouch held = a blunt (handed to the game's Blunt grind: blunt 281); the wheels held on the coping until a crouch is pressed and let go (stall3 278)" : ""); if (!o) { g_as.st = 0; g_asBluntPick = 0; g_asb.hand = false; } }   /* (altstall 276) (blunt 281) */
     else if (k == "altstallpitch") { g_asPitch = clampf((float)v, 0.0f, 45.0f); }   /* (altstall 276) the no stall's lie: DropInPitch */
     else if (k == "altbluntgame") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_asBluntGame, o) != o) Log("alt stalls: the blunt %s (AltBluntGame=%ld)", o ? "FORCED INTO THE GAME'S OWN BLUNT GRIND: held at the coping the game's grind check is opened (+0x918 bit 0 lent), its pick answered Blunt (its own side; none = BS), the speed along the coping zeroed in the hold and the grind -- the game owns the pop / flip-out (bsblunt 286); the grind it begins is made a grind, not a lip trick, and set to GRIND_BS_Blunt (forcegrind 287); its trailing wheels held +5 past the edge on the coping top by the lock, every direction (lockgrind3 290)" : "as build 285", (long)o); }   /* (bsblunt 286) AltBluntGame */
@@ -27566,10 +27828,7 @@ int nSet(const Lua& lua) {
     else if (k == "spotupedge") g_spotUpEdge = (float)v;
     else if (k == "deckcentre") g_deckCentre = (float)v;
     else if (k == "deckmeasured") g_deckMeasured = v != 0 ? 1 : 0;
-    else if (k == "rolllevel") g_rollLevel = v != 0 ? 1 : 0;
     else if (k == "riding") g_riding = v != 0 ? 1 : 0;
-    else if (k == "fitcap") g_fitCap = (float)v;
-    else if (k == "decklag") g_deckLag = (float)v;
     else if (k == "handavoid") g_handAvoid = v != 0 ? 1 : 0;
     else if (k == "lateblock") g_lateBlock = v != 0 ? 1 : 0;
     else if (k == "catchhold") g_catchHold = v != 0 ? 1 : 0;   // (v55)
@@ -27582,11 +27841,9 @@ int nSet(const Lua& lua) {
     else if (k == "plantstep") g_plantStepS = clampf((float)v, 0.03f, 0.5f);      // (v73) seconds the plant foot takes from the ground to the board
     else if (k == "plantlead") g_plantLead = clampf((float)v, -300.0f, 800.0f);   // (v73) it leaves the ground when the deck's rise is down to this, cm/s
     else if (k == "bonehips") g_boneHips = clampf((float)v, 10.0f, 95.0f);        // (v73) a rolling grab's hips: cm over the deck
-    else if (k == "bonehipshare") g_boneHipShare = clampf((float)v, 0.0f, 0.9f);  // (v73) the share of the back's bend made at the hips
     else if (k == "bonealongf") g_boneAlongF = clampf((float)v, -40.0f, 40.0f);   // (v76) the rolling grab's front hand: cm along the board, + toward the front foot
     else if (k == "bonealongb") g_boneAlongB = clampf((float)v, -40.0f, 40.0f);   // (v76) ...and its back hand
     else if (k == "plantfoot") g_plantForce = (v == 0 || v == 1) ? (int)v : -1;        // (v80) which foot plants (-1 = the first one down)
-    else if (k == "hoplegrate") g_hopLegRate = clampf((float)v, 30.0f, 2000.0f);   // (v80) cm/s a hop's leg may lengthen
     else if (k == "posehold") { g_phFrames = (int)clampf((float)v, 0.0f, 12.0f); g_phBlend = 0; }   // (v84) poses the body is held over a stance swap
     else if (k == "poselat") g_phTail = (int)clampf((float)v, 0.0f, 40.0f);   // (v96) poses after its blend the hips keep their place across the board (the game's own cross-fade); 0 = v95
     else if (k == "feethold") g_feetHoldUntil = (v > 0) ? GetTickCount64() + (ULONGLONG)(v * 1000.0) : 0;   // (v79) seconds both feet stand on their riding spots
@@ -27595,35 +27852,23 @@ int nSet(const Lua& lua) {
     else if (k == "plantclear") g_plantClear = clampf((float)v, 0.0f, 40.0f);     // (v76) cm the planted foot stands from the board's centre line, at least
     else if (k == "plantback") g_plantBack = clampf((float)v, 0.0f, 1.0f);        // (v75) the share of the planted foot's drift along the board that is kept
     else if (k == "bonesplay") g_boneSplay = clampf((float)v, 0.0f, 1.5f);       // (v75) how far the knees part in a rolling grab's squat (0.45 = about 25 deg)
-    else if (k == "bonemutein") g_boneMuteIn = clampf((float)v, 0.0f, 30.0f);    // (v75) cm the rolling Mute's spot moves toward the middle of the board
     else if (k == "boneback") g_boneBack = clampf((float)v, 0.0f, 40.0f);         // (v73) cm the hips go back from the grabbed edge in a full squat
     else if (k == "plant") {
         const ULONGLONG nowT = GetTickCount64();
         if (v > 0 && (g_plantUntil == 0 || nowT >= g_plantUntil)) g_plantDone = false;   // (v73) a new window: a new plant
         g_plantUntil = (v > 0) ? nowT + (ULONGLONG)(v * 1000.0) : 0;
     }
-    else if (k == "plantfold") g_plantFold = clampf((float)v, 0.0f, 0.8f);     // (v89) 0 = off
-    else if (k == "plantroom") g_plantRoom = clampf((float)v, 0.25f, 0.8f);   // (v89) 0.25 = as good as off
-    else if (k == "hipfix") g_hipFixOn = v != 0 ? 1 : 0;                     // (v94) 0 = the hip joints are left where the game's pose has them
     else if (k == "hopcarry") g_planCarry = (int)clampf((float)v, 0.0f, 2.0f);   // (v95) feet carried to the last landing's spots: 0 never, 1 only in a hop that does not turn, 2 always (v94)
     else if (k == "holdplace") g_holdPlace = v != 0 ? 1 : 0;                 // (v95) a 180's landing: the hips' place has the mesh's lag taken out, as the shoulders' heading has
     else if (k == "kneetoes") g_kneeToes = v != 0 ? 1 : 0;                   // (v95) a hop's poses: a nearly straight leg bends its knee over its toes
     else if (k == "landown") g_ownHold = clampf((float)v, 0.0f, 120.0f);     // (v96) the longest, in seconds from a straight hop's touchdown, a leg the game hands in squeezed is drawn its own length (0 = v95)
-    else if (k == "landownfade") g_ownFade = clampf((float)v, 0.05f, 3.0f);  // (v96) ...and the seconds it is handed back over
     else if (k == "landownturn") g_ownTurn = v != 0 ? 1 : 0;                 // (v96) ...after a turned landing too (off: see LandOwnW)
-    else if (k == "legsolve") g_unstrSolve = v != 0 ? 1 : 0;                 // (v95) a leg whose bones are put back to their length keeps its ankle where the pose had it
     else if (k == "backflat") g_bkFlat = clampf((float)v, 0.0f, 1.0f);       // (v96) the soft plant's back foot: the share of its tilt off the deck taken out
     else if (k == "kneekeep") g_kneeKeep = v != 0 ? 1 : 0;                   // (v96) the unplanned knee keeps its side where the game's leg does not say
     else if (k == "leglinger") { g_legLingerUntil = v > 0 ? GetTickCount64() + (ULONGLONG)(clampf((float)v, 0.0f, 10.0f) * 1000.0f) : 0; g_legLingerOk = 0; g_legLingered = 0; }   // (v102)
     else if (k == "plantflex") g_plFlex = clampf((float)v, 0.0f, 120.0f);     // (v96) the least a planted foot's ankle is bent to (shin to toe, deg) before its heel comes up; 0 = off
-    else if (k == "plantheelmax") g_plHeelMax = clampf((float)v, 0.0f, 60.0f); // (v96) the most its heel comes up for that, deg
     else if (k == "plantstick") g_plStick = v != 0 ? 1 : 0;                  // (v95) the plant foot keeps its place in the world while it stands
     else if (k == "plantstand") g_plStandMax = clampf((float)v, 0.0f, 1.0f); // (v95) the longest it stands, s (0 = until the board's top)
-    else if (k == "plantin") g_plStepIn = clampf((float)v, 0.02f, 0.4f);      // (v94) seconds the plant foot takes from the board to its place on the ground
-    else if (k == "plantpeel") g_plPeel = clampf((float)v, 0.0f, 60.0f);      // (v94) deg its heel peels up as it leaves the ground
-    else if (k == "planttoein") g_plToeIn = clampf((float)v, 0.0f, 90.0f);    // (v94) deg its toes stand in from the board's line (90 = square to the board)
-    else if (k == "gluemin") g_glueMin = clampf((float)v, 0.3f, 0.8f);          // (v88) the boneless's glued leg: least hip-to-ankle length, as a share of the leg
-    else if (k == "glueraise") g_glueRaiseMax = clampf((float)v, 0.0f, 40.0f);  // (v88) ...and the most the hips are raised for it, cm
     else if (k == "plantmax") g_plantMax = clampf((float)v, 0.0f, 90.0f);   // (v71) the most the hips are kept down for it, cm
     else if (k == "cavebend") g_cvBendMax = std::isfinite(v) ? clampf((float)v, 0.0f, 85.0f) : 65.0f;   // (cave) CavemanBend: the most the caveman's back bends forward toward his toes, deg
     else if (k == "cavehandout") g_cvHandOut = std::isfinite(v) ? clampf((float)v, 0.0f, 20.0f) : 6.0f;   // (cave, fix) CavemanHandOut: cm further out than the rolling grab's spot the caveman's hand holds the edge
@@ -27658,23 +27903,16 @@ int nSet(const Lua& lua) {
     else if (k == "bonelean") g_boneLeanMax = clampf((float)v, 0.0f, 85.0f);   // (v72) the most the back bends toward the board in a rolling grab, deg
     else if (k == "yaw180") g_yaw180Until = (v > 0) ? GetTickCount64() + (ULONGLONG)(v * 1000.0) : 0;   // (v71) seconds the pose is turned half round
     else if (k == "footankle") g_footAnkle = clampf((float)v, 0.0f, 40.0f);   // (v67) cm the ankle stays over the ground
-    else if (k == "foottoe") g_footToe = clampf((float)v, 0.0f, 20.0f);
-    else if (k == "footheel") g_footHeel = clampf((float)v, 0.0f, 90.0f);      // (v91) deg a standing foot's heel may be up; 90 = as the animation has it
-    else if (k == "replayclicks") g_replayClicks = v != 0 ? 1 : 0;   // (v67) 0 = the replay editor's stick clicks go the game's usual way
     else if (k == "bumpermask") g_bumpMaskUntil = (v > 0 && g_xiUser >= 0) ? GetTickCount64() + (ULONGLONG)(v * 1000.0) : 0;   // (v68) seconds RB is kept from the game (only with an XInput pad to read it from)
     else if (k == "offboard") g_offBoard = v != 0 ? 1 : 0;       // (v84)
     else if (k == "bail") g_bail = v != 0 ? 1 : 0;               // (v63)
     else if (k == "posedump") PdSwitch(v != 0);                    // (v94) 1 = every trick's poses to ExpandedTricks.poses.bin (the default), 0 = off
     else if (k == "grindgrabs") { lua.set_integer(GrindLean(v != 0)); return 1; }   /* (v169) GrindGrabs: 1 = the game's bumper lean-out of a grind off, 0 = back */
-    else if (k == "stickbank") StickBank(v != 0);                  // (v64) 1 = the game's own, 0 = the stick's bank off
     else if (k == "handaim") g_handAim = (int)v;
     else if (k == "fingercurl") g_fingerCurl = (float)v;
     else if (k == "curlroot") g_curlJoint[0] = (float)v;   // (v52)
     else if (k == "curlmid") g_curlJoint[1] = (float)v;
     else if (k == "curltip") g_curlJoint[2] = (float)v;
-    else if (k == "sidemax") g_sideMax = (float)v;
-    else if (k == "twistmax") g_twistMax = (float)v;
-    else if (k == "shiftmax") g_shiftMax = (float)v;
     else if (k == "dblfront") g_dblFront = v != 0 ? 1 : 0;
     else if (k == "bone") g_boneWant = std::isfinite(v) ? clampf((float)v, 0.0f, 1.0f) : 0.0f;   // (v109)
     else if (k == "turnsense") g_turnSense = v != 0 ? 1 : 0;                                    // (v110)

@@ -158,6 +158,10 @@ The caveman's settings are on the Hippie Jumps page.
   **LB** for the front hand. The hand stays on while the bumper is held, through an ollie, a drop or a no comply.
 - **Finger flips:** flick a flip trick with a rolling grab's hand on the board. The hand lets go as the board leaves
   the ground, so it looks as if the hand flipped it. *Rolling grab: flips allowed* picks which flips can be flicked.
+- **Airwalk:** in a **Nose grab**, press **A** or **X**. Your feet come off the board, the front one kicked out in
+  front of you and the back one behind (its shin near level), and the board's nose lifts. Hold the button to keep
+  them out; let go and they come back to the board for the landing. The trick display says *Airwalk*. Under *Airwalk*
+  on the Grabs page: *Stride* (how far the legs swing), *Board angle* (how far the nose lifts) and *Leg speed*.
 - In the left foot / right foot stick mode **LB is the left hand and RB the right**, as the sticks are the left and the
   right foot. The two bumpers change places whenever your left foot is at the back (a regular rider riding switch, a
   goofy rider riding forward), for every grab, the rolling grabs, the boneless and the bean plant.
@@ -179,9 +183,14 @@ The caveman's settings are on the Hippie Jumps page.
 
 ## Tail stop
 
-*Tail stop* on the General gameplay settings page (on as the mod ships).
+The *Tail stop* slider on the General gameplay settings page: 0 = off, 1 = the manual way, 2 = B, 3 = both (as the
+mod ships).
 
-In a **manual** (not a nose manual), push the **back-foot stick all the way down**. The game would crouch out of the
+**On B:** hold **B** while rolling. The tail drops onto the ground and drags until you let go of B, then you ride on.
+With B on, B is not the game's foot brake while you roll (on foot and everywhere else it is the game's as ever).
+The trick display does not show the manual it is made from.
+
+**The manual way:** in a **manual** (not a nose manual), push the **back-foot stick all the way down**. The game would crouch out of the
 manual there; with the tail stop on, the tail drops onto the ground in the one-foot powerslide pose, drags with the
 game's tail-slide sound, and slows you down. Hold it to come to a stop. Ease the stick off and you ride on in the
 manual; turn it away from straight down and the tail stop ends.
@@ -193,9 +202,9 @@ seconds; the game's own unused tail brake would be 22). How quickly the tail goe
 
 ## Big drop landing
 
-*Big drop landing* on the General gameplay settings page (on as the mod ships). Land **2.5 m or more** below where
-you left the ground and the landing is the game's unused big sketchy landing, for
-regular and switch landings. `BigDropHeight` in the ini sets the height in metres.
+*Big drop landing* on the General gameplay settings page: how often, from 0 to 100 % (30 % as the mod ships). Land
+**2.5 m or more** below where you left the ground and, that often, the landing is one of the game's two unused big
+sketchy landings (the regular one or the switch one, picked at random each time). `BigDropHeight` in the ini sets the height in metres.
 
 ## Alt flips out of grinds
 
