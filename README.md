@@ -1,7 +1,7 @@
-# Expanded Tricks 1.3.0 for Session: Skate Sim
+# Expanded Tricks 1.4.0 for Session: Skate Sim
 
 New flip tricks (monster, dolphin, porpoise, nightmare, daydream, underflips, the hospital flip), wallrides, the caveman,
-hippie jumps, grabs, the airwalk, no complies, bonelesses, finger flips and drop-ins for Session, with its own settings pages in the
+hippie jumps, grabs, the judo air and the airwalk, slappies, no complies and no comply shove-its, bonelesses, finger flips and drop-ins for Session, with its own settings pages in the
 pause menu. Source and releases: https://github.com/Portman2/SessionExpandedTricks
 
 The full list of tricks with their inputs is in [docs/TRICKS.md](docs/TRICKS.md). What changed since 1.0.0 is in
@@ -41,6 +41,8 @@ The full list of tricks with their inputs is in [docs/TRICKS.md](docs/TRICKS.md)
   Tap Y twice for a switch caveman. The game's own version moved the board to your feet in one frame.
 - **No comply.** The game's unused no-comply animation, on the pressure kickflip's input (riding regular: left stick
   down + right stick left). Regular and goofy, and riding switch.
+- **No comply shove-it.** Do a no comply, then scoop either stick round in the air: the board spins a shove-it under
+  you while your feet do the no comply. Regular and switch. *No comply shove-it* on the No Comply page.
 - **Boneless and bean plant.** Hold RB (back hand) or LB (front hand) so a hand is on the board, then do a no comply.
   The game catches the board for you and the hand lets go as the board comes back under your feet. Let the bumper go
   before the next grab. A bumper pressed late in the trick puts no hand on.
@@ -55,15 +57,24 @@ The full list of tricks with their inputs is in [docs/TRICKS.md](docs/TRICKS.md)
   press Y. The board is set tail-down on the coping and you step on. Then push a stick up to drop in, press LB or RB to
   step back, or press Y to step off. Tap Y twice to be put on in switch, facing away from the drop. Farther from an
   edge, Y is the game's own throwdown.
-- **Airwalk.** In a Nose grab, press **A** or **X**: your feet come off the board, the front one kicked out in front of
-  you and the back one behind, while the board's nose lifts. Let go and they come back for the landing. *Stride*,
+- **Judo air and airwalk.** In a one-hand Nose grab, press **A** or **X**: your front foot kicks out and the back foot
+  stays on the board (the judo air). Press the other one too and it becomes the airwalk: your feet come off the board,
+  the front one kicked out in front of you and the back one behind, while the board's nose lifts. Let go and they come
+  back for the landing. *Buttons* under *Airwalk* swaps A / X for the stick clicks (R3 does what A does, L3 what X does). *Stride*,
   *Board angle* and *Leg speed* under *Airwalk* on the Grabs page.
 - **Tail stop.** Hold **B** while rolling, or in a manual (not a nose manual) push the back-foot stick **all the way
   down**: the tail drops onto the ground in the game's one-foot powerslide pose and drags, with the game's tail-slide
   sound, until you stop or let go. The *Tail stop* slider picks the way: 1 = the manual, 2 = B, 3 = both (as it ships);
-  with B on, B is no longer the game's foot brake while you roll. It drags whichever end is behind you, so it
+  with B on, B is no longer the game's foot brake while you roll, and B pressed in the air and held through the
+  landing lands you in the tail stop. It drags whichever end is behind you, so it
   works riding switch, fakie and nollie too. *Tail stop: friction* on the General gameplay page sets how hard it
   slows you; the board stays on its line, even with the friction turned right up.
+- **Slappies.** Ride at a low curb (up to 28 cm) holding a grind's sticks, or crouched: the nose rides up onto the
+  edge, the back truck follows with a hit on the curb, and you lock into the grind. The sticks you hold pick it: one
+  down and the other up for a 50-50, the back-foot stick alone for a 5-0, the front-foot stick alone for a nosegrind,
+  a stick tilted sideways for a crooked grind. Then the game's own grind controls take over: change the grind with the
+  sticks, turn it with the triggers (far enough off the curb and it becomes the game's slide). Regular, nollie, fakie
+  and switch. *Slappies* on the General gameplay page.
 - **Big drop landing.** Land 2.5 m or more below where you left the ground and, 30 % of the time (the *Big drop
   landing* slider), the trick lands with one of the game's two unused big sketchy landings instead of its usual one.
   The game had the animations but never used them.
@@ -214,6 +225,7 @@ arrow, as on a clock (12 o'clock is up, 3 is right, 6 is down, 9 is left). Steps
 | No comply | <img src="docs/buttons/RS-left.svg" alt="RS left" height="28">, then <img src="docs/buttons/LS-down.svg" alt="LS down" height="28"> | <img src="docs/buttons/LS-right.svg" alt="LS right" height="28">, then <img src="docs/buttons/RS-down.svg" alt="RS down" height="28"> |
 | Boneless | <img src="docs/buttons/RB.svg" alt="RB" height="28">, then <img src="docs/buttons/RS-left.svg" alt="RS left" height="28">, then <img src="docs/buttons/LS-down.svg" alt="LS down" height="28"> | <img src="docs/buttons/LB.svg" alt="LB" height="28"> (your back hand), then <img src="docs/buttons/LS-right.svg" alt="LS right" height="28">, then <img src="docs/buttons/RS-down.svg" alt="RS down" height="28"> |
 | Bean plant | <img src="docs/buttons/LB.svg" alt="LB" height="28">, then <img src="docs/buttons/RS-left.svg" alt="RS left" height="28">, then <img src="docs/buttons/LS-down.svg" alt="LS down" height="28"> | <img src="docs/buttons/RB.svg" alt="RB" height="28"> (your front hand), then <img src="docs/buttons/LS-right.svg" alt="LS right" height="28">, then <img src="docs/buttons/RS-down.svg" alt="RS down" height="28"> |
+| No comply shove-it | a no comply, then scoop either stick round in the air | a no comply, then scoop either stick round in the air |
 | Grab, front hand | <img src="docs/buttons/LB.svg" alt="LB" height="28"> + <img src="docs/buttons/LS.svg" alt="LS" height="28"> in the air | <img src="docs/buttons/RB.svg" alt="RB" height="28"> (the right hand) + <img src="docs/buttons/RS.svg" alt="RS" height="28"> in the air |
 | Grab, back hand | <img src="docs/buttons/RB.svg" alt="RB" height="28"> + <img src="docs/buttons/RS.svg" alt="RS" height="28"> in the air | <img src="docs/buttons/LB.svg" alt="LB" height="28"> (the left hand) + <img src="docs/buttons/LS.svg" alt="LS" height="28"> in the air |
 | Grab tweak: bone (forward) | while holding a grab, turn its stick round the rim from where it picked the grab, either way; an Indy for example: <img src="docs/buttons/RB.svg" alt="RB" height="28"> + <img src="docs/buttons/RS-right.svg" alt="RS right" height="28">, then <img src="docs/buttons/RS-3-1.svg" alt="RS 3 to 1" height="28"> or <img src="docs/buttons/RS-3-5.svg" alt="RS 3 to 5" height="28">. The board is poked out toward the nose (depending on settings: *Grab tweak* on 1 = bone, as the mod ships; how far: *All grabs: bone distance*, *Boned grabs: how far out*; what moves: *Bone moves*) | an Indy for example: <img src="docs/buttons/LB.svg" alt="LB" height="28"> + <img src="docs/buttons/LS-left.svg" alt="LS left" height="28">, then <img src="docs/buttons/LS-9-11.svg" alt="LS 9 to 11" height="28"> or <img src="docs/buttons/LS-9-7.svg" alt="LS 9 to 7" height="28"> |
@@ -222,9 +234,12 @@ arrow, as on a clock (12 o'clock is up, 3 is right, 6 is down, 9 is left). Steps
 | Two-hand grab tweak | <img src="docs/buttons/LB.svg" alt="LB" height="28"> + <img src="docs/buttons/RB.svg" alt="RB" height="28">, then turn the stick you swing further, as above; a pair picked with both sticks to a side (Truck Driver, Drunk Driver, Squirrel): <img src="docs/buttons/LS-up.svg" alt="LS up" height="28"> + <img src="docs/buttons/RS-up.svg" alt="RS up" height="28"> after the grab is made bones it | <img src="docs/buttons/LB.svg" alt="LB" height="28"> + <img src="docs/buttons/RB.svg" alt="RB" height="28">, then turn the stick you swing further, as above; a pair picked with both sticks to a side (Truck Driver, Drunk Driver, Squirrel): <img src="docs/buttons/LS-up.svg" alt="LS up" height="28"> + <img src="docs/buttons/RS-up.svg" alt="RS up" height="28"> after the grab is made bones it |
 | Rolling grab | <img src="docs/buttons/RB.svg" alt="RB" height="28"> (back hand) &nbsp;or&nbsp; <img src="docs/buttons/LB.svg" alt="LB" height="28"> (front hand) while riding | <img src="docs/buttons/LB.svg" alt="LB" height="28"> (back hand) &nbsp;or&nbsp; <img src="docs/buttons/RB.svg" alt="RB" height="28"> (front hand) while riding |
 | Finger flip | <img src="docs/buttons/RB.svg" alt="RB" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/LB.svg" alt="LB" height="28"> + a flip trick's flick | <img src="docs/buttons/RB.svg" alt="RB" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/LB.svg" alt="LB" height="28"> + a flip trick's flick |
+| Judo air | in a one-hand Nose grab, **A** or **X** (your front foot kicks out) | in a one-hand Nose grab, **A** or **X** |
+| Airwalk | a judo air, then the other one too (**A** + **X**) | a judo air, then the other one too (**A** + **X**) |
 | Drop-in | <img src="docs/buttons/Y.svg" alt="Y" height="28"> at an edge, on foot, board in hand; then <img src="docs/buttons/stick-up.svg" alt="stick up" height="28"> to go, <img src="docs/buttons/LB.svg" alt="LB" height="28"> / <img src="docs/buttons/RB.svg" alt="RB" height="28"> to step back, <img src="docs/buttons/Y.svg" alt="Y" height="28"> to step off | <img src="docs/buttons/Y.svg" alt="Y" height="28"> at an edge, on foot, board in hand; then <img src="docs/buttons/stick-up.svg" alt="stick up" height="28"> to go, <img src="docs/buttons/LB.svg" alt="LB" height="28"> / <img src="docs/buttons/RB.svg" alt="RB" height="28"> to step back, <img src="docs/buttons/Y.svg" alt="Y" height="28"> to step off |
 | Drop-in in switch | <img src="docs/buttons/Y.svg" alt="Y" height="28"> <img src="docs/buttons/Y.svg" alt="Y" height="28"> (tapped twice) at an edge, on foot, board in hand | <img src="docs/buttons/Y.svg" alt="Y" height="28"> <img src="docs/buttons/Y.svg" alt="Y" height="28"> (tapped twice) at an edge, on foot, board in hand |
 | Jump onto the board | <img src="docs/buttons/L3.svg" alt="L3" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/R3.svg" alt="R3" height="28"> near the board | <img src="docs/buttons/L3.svg" alt="L3" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/R3.svg" alt="R3" height="28"> near the board |
+| Slappy | ride at a low curb holding the grind's sticks (the 50-50's: one down, one up), or crouched | the same |
 
 How each one is done, in more detail and for every stance: [docs/TRICKS.md](docs/TRICKS.md).
 

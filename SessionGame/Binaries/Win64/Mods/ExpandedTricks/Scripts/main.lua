@@ -51,7 +51,7 @@
 -- ============================================================================
 
 ------------------------------------------------------------------- settings
-local MOD_VERSION = "1.3.0"               -- (v121) the release version (the Lua and native halves keep their own build numbers)
+local MOD_VERSION = "1.4.0"               -- (v121) the release version (the Lua and native halves keep their own build numbers)
 local S = {
     Height = 60.0,
     GameGravity   = 1,
@@ -87,6 +87,45 @@ local S = {
     NoComplyPopNotify = 0.015,
     NoComplyAutoCatch = 1,
     NoComplyNoBail = 1,
+    SlappyPull = 120,                      -- (slappy 356) cm/s the skater is steered toward the curb while the slappy's grind check is open (0 = none)
+    Slappy = 1,                            -- (slappy 355) 1 = hold the crouch riding along a low curb: a ride-on 50-50 (a first try)
+    WallyOn = 0,                           -- (wally 381) 1 = ride straight at a 60-120 cm wall: the board goes up, over (or onto) it (a first try)
+    WallyMinHeight = 60, WallyMaxHeight = 120, WallyMinSpeed = 250, WallyMaxSpeed = 1100, WallyMaxAngle = 25, WallyLead = 0.40, WallyLeadTime = 0.20,   -- (wally 381) cm, cm/s, deg, s
+    WallyTailPitch = 30, WallyTailPose = 1, WallyClimbTime = 0, WallyCrouch = 1.0, WallyLean = 15, WallyTrigger = 0, WallyOverMax = 60, WallyTrace = 1,   -- (wally 381)
+    WallyFootRock = 1.0,                   -- (wallie 386) the feet rocked toward level on their uphill sole edges (0 = flat on the deck)
+    WallyBodyUp = 1.0,                     -- (wallie 388) the body kept up over the board: shallower crouch, hips in their sockets, legs their own length, trunk upright (0 = 387's body)
+    WallyHipsBack = 1.0,                   -- (wallie 389) the hips eased back off the higher foot on the climb, so the front knee is not folded flat (0 = 388's)
+    WallyCorners = 1,                      -- (corner 388) 1 = a wallie at a block's corner: a face that ends beside where the board meets it, or the corner's other face met closer to head-on
+    WallyApproach = 55,                    -- (wallie 387) deg: the most off head-on (WallyMaxAngle 25 is no longer read)
+    WallyLowestWall = 30, WallyMaxUndercut = 20,   -- (wally 385) cm: the lowest wall (WallyMinHeight 60 is no longer read); the deepest undercut under a top's edge (a bench's is refused)
+    SlappyMaxHeight = 28,                  -- (slappy 374) cm: the highest curb a slappy takes
+    SlappyMaxAngle = 55,                   -- (slappy 374) degrees: the steepest a curb is met at for a slappy
+    SlappyPick = 1,                        -- (slappy 384) 1 = the sticks held at the curb pick the first grind (5-0 / nosegrind / crooked / overcrook / 50-50)
+    SlappyInset = 3,                       -- (slappy 384) cm the trucks sit in from the curb's edge (383: 1) -- not read since 385 (SlappyOnCurb)
+    SlappyOnCurb = 70,                     -- (slappy 385) % of the trucks' width on the curb's top (50 = their middle on the edge; 384's 3 cm about 65)
+    SlappyNoSlide = 1,                     -- (slappy 385) 1 = the game's powerslide held off riding at a curb a slappy can take (a crook's tilted stick)
+    SlappyCrookYaw = 30,                   -- (slappy 386) degrees a crooked / overcrook slappy's board turns off the curb on the way in (0 = straight on, as 385)
+    SlappyClack = 1,                       -- (slappy 399) the slappy's hit on the curb: 1 = played every slappy (the game's grind-in sound, a middle drop's), 2 = the hardest one, 0 = the game's own (it used the last air's drop height)
+    SlappySwitch = 1,                      -- (slappy 394) 1 = slappies in fakie / switch too (397: the game's air grind takes them)
+    SlappyFeetOnTruck = 0,                 -- (slappy 386) 1 = in a slappy 5-0 / nosegrind / crook the grinding foot is drawn in over its truck
+    SlappyCrookMirror = 1,                 -- (slappy 387) 1 = the game's mirrored crook picks in a slappy grind named by their shape (its Overcrook = a Crooked)
+    SlappyTweaksQuiet = 1, SlappyTweaksQuietMask = 13, SlappyTweaksQuietWindow = 400,   -- (slappy 383) SessionTweaks' grind rock / pitch fix / pop swing held off through a slappy (0 off, 1 the whole grind, 2 its first moments) | 1 rock 2 lean 4 pitch fix 8 pop swing | ms
+    OneFootKeys = 0,                       -- (ofb 374) 0 = A / X, 1 = the stick clicks (R3 as A, L3 as X) for the judo air and the airwalk ((387) the one-foot catch: OneFootCatchInput)
+    OneFootPlant = 1,                      -- (ofb 384) 1 = the one-foot catch's standing foot kept on the deck through the air (its riding height, its sole flat); 0 = as the game draws it
+    OneFootSole = 1,                       -- (ofb 387) 1 = the one-foot catch's standing foot held flat ON the deck after the landing too (the riding sole and height of the foot on the deck's flat); 0 = 386's (eased back to the game's own after the landing)
+    OneFootSplay = 7,                      -- (ofb 387) degrees the lifted leg is turned out at the hip, away from the standing leg (an A-frame; less once the legs stand three times that apart); 0 = 386's
+    OneFootBalance = 1,                    -- (ofb 386) 1 = on one foot the trunk upright along the board and the hips placed so the body's mass is over the standing foot; 0 = 385's (the hips moved with the foot)
+    OneFootHips = 1,                       -- (ofb 384) one-foot balance: 1 = the hip joints put back into the pelvis, the legs their own length, the hips moving with the foot (383's place); 2 = the same with the pelvis over the standing foot (374's place, a test); 0 = 383's
+    OneFootButtons = 1,                    -- (ofb 368) A / X in a trick's air land on one foot: 1 = A the front foot up, X the back (front / back foot controls); 0 = A the right foot, X the left
+    OneFootCatchInput = 0,                 -- (ofb 387) the one-foot catch's input: 0 off, 1 A / X (as 386), 2 the stick clicks L3 / R3, 3 both
+    OneFootClickStand = 1,                 -- (ofb 387) a stick click's one-foot catch: 1 = you stand on the clicked stick's foot (the other comes up), 0 = the clicked stick's foot comes up
+    NoComplyBodyLift = 15,                 -- (ncshove 364) cm more rise the body is given when the no comply's plant foot leaves the ground (0 = off)
+    NoComplyBackLift = 8,                  -- (ncshove 354) cm the no comply's back foot is drawn up off the deck at the pop's top (0 = off)
+    NoComplyNosePop = 100,                 -- (ncshove 353) the no comply's deck follows its clip's own board angle in the air (nose up to 64 deg), in % (0 = the game's pitch curve, as before 353)
+    NoComplySwitchShoveFoot = 28,          -- (ncshove 384) cm: a SWITCH shove-it's back foot over the deck's middle after the pop, straight up (regular: 24)
+    NoComplyShovePlantFloor = 1,           -- (ncshove 384) the shove-it's plant foot kept on top of the spun deck: 0 off, 1 switch shove-its, 2 every shove-it
+    NoComplyLetDown = 0.26,                -- (ncshove 384) s: the no comply body lift's let-down (383: 0.20), done 0.40 s after the plant foot's leave as before
+    NoComplyShove = 1,                     -- (ncshove 345) 1 = a regular shove-it with the other stick held down plays the no comply's animation (the board: the shove-it)
     NoComplyFootFix = 1,
     NoComplyFootHeight = 10,
     Boneless = 1,
@@ -264,6 +303,13 @@ local S = {
     GrabBoneLean = 25,
     GrabHeadUp = 30,
     GrabHeadTurn = 0,
+    GrabHeadEase = 0.12,                   -- (383) s: the grab's head aim eased in time (native v279); 0 = 382's, per pose
+    GrabHeadRate = 200,                    -- (383) deg/s the grab's head aim turns at the most
+    GrabEaseIn = 0.3,                      -- (383) s: a grab comes in no faster than a smooth start-and-stop curve over this; 0 = 382's (the game's alpha)
+    GrabEaseOut = 0.25,                    -- (383) s: ...and is let go no faster than one over this from the release; 0 = 382's
+    GrabHeadHold = 0.35,                   -- (384) s: the head keeps its grab aim this long after the touchdown, the grab let go; 0 and GrabHeadOut 0 = 383's
+    GrabHeadOut = 0.5,                     -- (384) s: ...then is handed back to the game's own over this
+    GrabHeadSteady = 1,                    -- (384) 1: the head's aim eased where he looks, the game's own quick head moves not coming through it; 0 = 383's
     GrabBoneBehind = 20,
     GrabBoneShowStick = 1,
     HopOllieDeck = 1,
@@ -358,6 +404,9 @@ local S = {
     WallRideReleaseBlend = 0.18,           -- (wallsmooth 254) "when he releases, his body like jerks" (22 Oct): s the ride's last drawn pose is blended into the game's after the ride (0 = build 253's)
     WallRideCurveRadius = 300,             -- (curvewall 255) "I'm not getting the ride-ons to work at all" on a curved wall (22 Oct; its radius read ~380 cm): cm, the tightest curve a wallride follows (0 = build 254's)
     WallRideMaxTurn = 120,                 -- (curvewall 255) deg a wallride may turn following a curved wall (25 + the curve's turn over the cm ridden, this at the most)
+    WallRideCorners = 0,                   -- (corner 388) 1 = a wall met right at its end (its corner) is ridden on from there: its face starting within WallRideCornerReach on along your travel
+    WallRideCornerReach = 30,              -- (corner 388) cm on along the travel the face may start past where the board meets the wall's plane
+    WallRideCornerFace = 70,               -- (corner 389) a wall that ends ahead is ridden to its end when its face runs this many cm on from the board (0 = never)
     WallRideKneeWay = 0,                   -- (wallpose) "the knee bends ... to the side ... to the direction of travel, not forward like a human would bend" (21 Oct): deg from the hips' forward toward the board's leading end
     WallRideTorsoLeanBack = 45,            -- (wallpose) "chop the guy in half and put his body behind his legs" (21 Oct): deg from upright, backside (45 = along the legs' line)
     WallRideHeadForward = 1,               -- (w11 wallhead) "He should just keep his head looking forward ... over his forward shoulder ... like he's still skateboarding" (21 Oct): 1 = the head looks along the travel through a wallride; 0 = build 245's
@@ -377,6 +426,7 @@ local S = {
     WallRideGroundWallieRate = 600,        -- (253) "it needs to angle the board faster" (22 Oct): deg/s that pitch comes at
     WallRideGroundWallieBody = 20,         -- (253) "once the front hits the wall, he almost needs to push his tail all the way down ... then push his toes out and flatten the board" (22 Oct): deg the body turns back toward the tail at the wallie's full pitch (the weight over the tail, the feet on the pitched deck, the knees bent); 0 = none
     DevKeys = 0,
+    Experimental = 0,                      -- (rel 391) 1 = the menu shows the experimental rows (wallies, the one-foot catch, wallride corners); 0 = hidden (the release)
     AltFlips = 1,
     AltFlipEngage = 0.5,
     AltFlipRelease = 0.3,
@@ -568,6 +618,7 @@ local S = {
     HopCarryTurn = 1,
     AutoUpdate = 2,
     RecordPoses = 1,
+    RecordGrinds = 0,                      -- (rel 391) 1 = the pose recorder takes every grind too (390's; RecordPoses on)
     TraceLog = 1,
     HopLock = 1,
     HopHold = 1,
@@ -633,6 +684,58 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "NoComplyEndPitchTimeMax", "num", 0, 1.5, "no comply: ...and is level for the catch (0.42)" },
     { "NoComplyPopNotify", "num", -0.2, 0.3, "no comply (the ini only; AN EXPERIMENT -- 0.015 is what the mod has always written): seconds added to the moment the BOARD pops in this trick. The game throws the SKATER up at the flick and pops the board later: 0.133 to 0.2 s by its trick database, plus what the trick itself adds (this number at most; 0 at least). In the traces the board still lies flat on the ground 0.15 s in, with the skater already 38 cm up and the back leg at full stretch down to it. Under 0 = the board pops that much EARLIER, at least and at most (the game's own nollie 360 shove-it has -0.06): it tops out earlier, so the planted foot leaves the ground earlier and the body is held down for it less. The no comply clip itself has the board off the ground at about 0.2 s and the planted foot lifting at 0.27 s. Not tried in the game yet" },
     { "NoComplyAutoCatch", "num", 0, 1, "no comply: 1 = the game catches the board for you (the mod's choice), 0 = you catch" },
+    { "SlappyPull", "num", 0, 400, "SLAPPY PULL (build 356): not used since build 362 (the slappy moves the board onto the curb's edge itself)" },
+    { "Slappy", "num", 0, 1, "SLAPPIES (build 364): ride at a low curb (5-40 cm) holding one stick down and the other up (the 50-50's own sticks: push the front one up FIRST, a back stick held down first makes the game's ollie) or in the middle (the crouch): as the board meets it the nose rides up onto the curb's edge and the back truck follows the front one's path onto it; the game's grind there is the 50-50. 0 = off. Takes effect at the next skater (a level load)" },
+    { "OneFootPlant", "num", 0, 1, "ONE-FOOT LANDING, THE STANDING FOOT (build 384): 1 = the foot you stand on stays ON the deck through the air (its riding height, its sole flat on the deck), eased back to the game's own just after the landing; 0 = as the game draws it (383: in an X ollie it rose up to 20 cm off the deck)" },
+    { "OneFootButtons", "num", 0, 1, "ONE-FOOT LANDING (build 368, a first try): press A or X in a flip trick's air and you land on one foot, the manual's balancing arms out; the other foot stays up from the catch, the standing foot in the board's middle, until you tap the OTHER button (no pushing until then). 1 = A lifts the FRONT foot and X the BACK whatever your stance (front / back foot controls); 0 = A the RIGHT foot, X the LEFT (left / right foot controls)" },
+    { "NoComplyBodyLift", "num", 0, 40, "NO COMPLY BODY LIFT (build 365): cm the body is drawn higher from the moment the no comply's planted foot leaves the ground until the feet come back to the board, so the legs clear it on its way back down. 0 = off. Takes effect at the next skater (a level load)" },
+    { "NoComplyBackLift", "num", 0, 30, "NO COMPLY BACK FOOT LIFT (build 354): cm the back foot is drawn up off the deck while the nose pops (most at the top, none by the landing). 0 = off. Takes effect at the next skater (a level load)" },
+    { "NoComplySwitchShoveFoot", "num", 10, 45, "SWITCH NO COMPLY SHOVE-IT BACK FOOT (build 384): cm the back foot is held over the middle of the board, straight up, from just after the pop until the feet come back, so it clears the spinning board (28). Regular shove-its keep 24, capped 24 over where the foot was at the scoop (as in 383)" },
+    { "NoComplyShovePlantFloor", "num", 0, 2, "NO COMPLY SHOVE-IT PLANT FOOT (build 384): the planted foot, free while the board spins, is kept on top of the board where it is over it (its ankle at least 10 cm over the deck) instead of sinking into it. 0 = off, 1 = switch shove-its, 2 = every shove-it" },
+    { "NoComplyLetDown", "num", 0.1, 0.4, "NO COMPLY BODY LIFT LET-DOWN (build 384): seconds the body lift (NoComplyBodyLift) takes to come back down; it is done at the same moment whatever this is (0.40 s after the planted foot leaves the ground), so a longer let-down starts earlier and comes down more gently. 383 had 0.20" },
+    { "NoComplyNosePop", "num", 0, 200, "NO COMPLY NOSE POP (build 353): the deck follows the no comply clip's own board through the air -- the tail slaps, the nose comes up to 64 deg and back down by ~0.55 s -- in % of that (100 = the clip's own). 0 = the game's pitch curve (the NoComplyStartPitch / EndPitch numbers), as before. Takes effect at the next skater (a level load)" },
+    { "WallyOn", "num", 0, 1, "WALLIE (build 381, a first try): ride straight at a wall 30-120 cm high: the tail goes down, the wheels roll up the face, over the top and down (or onto a deep top). 0 = off" },
+    { "WallyLowestWall", "num", 20, 150, "wallie: the lowest wall, cm (30; build 385 -- WallyMinHeight is no longer read)" },
+    { "WallyMaxUndercut", "num", 0, 80, "wallie: the deepest undercut under a top's edge, cm (20: a ledge's lip is kept, a bench is refused)" },
+    { "WallyMaxHeight", "num", 30, 200, "wallie: the highest wall, cm (120)" },
+    { "WallyMinSpeed", "num", 50, 1500, "wallie: the least closing speed, cm/s (250)" },
+    { "WallyMaxSpeed", "num", 100, 2000, "wallie: the most closing speed, cm/s (1100)" },
+    { "WallyCorners", "num", 0, 1, "wallie: 1 = at a block's corner too (build 388): a face that ends beside where the board meets it is taken while the leading axle meets it inside its end;\n; where the rays see both faces of a corner the one met closer to head-on is taken. 0 = build 387's (a face 15 cm a side or no wallie)" },
+    { "WallyApproach", "num", 5, 70, "wallie: the most off head-on, degrees (55; build 387 -- WallyMaxAngle is no longer read)" },
+    { "WallyLeadTime", "num", 0.12, 0.8, "wallie: seconds before the face the tail starts down (0.2; build 384 -- WallyLead is no longer read)" },
+    { "WallyTailPitch", "num", 0, 60, "wallie: the nose's pitch at the face, degrees (30)" },
+    { "WallyTailPose", "num", 0, 1, "wallie: 1 = the tail stop's pose on the way in" },
+    { "WallyClimbTime", "num", 0, 2, "wallie: the climb's seconds (0 = 0.25 + height / 300)" },
+    { "WallyCrouch", "num", 0, 1.5, "wallie: the crouch's depth share (1)" },
+    { "WallyLean", "num", 0, 40, "wallie: the chest's lean, degrees (15)" },
+    { "WallyTrigger", "num", 0, 1, "wallie: 0 = riding at the wall, 1 = only from a manual or the tail stop" },
+    { "WallyOverMax", "num", 20, 150, "wallie: a top deeper than this (cm) is ridden onto instead of over (60)" },
+    { "WallyTrace", "num", 0, 1, "wallie: 1 = the per-pose trace in the log" },
+    { "WallyFootRock", "num", 0, 1.5, "wallie: how far the feet rock toward level on their uphill sole edges as the board stands up the wall (1; 0 = flat on the deck; build 386)" },
+    { "WallyBodyUp", "num", 0, 1.5, "wallie: how much the body is kept up over the board -- a shallower crouch, the hips in their sockets, the legs their own length, the trunk stood up (1; 0 = build 387's body; build 388)" },
+    { "WallyHipsBack", "num", 0, 1.5, "wallie: how far the hips ease back off the higher (front) foot as the board climbs, so the front knee is not folded flat (1; 0 = build 388's; build 389)" },
+    { "SlappyMaxHeight", "num", 5, 40, "SLAPPIES: the highest curb a slappy is done on, cm (28; 25-38 cm curbs bailed in build 369)" },
+    { "SlappyMaxAngle", "num", 10, 80, "SLAPPIES: the steepest a curb may be met at, degrees off along it (55); steeper is the game's own (an ollie or a slam)" },
+    { "SlappyTweaksQuiet", "num", 0, 2, "SLAPPIES and SessionTweaks: 0 = its grind feel left on, 1 = its switches in SlappyTweaksQuietMask held off from the slappy's move to 0.25 s after its grind (1), 2 = only for the move, the first SlappyTweaksQuietWindow ms of the grind and of each grind change, and while one grind stick is let go. Its ini is never written" },
+    { "SlappyTweaksQuietMask", "num", 0, 15, "slappy: which SessionTweaks switches: 1 GrindRock + 2 GrindLean + 4 GrindPitchFix + 8 GrindPopSwing (13 = rock, pitch fix, pop swing)" },
+    { "SlappyTweaksQuietWindow", "num", 100, 2000, "slappy: SlappyTweaksQuiet 2's window after the grind begins and after each grind change, ms (400)" },
+    { "SlappyPick", "num", 0, 1, "SLAPPIES (build 384): 1 = the sticks you hold as the board goes onto the curb pick the grind it locks into: back stick down (the crouch) = 5-0, front stick down (the nollie crouch) = nosegrind, one down and one up = 50-50, a stick tilted well to the side (55-72 degrees off straight up or down) = crooked (the front stick toward the curb, or the back one away) or overcrook (the other way); 0 = always the 50-50 first (build 383)" },
+    { "SlappyInset", "num", 0, 8, "SLAPPIES (build 384): not used since build 385 (SlappyOnCurb took its place)" },
+    { "SlappyOnCurb", "num", 50, 90, "SLAPPIES (build 385): how much of the trucks sits on the curb's top, per cent of their width, on the way in and held through the grind: 50 = their middle on the edge, 70 = 70 on and 30 hanging off (70; build 384's SlappyInset 3 cm was about 65)" },
+    { "SlappyCrookYaw", "num", 0, 45, "SLAPPIES (build 386): how far a crooked or overcrook slappy's board turns off the curb on the way in, degrees: the tail swings out over the street (crooked) or in over the top (overcrook) once the nose is on, so the game's crook grind gets a crook-shaped board (30; 0 = straight on, as build 385: it looked like a nosegrind)" },
+    { "SlappyClack", "num", 0, 2, "SLAPPIES (build 399): the hit when the truck meets the curb. 1 = played every slappy, 2 = the hardest hit, 0 = the game's own (sometimes none)" },
+    { "SlappySwitch", "num", 0, 1, "SLAPPIES (build 394): 1 = slappies in fakie and switch too (as it ships). 0 = regular and nollie only" },
+    { "SlappyFeetOnTruck", "num", 0, 1, "SLAPPIES (build 386): 1 = in a slappy 5-0, nosegrind or crook the foot over the grinding truck is drawn in onto it (a slappy has no ollie, so the game left it on the tail or the nose where the crouch put it); 0 = the game's feet" },
+    { "SlappyCrookMirror", "num", 0, 1, "SLAPPIES (build 387): 1 = when you turn a slappy grind into a crook (the triggers or the stick), the game sees it from the far side of the curb and calls a crooked an overcrook (the tail out over the street); it is answered by its shape: the tail out over the street = Crooked, in over the top = Overcrook. 0 = the game's name, side swapped (build 386)" },
+    { "SlappyNoSlide", "num", 0, 1, "SLAPPIES (build 385): 1 = the game's powerslide is held off while you ride at a curb a slappy can take and through the slappy's move, so the crook's tilted stick does not start one (build 384: a little powerslide, then a bail); 0 = the game's own powerslide everywhere" },
+    { "OneFootSole", "num", 0, 1, "ONE-FOOT STANDING SOLE (build 387): 1 = after a one-foot catch the sole of the foot you stand on is held flat ON the deck in the air and after the landing, at its riding height (386 gave it back to the game after the landing: it hovered 2-3 cm and was tilted 7-20 degrees); 0 = 386's. Needs OneFootPlant 1" },
+    { "OneFootSplay", "num", 0, 20, "ONE-FOOT A-FRAME (build 387): degrees the lifted leg is turned out from the hip, away from the standing leg, so the legs make an A rather than two parallel lines -- less once the legs stand three times that far apart (a ride that already opens them gets less); 0 = 386's" },
+    { "OneFootBalance", "num", 0, 1, "ONE-FOOT BALANCE (build 386): 1 = after a one-foot catch the body stands over the foot it is on -- the trunk upright along the board, the hips placed so the weight is over the standing foot, that leg straighter (385: the body leant 8-15 degrees toward the lifted foot); 0 = 385's (the hips moved with the foot). Needs OneFootHips 1 or 2" },
+    { "OneFootHips", "num", 0, 2, "ONE-FOOT HIPS (build 384): after a one-foot catch the game's next pose carried half the hips' move into the thighs and the belly -- the hips torn out of the pelvis and the shins drawn out (worst on the back foot, A). 1 = the hip joints put back into the pelvis, the legs their own length, the hips moving with the foot as in 383 (1); 2 = the same with the pelvis over the standing foot (374's place, a test); 0 = 383's" },
+    { "OneFootKeys", "num", 0, 1, "THE ONE-FOOT KEYS (build 374): 0 = A and X for the judo air and the airwalk; 1 = the stick clicks: R3 does what A does, L3 what X does (A and X are the game's again). (Build 387: the one-foot catch has its own key, OneFootCatchInput.) SessionTweaks' Click to catch keeps the clicks on the board: turn it off for 1" },
+    { "OneFootCatchInput", "num", 0, 3, "THE ONE-FOOT CATCH'S INPUT (build 387): in a flip trick's air (not in a grab) catch it landing on one foot, the other foot up until you tap the other button or click the other stick. 0 = off, 1 = A / X (as before; OneFootButtons says which foot), 2 = the stick clicks L3 / R3 (OneFootClickStand says which foot), 3 = both. Any other click goes on to the hippie jump, the mini hop, the grinds and the game as before. SessionTweaks' Click to catch (its CatchClickToCatch=1) keeps the clicks on the board: turn it off for 2 or 3" },
+    { "OneFootClickStand", "num", 0, 1, "THE ONE-FOOT CATCH ON A STICK CLICK (build 387): each stick is the foot it drives in the game's stick mode (front foot / back foot: the left stick is the front foot; left foot / right foot: the left foot). 1 = you stand on the clicked stick's foot and the other comes up (in the front / back-foot mode R3 catches as A does, L3 as X); 0 = the clicked stick's foot comes up" },
+    { "NoComplyShove", "num", 0, 1, "NO COMPLY SHOVE-IT (build 348, a first try; regular only): do the no comply, then SCOOP either stick in the air (a sweep round of 75 deg or more) and the board spins a shove-it's 180 under you; a pop shove-it with the pressure crouch held also plays the no comply's animation -- you play the no comply's animation and the board does the game's shove-it. 0 = off. Takes effect at the next skater (a level load)" },
     { "NoComplyNoBail", "num", 0, 1, "no comply: 1 = the planted foot cannot bail you (the game bails you for ANY hit on a leg while it counts you as in the air; from the trick being taken until you land that check is passed over), 0 = the game's own" },
     { "NoComplyFootFix", "num", 0, 1, "no comply: 1 = the planted foot is kept ON the ground (the animation plants it lower than the ground you roll on: each frame the foot is traced onto the world and lifted to NoComplyFootHeight over it), 0 = the animation's own" },
     { "NoComplyFootHeight", "num", 0, 30, "no comply: how high the planted foot's ANKLE is kept over the ground, cm (the ankle sits about 10 cm over the sole)" },
@@ -782,6 +885,13 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "GrabBoneLean",  "num", 0, 45,   "degrees the back may lean toward the board past the grab's own limit while it is boned, so that the hand stays on (the menu's 'Bone: extra lean'). 0 = no further: the bone is cut back wherever the arm cannot reach" },
     { "GrabHeadUp",    "num", 0, 90,   "every grab: degrees your head is raised, at the most, from where the game has you look (45 to 65 degrees down, at the board) toward 12 degrees under level, so you look ahead and the head stays clear of the knees; the head is kept level with it. 0 = the head as the game has it (native v117 aims the gaze itself; v116 went by the shoulders' line, which a reaching arm slants: the Melon's crooked head)" },
     { "GrabHeadTurn",  "num", 0, 90,   "every grab: degrees your gaze is turned toward the way you travel, at the most, from where you look (native v117; v116 turned it by where your toes point, whatever the head already did, and overshot); 0 = not turned" },
+    { "GrabHeadEase",  "num", 0, 1,    "every grab: seconds the head's aim (GrabHeadUp, GrabHeadTurn) and its levelling are eased over -- a time constant: most of the way in about three times this. It aims at the way you travel, so it no longer whips forward and back when the game has you look nearly straight down (a Mute or a Melon off flat ground). 0 = build 382's aim, per pose" },
+    { "GrabHeadRate",  "num", 10, 1000, "every grab: degrees a second the head's aim may turn, at the most (with GrabHeadEase over 0)" },
+    { "GrabEaseIn",    "num", 0, 1,    "every grab: seconds over which the grab comes in, at the most, by a smooth start-and-stop curve: the hand, the lean, the legs, the head and the board's tilt (the game's own ease, fastest on its first frame, still decides where it is the slower). 0 = build 382's: the game's own" },
+    { "GrabEaseOut",   "num", 0, 1,    "every grab: seconds over which the grab is let go, at the least, from the release, by the same curve. 0 = build 382's: the game's own" },
+    { "GrabHeadHold",  "num", 0, 2,    "every grab: seconds the head keeps its aim (GrabHeadUp, GrabHeadTurn) after the grab is let go, counted from the touchdown -- the game has him nod 50 to 85 degrees down as the wheels hit, and the head no longer dips with it and comes back up. With GrabHeadOut 0 too = build 383's: the head let go with the hands" },
+    { "GrabHeadOut",   "num", 0, 2,    "every grab: seconds over which the head is then handed back to the game's own, by a smooth start-and-stop curve" },
+    { "GrabHeadSteady", "num", 0, 1,   "every grab: 1 = the head's aim is eased where he looks, so the game's own quick head moves (the nod as he lands) do not come through it while the aim is on; 0 = build 383's (the turn eased, the game's moves coming through)" },
     { "GrabBoneBehind", "num", 0, 45,  "how far out a boned grab goes (the menu's 'Bone: how far out'): cm your hips may end BEHIND the back foot's place on the board at the full bone.\n; 0 = no further than over it, as build 211: there every grab stopped at 16-28 cm of bone, whatever it was asked. It never goes past what the front leg can reach or the hands can hold.\n; A two-hand grab gets it only where the board is what moves (GrabBoneMove 1). Takes the native half v114" },
     { "GrabBoneShowStick", "num", 0, 1, "with GrabBoneMove 1 and GrabBoneHands 1: a grab picked with the stick centred has no catch in the game, so the board cannot be moved for it and the body went back instead.\n; 1 = the game is shown that stick pushed straight for such a grab, as it is for one picked with the stick (shown again, up to three times, where the catch does not come); 0 = as build 211" },
     { "HopOllieDeck",  "num", 0, 1,    "the ollie animation on a hippie jump: 1 = the body is raised as the back foot pushes down, so that foot stays on the board (in the game's ollie the tail goes down with it); 0 = as the animation has it" },
@@ -794,13 +904,14 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "NativeHandAim", "num", 0, 2,    "the hand TURNED to the board (fingers down past the edge, palm toward the deck): 0 = off (the game's own hand pose, which lies flat on the deck),\n; 1 = in the two-hand grabs only, 2 = in every grab (the default since v114: the grabbing hand)" },
     { "NativeCatchHold", "num", 0, 1,  "1 = when a grab is handed to the game with its catch orient still off, it is set as the game's own grab pick would set it: the deck follows the board bone\n; (the tilt) only in that state -- grabs that started without it took no tilt at all (a Crail / Seatbelt / Stalefish that worked one time and not the next)" },
     { "NativeGrabStance", "num", 0, 1, "1 = a grab plants the feet in the TAIL layout (back foot on the tail, front foot over the front truck), whichever layout you last rode:\n; the game shifts the feet forward for a nollie / fakie crouch and after a revert, and a grab took that (0 = as last ridden)" },
+    { "Experimental", "num", 0, 1, "1 = the pause menu also shows the experimental rows: wallies, the one-foot catch, wallride corners (their settings work from this file either way). 0 = hidden" },
     { "DevKeys",   "num", 0, 1,      "1 = the keyboard test keys: F11 mini hop, F12 hippie jump (no crouch check), F7 board survey (logged), the numpad nudges the last grab's hand numbers and saves them here. 0 = the keyboard is left alone (the release's default)" },
     { "NativePad", "num", 0, 1,      "1 = the controller's stick clicks, triggers, bumpers and Y are read by the native half from the game's own key events;\n; 0 = from SessionTweaks.log as before (needs its CatchClickToCatch=1 and CatchClickProbe keys)" },
     { "Caveman", "num", 0, 1, "1 = jump on foot with the board in your hand, then Y in the air: the board swings from your hand down under your feet before the game puts you on it\n; (a caveman); 0 = the game's own (the board jumps to your feet in one frame)" },
     { "CavemanTime", "num", 100, 217, "ms from the Y press for the caveman's board to come from your hand to under your feet (the game puts you on it 217 ms after the press)" },
     { "CavemanOut", "num", 0, 60, "cm in front of you the caveman's board swings out on its way down (it comes in under your feet from there)" },
     { "CavemanLift", "num", 0, 40, "cm over the spot under your feet the caveman's board is when it is that far out" },
-    { "CavemanTurn", "num", 0, 1, "how far round the caveman turns your body toward your stance in the air, as the board comes under your feet (feet and body together, before the game puts you on):\n; 1 = all the way (20 deg short of the feet's line, as the game's own pose stands), 0.75 = three quarters (the game turns the rest after it puts you on), 0 = not at all\n; (the feet are put on the board turned as they ride against your hips). Takes the native half v239" },
+    { "CavemanTurn", "num", 0, 1, "how far round the caveman turns your body toward your stance in the air, as the board comes under your feet (feet and body together, before the game puts you on):\n; 1 = all the way (20 deg short of the feet's line, as the game's own pose stands), 0.75 = three quarters (the game turns the rest after it puts you on), 0 = not at all\n; (the feet are put on the board turned as they ride against your hips). Takes the native half v295" },
     { "CavemanKeepFall", "num", 0, 1, "1 = after the caveman's mount the board is given back the speed you were falling (or rising) at: the game's mount sets it to 0\n; and you hang for a moment; 0 = the game's own" },
     { "CavemanHold", "num", 0, 1.5, "seconds at most the caveman's hand holds the board (a Melon with the front hand, an Indy with the back hand: the hand that carried it) once you are on the board in the air, with the knees\n; up and the hips down as in a rolling grab; it lets go CavemanLetGo before touchdown in any case. 0 = no grab" },
     { "CavemanSquat", "num", 0, 55, "cm at most the hips come down toward the board in the caveman's grab (no leg is folded under 35 % of its length for it: the back leans on)" },
@@ -834,7 +945,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "CavemanHandReach", "num", 0, 1, "1 = the caveman's holding arm reaches for the board again once his crouch is drawn deeper: the elbow straightens as far as it needs and the hand comes down onto the board with the shoulder; 0 = build 247's (the hand kept where the arm reached before the crouch: elbow bent, hand over the board)" },
     { "CavemanHandLean", "num", 0, 45, "deg at most the caveman's upper body leans from the waist toward the board while his hand holds it, when the straight arm is still short of its spot: down, forward and toward that side, eased in over the hold and let go with the grab -- the resting grip on the board, not over it;\n; 0 = build 248's (the hand 13-20 cm over the board)" },
     { "CavemanHeadEase", "num", 0, 30, "poses the caveman's head is handed back to the game over once the hand lets go (his look ahead held whole while the hand holds): no snap;\n; 0 = build 248's (let go with the feet's hold)" },
-    { "WallRide", "num", 0, 1, "WALLRIDES. 1 = fly into a wall at a shallow angle in any air on the board (an ollie; a flip once its spin is over) and you ride along it for a moment,\n; the board on the wall: automatic, no button. A head-on hit is left to the game (it bails you). 0 = off, the game's own. Takes the native half v239" },
+    { "WallRide", "num", 0, 1, "WALLRIDES. 1 = fly into a wall at a shallow angle in any air on the board (an ollie; a flip once its spin is over) and you ride along it for a moment,\n; the board on the wall: automatic, no button. A head-on hit is left to the game (it bails you). 0 = off, the game's own. Takes the native half v295" },
     { "WallRideMinSpeed", "num", 100, 1500, "cm/s along the ground you need to start a wallride" },
     { "WallRideMinHeight", "num", 10, 200, "cm the board must be over the ground to start a wallride (lower leaves no time to get on and off the wall)" },
     { "WallRideReach", "num", 30, 150, "cm from the wall (to the board's middle) within which a wallride can start; a fast approach is met further out by itself\n; (30 + the speed into the wall squared / 3000, up to 150)" },
@@ -878,6 +989,9 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "WallRideReleaseBlend", "num", 0, 0.4, "seconds a wallride's last drawn pose is blended into the game's own after the ride, instead of in one frame\n; (the body's jerk at the release); 0 = build 253's" },
     { "WallRideCurveRadius", "num", 0, 5000, "cm: a wall curved in plan no tighter than this is followed: where a wallride's one-plane tests (the take-off's 'it ends',\n; 'its face goes on down', the ride's 'goes on ahead') fail, the wall is walked along as a curve (a corner, a pillar's end or a step still\n; end it), and a ride may turn 25 deg + that curve's turn over the cm ridden (WallRideMaxTurn at the most). 0 = build 254's. New in build 255" },
     { "WallRideMaxTurn", "num", 25, 360, "degrees a wallride may turn following a curved wall (with WallRideCurveRadius over 0). New in build 255" },
+    { "WallRideCorners", "num", 0, 1, "1 = a wall met right at its end (a corner) is ridden on from there (build 388): where the board meets the wall's plane past its end, the face\n; starting within WallRideCornerReach cm on along your travel is met instead. A wall that ends ahead of you is still left alone. 0 = build 387's" },
+    { "WallRideCornerReach", "num", 5, 60, "cm on along the travel the face may start past where the board meets the wall's plane (WallRideCorners; 30)" },
+    { "WallRideCornerFace", "num", 0, 200, "cm: a wall that ends ahead of you (its corner) is ridden to its end and off it when its face runs this far on from the board (build 389;\n; WallRideCorners; 70). The ride is short: it ends 25 cm before the face does. 0 = build 388's (no ride where the wall ends within the start's look-ahead)" },
     { "WallRideKneeWay", "num", 0, 90, "with WallRideLine 1: degrees both knees turn in a wallride from the way your hips face toward the board's leading end:\n; 0 = straight forward, as a body bends (build 244: it replaced WallRideKneeTurn, whose 60 bent them toward the travel)" },
     { "WallRideTorsoLeanBack", "num", -20, 70, "with WallRideLine 1: degrees your upper body (the hips to the neck) leans from upright away from the wall in a BACKSIDE wallride,\n; the way you face: 45 = along your legs' line, the bend at the knees; lower stands it up behind the legs (build 244: it replaced WallRideTorsoLeanBS)" },
     { "WallRideHeadForward", "num", 0, 1, "1 = through a wallride your head keeps looking forward, the way you ride along the wall, a little under level, over your\n; leading shoulder, as when you skate (both sides; it comes and goes with the ride); 0 = it rides along your torso's line (build 245)" },
@@ -897,7 +1011,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "WallRideGroundWallieRate", "num", 100, 1500, "degrees a second that nose pitch (WallRideGroundWallie) comes at as a wallride from the ground takes off: 600 is up 45 in about 0.08 s. New in build 253" },
     { "WallRideGroundWallieBody", "num", 0, 45, "degrees your body leans back toward the tail while the board's nose is pitched up (WallRideGroundWallie) as a wallride\n; from the ground takes off: your weight over the tail, your feet on the pitched board, your knees bent, back to the ride's line as the\n; board flattens on the wall. 0 = the feet on the board only. New in build 253" },
     { "StickClickPass", "num", 0, 1, "1 = a stick click the mod does not use goes on to the game (L3 opens the missions); one it uses (a hippie jump, a mini hop, a board hop, a click grab) does not;\n; 0 = every stick click goes to the game as well (as before build 225: the mission viewer came up with every hippie jump)" },
-    { "AltFlips", "num", 0, 1, "ALT FLIP SET. 1 = push the back-foot stick UP to crouch for a second set of flip tricks (front/back-foot or left/right-foot stick mode; not in Legacy):\n; front stick pulled DOWN = Monster Flip, pushed UP = Dolphin Flip (AltFrontSwap); the varial flip's scoop, swept from up toward the SAME side as your varial's, and its flick = Nightmare Flip;\n; the varial heel's, the same way, = Daydream Flip; every other trick from that crouch is the game's own. 0 = off (up does nothing, as in the game). Takes the native half v239" },
+    { "AltFlips", "num", 0, 1, "ALT FLIP SET. 1 = push the back-foot stick UP to crouch for a second set of flip tricks (front/back-foot or left/right-foot stick mode; not in Legacy):\n; front stick pulled DOWN = Monster Flip, pushed UP = Dolphin Flip (AltFrontSwap); the varial flip's scoop, swept from up toward the SAME side as your varial's, and its flick = Nightmare Flip;\n; the varial heel's, the same way, = Daydream Flip; every other trick from that crouch is the game's own. 0 = off (up does nothing, as in the game). Takes the native half v295" },
     { "AltFlipEngage", "num", 0.25, 0.95, "how far UP the back-foot stick must go (0..1 of its throw past the game's dead zone) to crouch for the alt set; it must point within 40 deg of straight up (sideways is the game's pressure tricks)" },
     { "AltFlipRelease", "num", 0.1, 0.6, "the back-foot stick let back inside this (0..1) ends the alt crouch; after an alt trick it must come back inside it once before the next alt crouch (kept under AltFlipEngage)" },
     { "AltMonster", "num", 0, 1, "MONSTER FLIP: alt crouch + front stick pulled DOWN (AltFrontSwap; handed to the game as its ollie) and the board turns end over end (about its short axis) in the air: one full turn,\n; or in manual catch until you catch it (AltMonsterCatch); 0 = the alt ollie stays an ollie" },
@@ -1090,6 +1204,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "HopFeetFree",   "num", 0, 1,    "a hippie jump's air: 1 = the feet are free to turn with their shins, and a leg the mod has made longer or shorter bends over its own foot (native v100: the game's tuck has the knees out to the sides and the feet straight ahead -- the ankle wrung 43-75 deg, the trouser cuff flat between shin and shoe). 0 = v99's air" },
     { "HopAnkleLimit", "num", 0, 90,   "...the twist a foot may keep against its shin in a hop's air, degrees (18; 15 % of what is over it is left in)" },
     { "AutoUpdate",    "num", 0, 2,    "new versions of the mod: 0 = never looked for. 1 = looked for once a run, at its start, and you are told in ExpandedTricks.log and on the trick display. 2 = also downloaded from the mod's GitHub page (github.com/Portman2/SessionExpandedTricks, its latest release), checked (the release must carry the author's signature, each file its SHA-256) and put in place for the NEXT start of the game; the files before it are kept as main.lua.prev and main.dll.prev (native v101)" },
+    { "RecordGrinds", "num", 0, 1, "1 = with RecordPoses on, every grind is recorded too (the board on a rail, ledge or curb), for a look at the feet and body there. 0 = only tricks" },
     { "RecordPoses",   "num", 0, 1,    "1 = the skeleton of every trick you do is written to ExpandedTricks.poses.bin beside the logs, and pack-logs.bat puts the newest of them in its zip: a pose that looks wrong can then be looked at exactly as it was on your screen. At 32 MB the file is set aside as ExpandedTricks.poses.bin.old and begun anew (64 MB on disk at most). 0 = nothing is recorded. (It was PoseRecorder, off, until build 195)" },
     { "TraceLog",      "num", 0, 1,    "1 = the native half writes its per-pose traces of hops and plants to ExpandedTricks.native.log (what a bug report needs); 0 = quiet" },
     { "HopCarryTurn",  "num", 0, 1,    "a hop that TURNS: 1 = its feet are carried to their landing spots too, by the share of the turn that is done -- nothing while more than 60 deg are left, all of it from 15 (native v100: a 180 mini hop came down 23-25 cm off the deck's middle line, both ankles 13 cm outside its edge). 0 = v95's: a turned hop comes down where the body has its feet (HopCarry=1)" },
@@ -4608,6 +4723,7 @@ grabTick = function(now)
         if native ~= 0 then
             GR.nativeT0, GR.named, GR.sw = now, false, NAT.switch   -- (v129) GR.sw: the stance at the start, for the name
             do local ok, n = pcall(HJN_Set, "awcount", 0) GR.aw0 = (native == 1 and ok) and tonumber(n) or nil end   -- (aw 326) the airwalks before this grab
+            do local ok, n = pcall(HJN_Set, "jdcount", 0) GR.jd0 = (native == 1 and ok) and tonumber(n) or nil end   -- (judo 367) the judo airs before it
             GR.tgt = nil
             GR.crouch0, GR.logged03 = crouchNow(), false
             grabNumbers("at the start", native)
@@ -4679,8 +4795,8 @@ grabTick = function(now)
         GR.named = true
         local kind = native
         local bone = (kind == 102) and GR.boneAt ~= nil and (now - GR.boneAt) < 2.5      -- (v149) an Indy out of a no comply
-        local aw0 = GR.aw0                                                                 -- (aw 326) a Nose grab with an airwalk in it: "Airwalk"
-        trickNameLater(function() local ok, n = pcall(HJN_Set, "awcount", 0) local awN = aw0 and ok and tonumber(n) return GR.turnName(bone and "Boneless" or (kind == 1 and awN and awN > aw0) and "Airwalk" or grabTitle(kind)) end)
+        local aw0, jd0 = GR.aw0, GR.jd0                                                    -- (aw 326) a Nose grab with an airwalk in it: "Airwalk"; (judo 367) one with a judo air: "Judo Air"
+        trickNameLater(function() local ok, n = pcall(HJN_Set, "awcount", 0) local awN = aw0 and ok and tonumber(n) local okj, nj = pcall(HJN_Set, "jdcount", 0) local jdN = jd0 and okj and tonumber(nj) return GR.turnName(bone and "Boneless" or (kind == 1 and awN and awN > aw0) and "Airwalk" or (kind == 1 and jdN and jdN > jd0) and "Judo Air" or grabTitle(kind)) end)
         trickNameHide(bone and "no comply" or "ollie", 6)              -- (v108) the game's own "Ollie" / "Nollie" line for this pop is not wanted beside it
     end
     -- (v97) a late trick during a grab or just after it: logged, with when -- what the block lets through
@@ -5194,7 +5310,8 @@ NATIVE.grindGrabState = function(GG, cm, now)
         GG.gPatched = (want == 1) and okl and tonumber(r) == 1
         if want == 1 then
             log("grind grab: ON (GrindGrabs=" .. tostring(S.GrindGrabs) .. ((tonumber(S.GrindGrabs) == 2) and ": L3 / R3 in a grind lean you off it, left / right, as LB / RB did" or "") .. ") -- " .. (GG.gPatched and "the game's bumper lean-out of a grind is off (Skate_LeanLeft/Right return at once): LB / RB in a grind are the hands'"
-                or "the native half could not switch the game's lean-out off on this build: the bumpers are kept from the game while grinding instead (XInput pads only -- with another pad LB / RB still lean you off)"))
+                or ("the native half could not switch the game's lean-out off on this build (the native log's 'grind lean-out' / 'grind grabs' lines): LB / RB STILL lean you off a grind (left on so a grind always has an exit) -- a bumper pressed in a grind leans you off and puts the hand on as you leave"
+                    .. ((tonumber(S.GrindGrabs) == 2) and "; L3 / R3 lean you off where the native half can, else the click goes on as usual" or "")))) -- (385 leanout) never masked: v271 kept the bumpers from the game here and left a grind no exit
         else
             log("grind grab: off (GrindGrabs=0) -- the game's bumper lean-out of a grind is back")
         end
@@ -5205,8 +5322,7 @@ NATIVE.grindGrabState = function(GG, cm, now)
         return false
     end
     local g = cm ~= MODE_BAILING and q(function() return inst.IsGrinding end, false) == true
-    if g and not GG.gPatched and type(HJN_Set) == "function" then pcall(HJN_Set, "bumpermask", 0.3) GG.gMasked = true
-    elseif not g and GG.gMasked then
+    if not g and GG.gMasked then   -- (385 leanout) the bumpers are no longer masked in a grind (an unpatched lean-out is the grind's exit); a mask left from before is given back
         GG.gMasked = nil
         if not GG.kind then pcall(HJN_Set, "bumpermask", 0) end
     end
@@ -5244,10 +5360,11 @@ NATIVE.grindClick = function(which)
     local name = NATIVE.grindName()
     if r == 1 then log(string.format("grind grab: %s -> the lean-out %s (the game's own) off the %s", which, way, name))
     elseif r == 0 then log(string.format("grind grab: %s in the %s -- the game's own gate says no lean-out now (Skate_CanLean: a pop pending, a lean-out already on, ...); the click is kept from the game", which, name))
-    else
-        local why = ({ [-1] = "another build of the game: its lean-out's addresses are not known", [-2] = "no controller / skater / board yet",
+    else   -- (385 leanout) a lean-out that could not be done gives the click back: it goes on to the game / the mod's own click (a Steam tester's clicks were swallowed)
+        local why = ({ [-1] = "another build of the game: its lean-out was not found by signature", [-2] = "no controller / skater / board yet",
             [-3] = "the game's lean-out code is not as read", [-4] = "a fault in the game's lean-out" })[r or 0] or "the native half did not answer"
-        logOnce("grindexit" .. tostring(r), string.format("grind grab: %s in the %s -- the lean-out %s could not be done (%s); the click is kept from the game", which, name, way, why))
+        logOnce("grindexit" .. tostring(r), string.format("grind grab: %s in the %s -- the lean-out %s could not be done (%s); the click goes on as usual (to the game, or the mod's own click)", which, name, way, why))
+        return false
     end
     return true
 end
@@ -5294,8 +5411,8 @@ NATIVE.groundGrab = function(cm, now)
         local b = (lb and 1 or 0) + (rb and 2 or 0)
         if GG.gBtn ~= nil and (b & ~GG.gBtn) ~= 0 then
             GG.gKept = (GG.gKept or 0) + 1
-            if GG.gKept <= 60 then log(string.format("grind grab: bumper kept from the game's grind exit (%s pressed in the %s; %s)", ((b & ~GG.gBtn) & 1) ~= 0 and "LB" or "RB", NATIVE.grindName(),
-                GG.gPatched and "its lean-out is off" or "held from the game by the key hook")) end
+            if GG.gKept <= 60 then log(string.format(GG.gPatched and "grind grab: bumper kept from the game's grind exit (%s pressed in the %s; %s)" or "grind grab: %s pressed in the %s -- %s", ((b & ~GG.gBtn) & 1) ~= 0 and "LB" or "RB", NATIVE.grindName(),
+                GG.gPatched and "its lean-out is off" or "the game's lean-out is on on this build: it leans you off (385)")) end
         end
         GG.gBtn = b
     end
@@ -5646,7 +5763,10 @@ NATIVE.noComplyResult = function(cm, now)
             -- (v183) ...unless the game's foot sockets are turned with the body (NoComplySwitchFeet, native v99): then its feet are
             -- right, on this pose as on the regular side's, and its IK stays on
             local swG = VS.graph
-            if NC.flip and not (swG and swG.sock and (swG.turned or not swG.off)) then footIK(0) end
+            if NC.flip and not NC.guardLand and not (swG and swG.sock and (swG.turned or not swG.off)) then   -- (ncshove 360) not past the touchdown: the native riding-spot hold ends there
+                local okF, fr = pcall(HJN_Set, "ncsfree", 0)
+                if not (okF and (tonumber(fr) or 0) > 0) then footIK(0) end                                 -- (ncshove 360) the shove's held back foot needs its IK
+            end
             -- (v161) in a switch trick the plant waits until the other stance is on the screen: the frames before it still show
             -- your own stance's pose, whose OTHER foot goes down first
             local swWait = NC.guardSws and S.NoComplySwitchMirror ~= 0 and S.NoComplyOriginal == 0 and (not NC.flipTried or (NC.flip and (NC.flipN or 0) < 3))
@@ -5655,6 +5775,7 @@ NATIVE.noComplyResult = function(cm, now)
             -- things, they almost try to step on the other side of the board"
             if swWait then pcall(HJN_Set, "feethold", 0.06) end
             if S.NoComplyPlant ~= 0 and S.NoComplyOriginal == 0 and not swWait and (not NC.guardAir or now - NC.guardAir < 0.9) and not (NC.guardSws and NC.guardLand) then pcall(HJN_Set, "plant", 0.25) end
+            if S.NoComplyShove ~= 0 then local okC, nC = pcall(HJN_Set, "ncspin", 0) nC = okC and tonumber(nC) or 0 if nC > (NC.spinSeen or 0) then NC.spinSeen = nC local nm2 = (NC.bone and (NC.boneName or "Boneless") or "No Comply") .. " Shove-it" pcall(NATIVE.noComplyNames, nm2) if S.TrickNames == 0 then pcall(trickNameHide, nm2, 5, true) end log("no comply: the shove-it (#" .. nC .. ") -- the trick named '" .. nm2 .. "' (ncshove 356)") end end   -- (ncshove 356)
             if NC.bone and NC.namesAre ~= (NC.boneName or "Boneless") then pcall(NATIVE.noComplyNames, NC.boneName or "Boneless") if S.TrickNames == 0 then pcall(trickNameHide, (NC.boneName or "Boneless"), 5, true) end end   -- (v151) a hand went on during the trick
             if NC.guardAir then
                 -- (v153) THE SWITCH NO COMPLY, MIRRORED. The game has ONE no-comply animation, made for the regular stance;
@@ -5756,6 +5877,7 @@ NATIVE.noComplyResult = function(cm, now)
     -- too (the game's real ones), and held their impact bails off and "lifted the planted foot" on 122 frames of them
     local low = (type(name) == "string") and name:lower() or ""
     local match = (low:find("rgs_pressure_kickflip", 1, true) or low:find("sws_pressure_kickflip", 1, true)) ~= nil
+    if not match and S.NoComplyShove ~= 0 and (low:find("shoveit", 1, true) or low:find("shuvit", 1, true)) then local okS, nS = pcall(HJN_Set, "ncsstate", 0) match = okS and (tonumber(nS) or 0) > 0 end   -- (ncshove 345) a no comply shove-it is a no comply
     -- (v173) NOT TAKEN AGAIN AT A THROWDOWN. "Sometimes his foot gets stuck below the board when doing like a throwdown -- I
     -- think it was after one of the bonelesses." Off the board this forgot that the name had matched (matchWas = false), and
     -- the game still names the last flip trick while you walk: on the first frame back on the board the old no comply's
@@ -7149,7 +7271,7 @@ NATIVE.wallTick = function()                          -- every frame of our skat
     if type(HJN_Wall) ~= "function" then
         if on and not W.said.old then
             W.said.old = true
-            log("wallride: the native half beside this file (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall: it is not the one made with this main.lua (v239, with wallrides) -- NOT TAKEN: no wallrides on this run")   -- (fixer, Lua review F7: by the function, not the number)
+            log("wallride: the native half beside this file (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall: it is not the one made with this main.lua (v295, with wallrides) -- NOT TAKEN: no wallrides on this run")   -- (fixer, Lua review F7: by the function, not the number)
         end
         return
     end
@@ -7205,6 +7327,10 @@ NATIVE.wallTick = function()                          -- every frame of our skat
         if side and (tonumber(text:match("^#%d+ %a+ clean: over after ([%d%.]+) s")) or 1) < 0.25 then side = nil end   -- (fixer, Lua review F5) a touch of a wall's corner is not a wallride's name
         if side == "backside" then trickNameLater("Backside Wallride")         -- (shown once you ride away; dropped if you bail)
         elseif side == "frontside" then trickNameLater("Frontside Wallride") end
+        local sln = (tag == "info") and text:match("^slappy name: (.+)$") or nil   -- (slappy 366) the slappy's name, shown as it locks in (the grind's own follows)
+        if sln then trickName(sln) end
+        local wyn = (tag == "info") and text:match("^wally name: (.+)$") or nil   -- (wally 381) the wally's name
+        if wyn then trickName(wyn) end
     end
 end
 NATIVE.WALL_KEYS = { "WallRide", "WallRideMaxApproach", "WallRideMinSpeed", "WallRideMinHeight", "WallRideTime", "WallRideGravity", "WallRideBleed", "WallRideWheelGap",
@@ -7241,7 +7367,7 @@ NATIVE.wallCfg = function(force)                      -- from NATIVE.sync: the s
         took = ok and tonumber(r) or 0
     end
     local tail = ""
-    if took == nil then tail = " -- NOT TAKEN: the native half (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall; these need the v239 made with this main.lua"   -- (fixer, Lua review F7)
+    if took == nil then tail = " -- NOT TAKEN: the native half (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall; these need the v295 made with this main.lua"   -- (fixer, Lua review F7)
     elseif took == -1 then tail = " -- stood down: not on this build of the game (ExpandedTricks.native.log says why)"
     elseif took > 0 and took < #n then tail = " -- an older native half took the first " .. tostring(took) .. " of " .. #n .. ": WallRideMaxApproach is its approach limit there, and the carve, the slam guard and the exit turn are not in it (copy the native half made with this main.lua)"
     elseif took ~= #n then tail = " -- REFUSED by the native half (" .. tostring(took) .. " of " .. #n .. " taken; ExpandedTricks.native.log says why)" end
@@ -8229,6 +8355,7 @@ end
 
 local lastApplied = nil
 local function applyVals(vals)
+    if vals.OneFootCatchInput == nil and tonumber(vals.OneFootKeys) == 1 then vals.OneFootCatchInput = "2" end   -- (387r) OneFootKeys=1 had the catch on the clicks: carried over once
     for _, sp in ipairs(SPEC) do
         local key, kind, lo, hi = sp[1], sp[2], sp[3], sp[4]
         local v = vals[key]
@@ -8264,7 +8391,9 @@ NATIVE.iniNote = function(t) lastIni = t end
 -- appended to ExpandedTricks.tweaks.log (next to the ini). The values people reach for are the ones a settings screen should carry.
 NATIVE.tweak = function(key, old, new, how)
     log(string.format("tweak: %s %s -> %s (%s)", key, tostring(old), tostring(new), how))
-    if key:sub(1, 8) == "NoComply" and NATIVE.noComply then NATIVE.noComply.done = false end   -- (v137) applied again
+    if key:sub(1, 8) == "NoComply" and NATIVE.noComply then NATIVE.noComply.done = false end if key:sub(1, 5) == "Wally" or key:sub(1, 6) == "Slappy" or key == "OneFootKeys" or key == "OneFootButtons" or key == "OneFootCatchInput" or key == "OneFootClickStand" or key == "OneFootPlant" or key == "OneFootHips" or key == "OneFootBalance" then NATIVE.ncLiveDue = true end   -- (383r) these sent on their own (the wiring re-run mid-boneless undid its catch)   -- (v137) applied again; (383) the wally's, the slappy's and the one-foot keys too (they are sent with the no comply's wiring: 382 only at a level load)
+    if key == "OneFootSole" or key == "OneFootSplay" then NATIVE.ncLiveDue = true end   -- (ofb 387)
+    if key == "WallRideCorners" or key == "WallRideCornerReach" or key == "WallRideCornerFace" then NATIVE.ncLiveDue = true end   -- (corner 388) sent with the wally's keys
     if (key == "SpeedScale" or key == "PushScale") and NATIVE.speed then NATIVE.speed.applied = nil end   -- (v147/v149) applied again
     if NATIVE.tweakVals then NATIVE.tweakVals[key] = new end
     local f = io.open("ExpandedTricks.tweaks.log", "a")
@@ -8304,6 +8433,18 @@ NATIVE.MENU = {
         { "slider", "HeelStopMode", "Tail stop", 1, 1, "0 = off. 1 = manual: in a manual (not a nose manual) push the back-foot stick all the way down to drag the tail and slow down. 2 = hold B while rolling (B is then not the game's foot brake). 3 = both.", 0, 3 },   -- (mode 338)
         { "slider", "HeelStopFriction", "  Friction", 1, 1, "How hard the dragged tail slows you, in km/h lost per second. 10 = from a fast roll to a stop in about 2 seconds; the game's own tail brake is 22. 0 = no slowing.", 0, 72, unit = "km/h per second" },
         { "slider", "BigDropChance", "Big drop landing", 10, 10, "How often a landing 2.5 m or more below where you left the ground uses the game's unused big sketchy landing, in percent (%) of those drops. 0 = never (the game's own landing), 100 = every one.", unit = "%" },   -- (dice 334)
+        { "toggle", "Slappy", "Slappies", 1, 1, "Ride at a low curb (at up to 55 degrees) holding the 50-50 sticks (one down, one up) or crouched: the nose rides up onto the edge, the back truck follows and you lock into the grind your sticks pick (50-50, 5-0, nosegrind...)." },
+        { "slider", "SlappyMaxHeight", "  Highest curb", 1, 1, "The highest curb a slappy is done on, in centimetres (cm). Higher curbs are the game's own.", 5, 40, unit = "cm" },
+        { "slider", "SlappyMaxAngle", "  Steepest approach", 1, 1, "The steepest angle you may meet the curb at for a slappy, in degrees off riding along it. Steeper is the game's own.", 10, 80, unit = "degrees" },
+        { "toggle", "SlappyPick", "  Grind from the sticks", 1, 1, "Your sticks at the curb pick the grind: back down = 5-0, front down = nosegrind, one down one up = 50-50, a stick tilted sideways = crooked (front stick toward the curb) or overcrook. Off: a 50-50 first." },
+        { "slider", "SlappyOnCurb", "  Onto the curb", 1, 5, "How much of the trucks sits on the curb's top, as a percentage (%) of their width, on the way in and through the grind. 50 = their middle on the edge; 70 = 70% on the curb, 30% hanging off.", 50, 90, unit = "%" },
+        { "slider", "SlappyTweaksQuiet", "  Quiet SessionTweaks' grind feel", 1, 1, "Only with SessionTweaks: its grind rock, grind pitch fix and pop swing are turned off for a slappy and back on after it, so the board does not tip the wrong way when you let go of a stick. 0 = off (its settings as they are), 1 = the whole slappy grind, 2 = only the slappy's first moments, each grind change and while one stick is let go. Its own settings file is never changed.", 0, 2 },   -- (slappy 383)
+        { exp = true, "toggle", "WallyOn", "Wallies (experimental)", 1, 1, "Ride straight at a wall 30 to 120 cm high: the tail goes down, the wheels roll up the face and over the top, and you ride away down the other side." },
+        { exp = true, "slider", "WallyApproach", "  Widest angle off head-on", 1, 5, "The most you may meet the wall off head-on for a wallie, in degrees. Wider is left to the game, or to a wallride.", 5, 70, unit = "degrees" },
+        { exp = true, "toggle", "WallyCorners", "  Corners", 1, 1, "Wallies at a block's corner too: met at an angle near the end of a face, or where you ride at the corner itself (the face you meet closer to head-on is used). Off: a straight face only." },
+        { exp = true, "slider", "WallyFootRock", "  Foot rock", 100, 10, "How far your feet rock off flat toward level as the board stands up the wall, on the sole edge that stays on the deck, as a percentage (%). 100 = as built, 0 = flat on the deck.", 0, 1.5, unit = "%" },
+        { exp = true, "slider", "WallyBodyUp", "  Body up", 100, 10, "How much your body is kept up over the board through a wallie (a shallower crouch, the hips in their sockets, the legs their own length, the trunk stood up), as a percentage (%). 100 = as built, 0 = build 387's body.", 0, 1.5, unit = "%" },
+        { exp = true, "slider", "WallyHipsBack", "    Hips back", 100, 10, "How far your hips ease back off the front foot as the board climbs the wall, so the front knee is not folded flat, as a percentage (%). 100 = as built, 0 = build 388's.", 0, 1.5, unit = "%" },
     } },
     { "Hippie Jumps", {
         -- (menu 321) each feature's switch first, what only works with it indented under it (the code's own gates)
@@ -8361,10 +8502,11 @@ NATIVE.MENU = {
         { "toggle", "GrabKeepFirst", "  Lock the grab until release", 1, 1, "On: the grab you took stays until you let go of the bumper, and moving the stick only tweaks it. Off: moving the stick just after grabbing can switch you to a different grab." },
         { "toggle", "GrabLetGo", "  Let go on landing", 1, 1, "On: a grab you hold into the landing simply ends as the wheels touch down. Off: still holding the board when the wheels touch down makes you bail, so you have to let go in time." },
         { "toggle", "GrabBlockFlips", "  Block late flips while grabbing", 1, 1, "On: stick movements do not start a late flip while a bumper is held or a grab is on, so picking or tweaking a grab cannot flip the board by accident. Late flips work again 0.2 seconds after you let go." },
-        { "toggle", "Airwalk", "  Airwalk", 1, 1, "In a Nose grab, press A or X (cross or square): your feet come off the board, the front one kicked out in front of you and the back one behind. Hold the button to keep them out; let go and they come back onto the board." },
+        { "toggle", "Airwalk", "  Airwalk", 1, 1, "In a one-hand Nose grab, press A or X (cross or square): your front foot kicks out (the judo air). Press the other one too for the airwalk: both feet come off the board. Let go and they come back onto it." },
         { "slider", "AirwalkKick", "    Stride", 1, 5, "How far your legs swing out in an airwalk: 30 is the usual stride (the front leg well out toward your toes, the back shin near level behind you), 60 twice that, 0 not at all.", 0, 60 },
         { "slider", "AirwalkRocket", "    Board angle", 1, 5, "How far the board's nose is lifted in an airwalk, in degrees over level: 90 would be straight up. It goes back to the Nose grab's own angle as your feet come back.", 0, 85, unit = "degrees" },
         { "slider", "AirwalkSpeed", "    Leg speed", 1, 5, "How fast your legs swing out and back in an airwalk: 100 is quick (out in about a tenth of a second), lower is slower and smoother, but takes longer to finish before you land.", 20, 150, unit = "%" },
+        { "slider", "OneFootKeys", "    Buttons", 1, 1, "0 = A and X for the judo air and the airwalk. 1 = the stick clicks: R3 does what A does, L3 what X does.", 0, 1 },
         { "slider", "GrabHeadUp", "  Head up", 1, 5, "How far your head is raised in a grab, at the most, in degrees: you look ahead instead of down at the deck. It stops by itself when you look just under level. 0 = the head as the game has it.", 0, 90, unit = "degrees" },
         { "slider", "GrabHeadTurn", "  Head toward travel", 1, 5, "How far your gaze is turned toward the way you travel in a grab, at the most, in degrees. It stops by itself when you look that way. 0 = not turned.", 0, 90, unit = "degrees" },
         { "slider", "GrabTweakStyle", "  Tweak style", 1, 1, "What moving the stick off its grab direction does while you hold a grab. 0 = rotate: your legs and the board twist. 1 = bone: the board is poked out toward the nose; your back leans further to keep the hand on.", 0, 1 },
@@ -8377,6 +8519,9 @@ NATIVE.MENU = {
         { "slider", "GrabAllAcross", "  Hand across the board", 1, 1, "Moves the grabbing hand across the board for every grab at once, on top of each grab's own setting, in centimetres (cm). + = toward your toes, - = toward your heels. 0 = no change.", -20, 20, unit = "cm" },
         { "slider", "GrabAllUp", "  Hand up or down", 1, 1, "Moves the grabbing hand up or down for every grab at once, on top of each grab's own setting, in centimetres (cm). + = up off the deck, - = down into it. 0 = no change.", -20, 20, unit = "cm" },
         { "slider", "GrindGrabs", "Grabs in grinds", 1, 1, "0 = Off. 1 = On: hold LB or RB while grinding to put a hand on the board; the bumpers no longer lean you off a grind. 2 = On + stick-click exits: L3 leans you off to the left, R3 to the right.", 0, 2 },
+        -- (ofb 387) the one-foot catch's input: a switch of four named states (the native menu shows `opts`); 0 = off greys the row under it
+        { exp = true, "toggle", "OneFootCatchInput", "One-foot catch (experimental)", 1, 1, "In a flip trick's air, catch it landing on one foot; the other one puts the foot back. Buttons: A lifts the front foot, X the back. Stick clicks: L3 or R3, you stand on that stick's foot. Both: either.", 0, 3, opts = { "Off", "Buttons", "Stick clicks", "Both" } },
+        { exp = true, "toggle", "OneFootClickStand", "  Clicked stick's foot", 1, 1, "With stick clicks: Stays down = you stand on the clicked stick's foot and the other foot comes up. Comes up = the clicked stick's foot is the one lifted.", 0, 1, opts = { "Comes up", "Stays down" } },
         -- (menu 309) the GrabBoneMove row ("Bone moves": 1 was a test) is out of the menu; what ships is 0, the ini still sets it
         -- (onegrind 311) the alt grinds' three rows are one, AltGrinds, on the Flip Tricks page
     } },
@@ -8388,6 +8533,8 @@ NATIVE.MENU = {
         { "slider", "NoComplyPopHeightMax", "  Board height", 1, 1, "How much extra height the board itself gets at the pop, at most, in centimetres (cm). Higher = the board comes up further under you.", -45, 60, unit = "cm" },
         { "slider", "NoComplyPopForwardMax", "  Forward push", 1, 1, "How far the board is pushed forward at the pop, at most, in centimetres (cm). Negative values push it backward.", -40, 40, unit = "cm" },
         { "slider", "NoComplyStartPitchMax", "  Scoop angle", 1, 5, "How far the nose of the board is tipped up as it is scooped off the ground, at most, in degrees. Higher = the board stands up steeper at the pop.", -90, 90, unit = "degrees" },
+        { "toggle", "NoComplyShove", "  No comply shove-it", 1, 1, "Do a no comply, then scoop either stick round in the air: the board spins a shove-it under you while your feet do the no comply. Off: the no comply only. Takes effect after the next level load." },
+        { "slider", "NoComplySwitchShoveFoot", "    Switch back foot height", 1, 1, "Switch no comply shove-its: how high the back foot is held over the middle of the board after the pop, straight up, in centimetres (cm), so it clears the spinning board. Regular shove-its are not changed by this.", 10, 45, unit = "cm" },
         { "toggle", "Boneless", "  Boneless and bean plant", 1, 1, "A hand on the board through a no comply. Hold RB (back hand) for a Boneless or LB (front hand) for a Bean Plant while rolling, then do the no comply. The hand lets go by itself as the board comes back under your feet." },
         { "slider", "BonelessExtraPop", "    Pop height", 1, 2, "Pop height for the Boneless and Bean Plant, in centimetres (cm) added to the game's own pop. Lower = a smaller pop. Used in place of No comply pop height while a hand is on the board.", -90, 45, unit = "cm" },
     } },
@@ -8433,6 +8580,8 @@ NATIVE.MENU = {
         { "toggle", "WallRide", "Wallrides", 1, 1, "Fly into a wall at a shallow angle in any air on the board (an ollie, a flip once it has spun) and you ride along it for a moment, the board on the wall. No button. A head-on hit still bails you, as in the game." },
         { "toggle", "WallRideFromGround", "  From the ground", 1, 1, "Ride into a wall at a shallow angle, fast enough, and the board goes up onto it into a wallride, no ollie needed. Benches, ledges, curbs and ramps are left alone. Needs Wallrides on." },
         { "toggle", "WallRideFrontside", "  Frontside walls too", 1, 1, "On: a wall you face (frontside) is ridden too, in your own riding pose leaned out from the wall. Off: backside walls only; a frontside wall is left to the game." },
+        { exp = true, "toggle", "WallRideCorners", "  Wall ends and corners (experimental)", 1, 1, "On: hitting a wall right at its end (its corner) at an angle rides on along the face from there. Off: the board must meet the face itself." },
+        { exp = true, "slider", "WallRideCornerFace", "    Shortest wall to its end", 1, 10, "With Wall ends and corners on: a wall that ends just ahead of you is still ridden, to its end and off it, when this much of its face is left in front of the board, in cm. 0 = such walls are left alone.", 0, 200, unit = "cm" },
         { "slider", "WallRideMaxApproach", "  Steepest approach", 1, 5, "The steepest angle between your way of travel and the wall that still starts a wallride, in degrees. Steeper approaches are carved onto the wall; past this they count as a head-on hit and are left to the game.", unit = "degrees" },
         { "slider", "WallRideMinSpeed", "  Least speed", 1, 25, "How fast you must be going along the ground to start a wallride, in centimetres a second (cm/s). 300 cm/s is about 11 km/h.", 100, 1500, unit = "cm/s" },
         { "slider", "WallRideMinHeight", "  Least height", 1, 5, "How high the board must be over the ground to start a wallride, in cm. Lower leaves no time to get on and off the wall.", 10, 200, unit = "cm" },
@@ -8635,7 +8784,8 @@ NATIVE.menuSend = function()
             for _, r in ipairs(pg[2]) do
                 local kind, key, label, scale, step, desc = r[1], r[2], r[3], r[4], r[5], r[6]
                 local sp = by[key]
-                if kind == "info" then                     -- (266 trickguide) read-only: the native half's kind 0 (its label and description; a press does nothing)
+                if r.exp and (tonumber(S.Experimental) or 0) < 1 then   -- (rel 391) an experimental row: shown only with Experimental=1
+                elseif kind == "info" then                     -- (266 trickguide) read-only: the native half's kind 0 (its label and description; a press does nothing)
                     if (tonumber(HJN_MenuRow(0, key, label, desc, 0, 0, 0, "", "")) or 0) > 0 then rows = rows + 1 end
                 elseif kind == "page" then
                     if not (own and key == "Quick") and (tonumber(HJN_MenuRow(3, key, label, desc, 0, 0, 0, "", "")) or 0) > 0 then rows = rows + 1 end   -- (review: it returns the page's running count)
@@ -8643,13 +8793,15 @@ NATIVE.menuSend = function()
                     log("menu: no ini setting called " .. tostring(key) .. " -- row skipped")
                 else
                     local lo, hi = r[7] or sp[3], r[8] or sp[4]      -- (v106) a row may narrow the ini's own range
-                    NATIVE.menuRow[key] = { scale = scale, lo = lo, hi = hi, kind = kind }
+                    NATIVE.menuRow[key] = { scale = scale, lo = lo, hi = hi, kind = kind, opts = r.opts }   -- (387) opts: a switch's own state names, Off first (up to 4)
                     local d = NATIVE.DEF and NATIVE.DEF[key]            -- (v184) ...and ends with the setting's default, in the row's own unit
                     if type(d) == "number" then
-                        if kind == "toggle" then desc = desc .. " Default: " .. ((d ~= 0) and "On" or "Off") .. "."
+                        if kind == "toggle" and r.opts then desc = desc .. " Default: " .. tostring(r.opts[math.floor(d + 0.5) + 1] or d) .. "."   -- (387)
+                        elseif kind == "toggle" then desc = desc .. " Default: " .. ((d ~= 0) and "On" or "Off") .. "."
                         else desc = desc .. " Default: " .. string.format("%.0f", d * scale) .. ((r.unit and r.unit ~= "") and (" " .. r.unit) or "") .. "." end
                     end
-                    if (tonumber(HJN_MenuRow(kind == "toggle" and 1 or 2, key, label, desc, lo * scale, hi * scale, step, "Off", "On")) or 0) > 0 then rows = rows + 1 end
+                    local o1, o2 = "Off", "On" if kind == "toggle" and type(r.opts) == "table" and #r.opts >= 2 then o1, o2 = r.opts[1], table.concat(r.opts, "|", 2) end   -- (387) Off + the rest split at '|' for the native half
+                    if (tonumber(HJN_MenuRow(kind == "toggle" and 1 or 2, key, label, desc, lo * scale, hi * scale, step, o1, o2)) or 0) > 0 then rows = rows + 1 end
                 end
             end
         end
@@ -8675,7 +8827,7 @@ NATIVE.menuDrain = function()                          -- what the player change
         if r and n then
             n = math.floor(n + 0.5) / r.scale                    -- (v186) the row's whole number (km/h rows: 29 = 805.6 cm/s)
             if n < r.lo then n = r.lo elseif n > r.hi then n = r.hi end
-            if r.kind == "toggle" then n = (n >= 0.5) and 1 or 0 end
+            if r.kind == "toggle" and not (type(r.opts) == "table" and #r.opts > 2) then n = (n >= 0.5) and 1 or 0 end   -- (387) a switch of more states keeps its index
             if tostring(S[key]) ~= tostring(n) then
                 NATIVE.tweak(key, S[key], n, "menu")
                 S[key] = n
@@ -8826,6 +8978,11 @@ RegisterKeyBind(Key.F7, function() if (S.DevKeys or 0) == 0 or NATIVE.off then r
     local ok, err = pcall(boardProbe)
     if not ok then log("F7 board probe error: " .. tostring(err)) end
 end) end)
+RegisterKeyBind(Key.F8, function() if (S.DevKeys or 0) == 0 or NATIVE.off then return end NATIVE.gt(function()   -- (ofb 367) the one-foot balance, a first look: off -> left foot up -> right foot up -> arms only -> off
+    NATIVE.ofbMode = ((NATIVE.ofbMode or 0) + 1) % 4
+    local ok = pcall(HJN_Set, "ofb", NATIVE.ofbMode)
+    log("one-foot balance (F8): " .. (({ [0] = "off", "the LEFT foot up, the manual's balancing arms", "the RIGHT foot up, the manual's balancing arms", "the balancing arms only, both feet down" })[NATIVE.ofbMode] or "?") .. (ok and "" or " -- the native half did not take it"))
+end) end)
 RegisterKeyBind(Key.F11, function() if (S.DevKeys or 0) == 0 or NATIVE.off then return end NATIVE.gt(function() pcall(startMini, "F11") end) end)
 
 -- (v86) LIVE HAND TUNING: the numpad nudges the hand offset of the grab you did last (or are holding), 1 cm a press,
@@ -8945,7 +9102,7 @@ function NATIVE.sync()
         -- (v191, review) AN OLDER NATIVE HALF BESIDE THIS FILE (main.lua copied by hand, or main.dll not replaced because the
         -- game held it): everything runs, what needs the newer one is left out -- and nothing said so
         if (tonumber(NATIVE.v) or 0) < (NATIVE.WANT or 0) then
-            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then what needs the newer one is left out, each saying so in its own line (wallrides need v239: without it the log says NOT TAKEN)")
+            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then what needs the newer one is left out, each saying so in its own line (wallrides need v295: without it the log says NOT TAKEN)")
             NATIVE.upd = NATIVE.upd or {}
             if not NATIVE.upd.show then NATIVE.upd.show, NATIVE.upd.tries = "Expanded Tricks: native half is old - see the log", 0 end
         end
@@ -9044,7 +9201,7 @@ function NATIVE.sync()
     do                                                   -- (v183) native v99: the knee's hinge, a hop's hips, the plant foot's swivel and ankle, the other stance's foot sockets
         if tostring(S.RecordPoses) ~= NATIVE.set101 then            -- (v189) native v101: the pose recorder is off unless the ini asks -- (v196) which it does as it ships: RecordPoses
             NATIVE.set101 = tostring(S.RecordPoses)
-            pcall(HJN_Set, "posedump", (tonumber(S.RecordPoses) or 0) ~= 0 and 1 or 0)
+            pcall(HJN_Set, "posedump", (tonumber(S.RecordPoses) or 0) ~= 0 and 1 or 0) pcall(HJN_Set, "pdgrind", (tonumber(S.RecordGrinds) or 0) ~= 0 and 1 or 0)   -- (rel 391)
             log("native: the pose recorder is " .. (((tonumber(S.RecordPoses) or 0) ~= 0) and "ON (ExpandedTricks.poses.bin)" or "off (RecordPoses=1 switches it on)"))
         end
         local k100 = tostring(S.HopFeetFree) .. " " .. tostring(S.HopAnkleLimit) .. " " .. tostring(S.HopCarryTurn)   -- (v184) native v100: a hop's feet free in its air, a turned hop carried to its spots
@@ -9198,7 +9355,7 @@ NATIVE.hands = function(force)
     end
     parts[#parts + 1] = tostring(S.NativeHandAvoid)
     parts[#parts + 1] = tostring(S.GrabAllAlong) .. "/" .. tostring(S.GrabAllAcross) .. "/" .. tostring(S.GrabAllUp) .. "/" .. tostring(S.GrabAllBone) .. "/" .. tostring(S.GrabTurnedSense) .. "/" .. tostring(S.GrabHeadUp) .. "/" .. tostring(S.GrabHeadTurn) .. "/" .. tostring(S.GrabBoneMove) .. "/" .. tostring(S.GrabBoneHands) .. "/" .. tostring(S.GrabBoneLean) .. "/" .. tostring(S.GrabBoneBehind)   -- (v184; v207; v211; v212)
-    parts[#parts + 1] = tostring(S.GrabBlockFlips) .. "/" .. tostring(S.Airwalk) .. "/" .. tostring(S.AirwalkKick) .. "/" .. tostring(S.AirwalkDrop) .. "/" .. tostring(S.AirwalkRocket) .. "/" .. tostring(S.AirwalkSpeed)   -- (aw 324; 325; 331)
+    parts[#parts + 1] = tostring(S.GrabBlockFlips) .. "/" .. tostring(S.Airwalk) .. "/" .. tostring(S.AirwalkKick) .. "/" .. tostring(S.AirwalkDrop) .. "/" .. tostring(S.AirwalkRocket) .. "/" .. tostring(S.AirwalkSpeed) .. "/" .. tostring(S.GrabHeadEase) .. "/" .. tostring(S.GrabHeadRate) .. "/" .. tostring(S.GrabEaseIn) .. "/" .. tostring(S.GrabEaseOut) .. "/" .. tostring(S.GrabHeadHold) .. "/" .. tostring(S.GrabHeadOut) .. "/" .. tostring(S.GrabHeadSteady)   -- (aw 324; 325; 331; 384b the head's keys)
     parts[#parts + 1] = tostring(S.NativeHandAim) .. "/" .. tostring(S.NativeFingerCurl) .. "/" .. tostring(S.NativeFingerCurlRoot) .. "/" .. tostring(S.NativeFingerCurlMid) .. "/" .. tostring(S.NativeFingerCurlTip) .. "/" .. tostring(S.NativeCatchHold) .. "/" .. tostring(S.NativeGrabStance)
     local key = table.concat(parts, " ")
     if key == NATIVE.handsSet and not force then return end
@@ -9230,6 +9387,13 @@ NATIVE.hands = function(force)
     pcall(HJN_Set, "headup", S.GrabHeadUp)             -- (v213) the head in a grab: raised by this much at the most (native v115; an older one answers 0)
     pcall(HJN_Set, "awkick", tonumber(S.AirwalkKick) or 30) pcall(HJN_Set, "awdrop", tonumber(S.AirwalkDrop) or 10) pcall(HJN_Set, "awpitch", tonumber(S.AirwalkRocket) or 75) pcall(HJN_Set, "awspeed", tonumber(S.AirwalkSpeed) or 80) pcall(HJN_Set, "airwalk", ((tonumber(S.Airwalk) or 0) >= 0.5) and 1 or 0)   -- (aw 324) the airwalk (an older native half ignores them)
     pcall(HJN_Set, "headturn", S.GrabHeadTurn)         --   and turned toward the way of travel
+    pcall(HJN_Set, "headease", S.GrabHeadEase)         -- (383) the head's aim eased in time (native v279; an older one answers 0)
+    pcall(HJN_Set, "headrate", S.GrabHeadRate)         --   the most it turns a second
+    pcall(HJN_Set, "grabeasein", S.GrabEaseIn)         -- (383) the grab's weights eased in
+    pcall(HJN_Set, "grabeaseout", S.GrabEaseOut)       --   and out
+    pcall(HJN_Set, "headhold", tonumber(S.GrabHeadHold) or 0.35)   -- (384) the grab's head held through the landing (an older native half ignores them)
+    pcall(HJN_Set, "headout", tonumber(S.GrabHeadOut) or 0.5)     --   and handed back over this
+    pcall(HJN_Set, "headsteady", tonumber(S.GrabHeadSteady) or 1) --   its aim eased where he looks
     pcall(HJN_Set, "hophead", S.BoardHopHead)          -- (v216) the hop onto the board: the head kept level (native v117)
     pcall(HJN_Set, "bonebehind", S.GrabBoneBehind)       -- (v212 / native v114) cm its hips may end behind the back foot's place: how far out it goes (0 = no further than over it, as v113)
     HJN_Set("handaim", S.NativeHandAim)                  -- (v98) the hand turned to the board, the fingers round its edge
@@ -12296,12 +12460,36 @@ NATIVE.sketchApply = function()
 end
 
 NATIVE.noComply = { done = false, tries = 0, saved = {} }
+NATIVE.ncLive = function()   -- (383r) sent with the wiring, and on their own when one of them is changed (NATIVE.tweak)
+    pcall(HJN_Set, "slappypull", tonumber(S.SlappyPull) or 120)   -- (slappy 356)
+    pcall(HJN_Set, "wyminh", tonumber(S.WallyLowestWall) or 30); pcall(HJN_Set, "wyunder", tonumber(S.WallyMaxUndercut) or 20); pcall(HJN_Set, "wymaxh", tonumber(S.WallyMaxHeight) or 120); pcall(HJN_Set, "wyminsp", tonumber(S.WallyMinSpeed) or 250); pcall(HJN_Set, "wymaxsp", tonumber(S.WallyMaxSpeed) or 1100)   -- (wally 381)
+    pcall(HJN_Set, "wyang", tonumber(S.WallyApproach) or 55); pcall(HJN_Set, "wylead", tonumber(S.WallyLeadTime) or 0.2); pcall(HJN_Set, "wytail", tonumber(S.WallyTailPitch) or 30); pcall(HJN_Set, "wytailpose", tonumber(S.WallyTailPose) or 1)   -- (wally 381)
+    pcall(HJN_Set, "wyclimb", tonumber(S.WallyClimbTime) or 0); pcall(HJN_Set, "wycrouch", tonumber(S.WallyCrouch) or 1); pcall(HJN_Set, "wylean", tonumber(S.WallyLean) or 15); pcall(HJN_Set, "wytrig", tonumber(S.WallyTrigger) or 0)   -- (wally 381)
+    pcall(HJN_Set, "wycorner", tonumber(S.WallyCorners) or 1); pcall(HJN_Set, "wrcorner", tonumber(S.WallRideCorners) or 1); pcall(HJN_Set, "wrcornercm", tonumber(S.WallRideCornerReach) or 30); pcall(HJN_Set, "wrcornface", tonumber(S.WallRideCornerFace) or 70)   -- (corner 388, 389)
+    pcall(HJN_Set, "wyover", tonumber(S.WallyOverMax) or 60); pcall(HJN_Set, "wyrock", tonumber(S.WallyFootRock) or 1); pcall(HJN_Set, "wybodyup", tonumber(S.WallyBodyUp) or 1); pcall(HJN_Set, "wyhipsback", tonumber(S.WallyHipsBack) or 1); pcall(HJN_Set, "wytrace", tonumber(S.WallyTrace) or 1); pcall(HJN_Set, "wally", tonumber(S.WallyOn) or 0)   -- (wally 381) on last, with its settings in
+    pcall(HJN_Set, "slmaxh", tonumber(S.SlappyMaxHeight) or 28)   -- (slappy 374)
+    pcall(HJN_Set, "slmaxth", tonumber(S.SlappyMaxAngle) or 55)   -- (slappy 374)
+    pcall(HJN_Set, "slstqmask", tonumber(S.SlappyTweaksQuietMask) or 13); pcall(HJN_Set, "slstqwin", tonumber(S.SlappyTweaksQuietWindow) or 400); pcall(HJN_Set, "slstq", tonumber(S.SlappyTweaksQuiet) or 1)   -- (slappy 383) SessionTweaks' grind feel through a slappy (the mode last, with its settings in)
+    pcall(HJN_Set, "sloncurb", tonumber(S.SlappyOnCurb) or 70); pcall(HJN_Set, "slnoslide", tonumber(S.SlappyNoSlide) or 1); pcall(HJN_Set, "slckyaw", tonumber(S.SlappyCrookYaw) or 30); pcall(HJN_Set, "slfeet", tonumber(S.SlappyFeetOnTruck) or 0); pcall(HJN_Set, "slswitch", tonumber(S.SlappySwitch) or 0); pcall(HJN_Set, "slclack", tonumber(S.SlappyClack) or 1); pcall(HJN_Set, "slckmir", tonumber(S.SlappyCrookMirror) or 1); pcall(HJN_Set, "slpick", tonumber(S.SlappyPick) or 1)   -- (slappy 384; 385: SlappyOnCurb in SlappyInset's place, SlappyNoSlide)
+    pcall(HJN_Set, "slappy", tonumber(S.Slappy) or 1)   -- (slappy 355) sent with the no comply's wiring, once a skater
+    pcall(HJN_Set, "ofbbtn", tonumber(S.OneFootButtons) or 1)   -- (ofb 368)
+    pcall(HJN_Set, "ofkeys", tonumber(S.OneFootKeys) or 0)   -- (ofb 374)
+    pcall(HJN_Set, "ofbin", tonumber(S.OneFootCatchInput) or 1)   -- (ofb 387)
+    pcall(HJN_Set, "ofbstand", tonumber(S.OneFootClickStand) or 1)   -- (ofb 387)
+    pcall(HJN_Set, "ofbplant", tonumber(S.OneFootPlant) or 1)   -- (ofb 384)
+    pcall(HJN_Set, "ofhips", tonumber(S.OneFootHips) or 1)   -- (ofb 384)
+    pcall(HJN_Set, "ofbal", tonumber(S.OneFootBalance) or 1)   -- (ofb 386)
+    pcall(HJN_Set, "ofsole", tonumber(S.OneFootSole) or 1)   -- (ofb 387)
+    pcall(HJN_Set, "ofsplay", tonumber(S.OneFootSplay) or 7)   -- (ofb 387)
+end
 NATIVE.noComplyApply = function()
     local NC = NATIVE.noComply
+    if NATIVE.ncLiveDue then NATIVE.ncLiveDue = nil pcall(NATIVE.ncLive) end
     -- (v146) NO PERIODIC SWEEP. v140-v145 read every FlipTrickDefinition in memory every 5 s to see whether the game had put the
     -- pressure kickflip back; each of the five UE4SS faults of 3 Oct fell on that cadence (the last one 5 s after the wiring
     -- with the trick names off). The wiring is done once per skater (a new skater wires again) and then left alone
     if NC.done or NC.tries >= 90 then return end
+    pcall(NATIVE.ncLive)   -- (383r) the wally's, the slappy's and the one-foot keys
     local want = S.NoComply ~= 0
     if not want and not NC.applied then NC.done = true return end
     if want and type(HJN_Root) ~= "function" then                                   -- (v148)
@@ -12473,6 +12661,13 @@ NATIVE.noComplyApply = function()
     NC.popIs = want and S.NoComplyExtraPop or nil                -- (v156) what the wiring just wrote
     NC.namesAre = nil
     if want then pcall(NATIVE.noComplyNames, "No Comply") end                -- (v151) with the FS / BS / 360 names
+    pcall(HJN_Set, "ncbacklift", tonumber(S.NoComplyBackLift) or 8)   -- (ncshove 354)
+    pcall(HJN_Set, "ncbodylift", tonumber(S.NoComplyBodyLift) or 15)   -- (ncshove 364)
+    pcall(HJN_Set, "ncswbf", tonumber(S.NoComplySwitchShoveFoot) or 28); pcall(HJN_Set, "ncsplantfloor", tonumber(S.NoComplyShovePlantFloor) or 1); pcall(HJN_Set, "ncletdown", tonumber(S.NoComplyLetDown) or 0.26)   -- (ncshove 384)
+    pcall(HJN_Set, "ofbbtn", tonumber(S.OneFootButtons) or 1)   -- (ofb 368)
+    pcall(HJN_Set, "ofkeys", tonumber(S.OneFootKeys) or 0)   -- (ofb 374)
+    pcall(HJN_Set, "ncnose", want and (tonumber(S.NoComplyNosePop) or 100) or 0)   -- (ncshove 353)
+    pcall(HJN_Set, "ncshovedef", (want and S.NoComplyShove ~= 0 and defs.TRICK_RGS_Pressure_KickFlip and addr(defs.TRICK_RGS_Pressure_KickFlip)) or 0)   -- (ncshove 345) the no comply's set, for the shove-it
     log(string.format("no comply: %s -- %d values written to the two pressure kickflip definitions%s", want and "WIRED (left stick down + right stick left)" or "OFF: the game's pressure kickflip is back",
         total, (#notes > 0) and (" (" .. table.concat(notes, "; ") .. ")") or ""))
     -- (v138) read back: what the definition really holds now (a nested struct write that did not take would show here)
@@ -12518,8 +12713,8 @@ end
 -- latest release's update.txt: its version, build number, the game build it is for and the two files' SHA-256). With
 -- AutoUpdate=2 a newer build is downloaded, checked and put in place for the next start; with 1 you are only told.
 -- NATIVE.BUILD is this file's own build number: the release's update.txt carries the same number, and that is what is compared.
-NATIVE.BUILD = 343
-NATIVE.WANT = 239      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
+NATIVE.BUILD = 399
+NATIVE.WANT = 295      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
 NATIVE.updateTick = function(live)
     local U = NATIVE.upd or {}
     NATIVE.upd = U
@@ -12800,7 +12995,7 @@ LoopAsync(2000, function()
     return false
 end)
 
-log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v343 / native v239)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
+log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v399 / native v295)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
 
 -- the game's grabs need IsGrabsEnabled in its experimental save (the profile loads it at start-up). (v121) If it is off or
 -- missing, the save is PATCHED here: a BoolProperty tag put into FExperimentalSettings -- the bytes the game's own serializer

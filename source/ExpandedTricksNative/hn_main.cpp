@@ -43,7 +43,7 @@ using RC::LuaMadeSimple::Lua;
 
 namespace {
 
-#define HJN_VERSION 239
+#define HJN_VERSION 295
 #define HJN_STR2(x) #x
 #define HJN_STR(x) HJN_STR2(x)
 constexpr int kVersion = HJN_VERSION;
@@ -709,7 +709,7 @@ float Leg(int sd, V3 F, Q4 footQ, V3 bias = V3{ 0, 0, 0 }, const V3* poleOv = nu
 // game's) on the pose it stopped; the boneless of 18:17:40: 41 -> 33 on the pose the hand's weight reached 0 -- the knee
 // 10-19 cm somewhere else from one pose to the next. Now, first thing on every pose of the window (and easing in and out,
 // a quarter a pose), each leg's bones go to their own length and the foot is put back exactly where the pose had it.
-extern volatile int g_plantMode;
+extern volatile int g_plantMode; extern volatile LONG g_ncsFree; void NcsSockFix(float* l0, float* l1);   /* (ncshove 359) */
 float g_legFixW = 0.0f;
 // (v94) ...AND THE HIPS IN THEIR SOCKETS. The trick traces give the pelvis bone's height, each ankle's, and each leg's
 // length hip joint to ankle: riding, the hip joints stand level with the pelvis bone (0 +- 3 cm; the rig has them 8.7 cm
@@ -3181,7 +3181,7 @@ float g_plantDeck0 = -1e9f, g_plantDeckMax = -1e9f;   // (v72) the drawn deck's 
 // the Lua's window ends, and go back to the animation's over nine poses.
 int g_plantStage = 0; bool g_plantDone = false, g_plantHaveT = false;
 float g_plantU = 0.0f, g_plantVz = 0.0f, g_plantPrevZ = 0.0f, g_plantGz = 0.0f, g_plantD0 = 0.0f, g_plantStepMs = -1.0f;
-double g_plantPrevT = 0.0, g_plantStepT0 = 0.0, g_plantT0 = 0.0; LONG g_plantTold = 0;
+double g_plantPrevT = 0.0, g_plantStepT0 = 0.0, g_plantT0 = 0.0; LONG g_plantTold = 0; volatile double g_ncsLiftAt = 0.0; volatile float g_ncsBodyLift = 15.0f;   /* (ncshove 364) the plant foot left the ground (NowS) / NoComplyBodyLift cm */
 volatile float g_plantStepS = 0.10f, g_plantLead = 60.0f, g_plantHump = 6.0f, g_plantBulge = 12.0f;
 // (v74) v73 took "the rise is slower than g_plantLead" for the top -- but the deck STARTS slowly (85 cm/s when it had risen
 // 8 cm, 0.17 s in; 400 cm/s at 0.27 s; its top at 0.40 s): the foot left the ground 0.23 s early, every time ("releasing
@@ -3285,7 +3285,7 @@ void PlantOver(bool done) {
     g_plStickOk = false; g_plRelStick = false;                                                        // (v95)
     if (done) g_plantDone = true;
 }
-bool PlantHold(const void* mesh);
+bool PlantHold(const void* mesh); bool SafeNcsLiftPose();   /* (ncshove 365) */ bool SafeOfbPose(); bool OfbBusy();   /* (ofb 367; 384 OfbBusy: a one-foot pose drawn, or just over) */ bool SafeNcsBackHoldPose();   /* (ncshove 379) */ void NcBtOff(); bool SafeWalyPose(void* mesh); bool WalyDrawWanted(); bool WalyHoldsTail(); bool WalyOwns(); void SafeWalyTick(); void SafeWyStickHand();   /* (wally 381; wallie 387 the crouch's sticks) */ extern volatile LONG g_wyOwnBa, g_wyBaSkips, g_wyCgBlock, g_wyCgBlocked;                                            /* (wally 381) read by hkAsBa / hkAsCg */   /* (ncshove 370) */
 // ==== (v96) THE BACK FOOT LIES FLAT ON THE TAIL =======================================================================
 // "The one thing left to fix would be the back foot. When it slaps down and the trick starts, it turns so the sole of the
 // foot is facing almost horizontal. That should still be more or less flat to the tail." The recording of 4/5 Oct (nine no
@@ -3314,7 +3314,7 @@ bool BackFlat(const void* mesh) {
     const float dt = clampf((float)(now - g_bkT), 0.0f, 0.05f);
     g_bkT = now;
     if (stale) { g_bkFoot = -1; g_bkW = g_bkA = 0.0f; }
-    const bool planned = g_plantMode != 2 && g_plantFoot >= 0 && g_bkFlat > 0.0f;   // the soft plant's: the pinned one stands the back foot on its spot itself
+    const bool planned = g_plantMode != 2 && g_plantFoot >= 0 && g_bkFlat > 0.0f && !g_ncsFree;   // the soft plant's: the pinned one stands the back foot on its spot itself; (ncshove 359) not while the shove's feet are free
     if (planned && g_bkFoot != 1 - g_plantFoot) { g_bkFoot = 1 - g_plantFoot; g_bkA = 0.0f; g_bkMost = g_bkLift = 0.0f; g_bkPoses = 0; g_kneeKept = 0; g_kneeKeptLow = 99.0f; }   // (v96, review) + the knee's count and lowest shin: this plant's, not what ran on after the last trick's line (a landing's squeezed shin, a rolling grab)
     if (g_bkFoot < 0) return false;
     g_bkW = planned ? 1.0f : g_bkW - dt / 0.15f;
@@ -4860,7 +4860,7 @@ bool PoseHold(const void* mesh, int n) {
 // out over six poses, and the plant, once it has its foot, takes both legs over.
 volatile ULONGLONG g_feetHoldUntil = 0; float g_feetHoldW = 0.0f; LONG g_feetHoldFrames = 0;
 bool FeetHold(const void* mesh) {
-    const bool on = g_feetHoldUntil != 0 && GetTickCount64() < g_feetHoldUntil;
+    const bool on = g_feetHoldUntil != 0 && GetTickCount64() < g_feetHoldUntil; static bool s_turn = false;   /* (385) this hold's spots turned round on the deck (the note at fh3) */
     if (on) g_feetHoldW = fminf(g_feetHoldW + 0.34f, 1.0f);   // (v83) over three poses (it snapped the feet 6 cm from the trick's stance to the riding one)
     else {
         g_feetHoldUntil = 0;
@@ -4870,12 +4870,12 @@ bool FeetHold(const void* mesh) {
     g_deckOk = g_boardOk && DeckXf(mesh);
     if (!g_deckOk || g_stCur < 0) return false;
     {   // (v89) the switch no comply of 18:10:52 held the feet on the spots of a stance last ridden, not the one stood in (R along +11 -> +22)
-        static bool was = false;
+        static bool was = false; if (on && !was) s_turn = false;
         if (on && !was && g_foot[0] >= 0 && g_foot[1] >= 0 && g_st[g_stCur].ok) {
             V3 P[2]; for (int f = 0; f < 2; f++) P[f] = qinv(g_dq, sub(g_C[g_foot[f]].p, g_dp));
             int best = g_stCur; float bd = StanceDist(g_st[g_stCur], P);
             for (int i = 0; i < ST_N; i++) if (g_st[i].ok && StancePlausible(g_st[i].P)) { const float d = StanceDist(g_st[i], P); if (d < bd - 2.0f) { bd = d; best = i; } }
-            if (best != g_stCur && bd < 8.0f) { Log("feet hold: stance #%d fits the feet better than #%d (%.0f cm off at most) -- held on its spots", best, g_stCur, bd); g_stCur = best; }
+            if (best != g_stCur && bd < 8.0f) { Log("feet hold: stance #%d fits the feet better than #%d (%.0f cm off at most) -- held on its spots", best, g_stCur, bd); g_stCur = best; }   { /* (385) THE DECK TURNED UNDER YOU. After a switch no comply shove-it the deck lies turned round under the rider and the stance on it is learned only after half a second of riding still; the next switch no comply held both feet on the old stance's spots as they lie on the deck -- its half turn, 52-57 cm from the game's feet -- and the shove latched its back foot there, crossed under the other leg, to the feet's return (384 test: #4, #7, #9, and the plain one of 11:42:57; "a leg tornado", every second one in a row). When the game's feet lie the other way along the deck than the spots, and the spots turned round about the deck's middle fit them 6 cm better, this hold takes them turned (the grab's v53 rule) */ const Stance& c = g_st[g_stCur]; const float cx2 = 2.0f * CentreX(), dxN = P[0].x - P[1].x; const V3 ta = v3(cx2 - c.P[0].x, -c.P[0].y, c.P[0].z), tb = v3(cx2 - c.P[1].x, -c.P[1].y, c.P[1].z); const float dR = StanceDist(c, P), dT = fmaxf(len(sub(P[0], ta)), len(sub(P[1], tb))); s_turn = fabsf(dxN) > 15.0f && dxN * (c.P[0].x - c.P[1].x) < 0.0f && std::isfinite(dT) && dT + 6.0f < dR; if (s_turn && InterlockedIncrement(&g_orientLogs) <= 300) Log("feet hold (385): the feet lie the other way along the deck than stance #%d's spots (a shove-it turned the deck under you) -- held on them turned round about the deck's middle, %.0f cm from the game's feet (%.0f as they lie)", g_stCur, dT, dR); }
         }
         was = on;
     }
@@ -4884,8 +4884,8 @@ bool FeetHold(const void* mesh) {
     bool any = false;
     for (int f = 0; f < 2; f++) {
         if (g_foot[f] < 0 || !g_dFootOk[f]) continue;
-        const V3 p = add(g_dp, qrot(g_dq, g_uFootP[f]));
-        const Q4 q = qnorm(qmul(g_dq, g_uFootQ[f]));
+        const V3 u = s_turn ? v3(2.0f * CentreX() - g_uFootP[f].x, -g_uFootP[f].y, g_uFootP[f].z) : g_uFootP[f]; const V3 p = add(g_dp, qrot(g_dq, u));   /* (385) turned round with the deck (fh3) */
+        const Q4 q = qnorm(qmul(g_dq, s_turn ? qnorm(qmul(qaxis(v3(0, 0, 1), 180.0f), g_uFootQ[f])) : g_uFootQ[f]));
         if (!finite3(p) || len(sub(p, g_Ct[g_foot[f]].p)) > 140.0f) continue;
         Leg(f, lerp(g_Ct[g_foot[f]].p, p, s), qslerpTo(g_Ct[g_foot[f]].q, q, s));
         any = true;
@@ -4917,7 +4917,7 @@ void HandAudit(int kind) {
 // 0x80) g_C is ALREADY turned (PosePass turns it in place before g_Ct is copied from it), and on a pose without 0x800
 // ('changed') nothing was written back -- the screen has g_C, whatever g_Ct holds.
 constexpr int PD_PRE = 40, PD_POST = 60, PD_MAX = 600;       // poses before a segment's start, after its last window shut, and the most after its start
-constexpr uint32_t PD_TRIG = 0x3ffu | 0x20000u | 0x40000u | 0x80000u | 0x8000000u;   // (v132: and a flip of the game's own) (242: and every monster / dolphin in the air, 0x8000000 -- not as a flip of the game's: nothing is learned from it)
+constexpr uint32_t PD_TRIG = 0x3ffu | 0x20000u | 0x40000u | 0x80000u | 0x8000000u | 0x10000000u; extern volatile LONG g_pdGrind;   /* (390) and every grind, 0x10000000 (g_pdGrind: defined with SafeSlTick) */   // (v132: and a flip of the game's own) (242: and every monster / dolphin in the air, 0x8000000 -- not as a flip of the game's: nothing is learned from it)
 //   // (v120: and a drop-in's arms / crouch; v127: and a wallride)                         // what starts one: hop-air landing-blend plant bone-hand feet-hold pose-hold foot-ground half-turn grab trick-trace
 constexpr ULONGLONG PD_GAP_MS = 500;                         // no pose for this long (a bail, the menu): what is open is written, the ring starts over
 constexpr LONGLONG PD_FILE_CAP = 32ll * 1024 * 1024;         // (v106) at this size the file is set aside as ExpandedTricks.poses.bin.old (the one before it is dropped) and a new one begun: it was 96 MB and the recording STOPPED there
@@ -5142,7 +5142,7 @@ void PdFill(uint8_t* rec, const void* mesh, const void* anim, int n, uint32_t f,
     if (g_offBoard) f |= 0x800000u;
     if (g_mirror) f |= 0x1000000u;
     if (bad && (f & 0x800u)) f |= 0x2000000u;
-    if (g_legFix) f |= 0x4000000u;
+    if (g_legFix) f |= 0x4000000u; if (g_pdGrind) f |= 0x10000000u;   /* (390) the board in a grind (its movement mode 2): every grind recorded, the game's own and a slappy's */
     r->flags = f;
 }
 extern bool g_ownOn;                                 // (v96) LandOwnW's window, defined in front of PosePass
@@ -5154,7 +5154,7 @@ void PdPose(const void* mesh, const void* anim, int n, uint32_t f) {
     }
     if (g_pdLast != 0 && now - g_pdLast > PD_GAP_MS) { if (g_pdOpen) PdEnd(3); g_pdRingN = g_pdRingAt = 0; g_pdCont = false; }
     g_pdLast = now;
-    const bool trig = (f & PD_TRIG) != 0 || (g_pdOpen && g_ownOn);   // (v96) an open segment goes on while a landing's legs keep their own length (the 600-pose limit holds)
+    const bool trig = ((f | (g_pdGrind ? 0x10000000u : 0u)) & PD_TRIG) != 0 || (g_pdOpen && g_ownOn);   /* (392) the grind bit too: 391 put it only into the record */   // (v96) an open segment goes on while a landing's legs keep their own length (the 600-pose limit holds)
     if (!trig) g_pdCont = false;
     if (!g_pdOpen && trig) PdBegin(now);
     uint8_t* rec = g_pdOpen ? g_pdSeg + g_pdHdr + (size_t)g_pdCount * g_pdRec : g_pdRing + (size_t)g_pdRingAt * g_pdRec;
@@ -5609,7 +5609,7 @@ bool SockTurn(int mode) {
                 }
                 else { g_sockMir[0] = g_sockMir[1] = false; }
             }
-            g_sockPrevT = now; g_sockSeenT = now; ok = true;
+            g_sockPrevT = now; g_sockSeenT = now; ok = true; NcsSockFix(lp[0], lp[1]);   /* (ncshove 359) the switch no comply's back socket, after the turn */
         }
     }
     g_dq = dq0; g_dp = dp0;
@@ -5620,18 +5620,18 @@ bool SafeSockTurn(int mode) {                                    // (called from
     __except (EXCEPTION_EXECUTE_HANDLER) { g_sockBad = 1; Log("fault in the foot sockets' turn (code %08x) -- it is off for this run", GetExceptionCode()); return false; }
 }
 // once a pose, after the pose is read: do the game's feet follow the turned sockets? (and the end of a swap: what was seen)
-void SockSeen(bool live) {
+volatile LONG g_ncsSwNc = 0;   /* (383) a switch no comply runs: the socket-turn safety check stands down */ void SockSeen(bool live) {
     if (live) {
         g_sockWas = true; g_sockPoses++;
         if (g_sockMirLive) return;                               // (v103, review) a pose with a socket HELD is not a test of the turn: a push in the second after the landing must not switch the turn off for the run
         for (int k = 0; k < 2; k++) {
-            if (g_foot[k] < 0 || k == g_plantFoot) continue;     // (the plant foot leaves its socket for the ground: the regular side's does too)
+            if (g_foot[k] < 0 || k == g_plantFoot || g_ncsFree || g_ncsSwNc) continue;     // (the plant foot leaves its socket for the ground: the regular side's does too); (ncshove 362) nor while a no comply shove-it's feet are free: its back socket is held off on purpose (the first switch shove of every run tripped this)
             const float away = len(sub(g_C[g_foot[k]].p, g_sockNowC[k]));
             if (!std::isfinite(away)) continue;
             g_sockFarSum += away; g_sockFarN++;
             if (away > g_sockFarMost) g_sockFarMost = away;
             if (away > 28.0f && ++g_sockFarBad == 15 && !g_sockBad) {
-                g_sockBad = 1;
+                g_sockBad = 2;   /* (ncshove 362) 2 = this trip: the next switch no comply turns it back on (a fault stays 1) */
                 Log("switch plant: the game's feet do NOT follow the turned sockets (28 cm or more from them on 15 poses of this trick) -- the turn is off for this run: the IK weights are zeroed again and the plant goes back to the riding spots");
             }
         }
@@ -5882,7 +5882,7 @@ bool StSteerScan(const uint8_t* b, uint32_t size, int** flag, uintptr_t** def) {
     __except (EXCEPTION_EXECUTE_HANDLER) { *flag = nullptr; *def = nullptr; }
     return *flag != nullptr && *def != nullptr;
 }
-void StFind() {
+void StGhFind(const uint8_t* base, uint32_t size); void SafeStGhWatch(); void SafeStGhGiveBack(); extern volatile ULONGLONG g_stGhChT; extern volatile LONG g_stGhMode; void StFind() {
     g_stLooks++; g_stLookAt = GetTickCount64() + 10000;
     const double look0 = NowS();
     HANDLE snap = INVALID_HANDLE_VALUE;
@@ -5923,7 +5923,7 @@ void StFind() {
             g_stSteerState = -1;
             Log("SessionTweaks' foot steer was not found (not the 3.19.607 build): a monster's or a dolphin's feet are the game's flip animation's without its stick push");
         }
-    }
+    }   StGhFind(base, size);   // (383) SessionTweaks' grind feel (the note at StGhScan)
     int cmp = 0;
     float* p = StScan(base, size, &cmp);
     if (p) {
@@ -5985,7 +5985,7 @@ void SafeStReplay() {
 // pointer once into a local: either order of the two threads is fine.
 void SafeStLook() {
     __try {
-        if (g_stGuard != 0 && (g_stState == 0 || (g_stState == -2 && g_stLooks < 3 && GetTickCount64() >= g_stLookAt))) StFind();
+        if ((g_stGuard != 0 || g_stGhMode != 0) && (g_stState == 0 || (g_stState == -2 && g_stLooks < 3 && GetTickCount64() >= g_stLookAt))) StFind();
     } __except (EXCEPTION_EXECUTE_HANDLER) { g_stState = -1; g_stSettle = nullptr; }
 }
 // (v115) THE HOP ONTO THE BOARD: THE BODY KEEPS ITS HEADING THROUGH THE MOUNT. "Mechanically very smooth, but
@@ -6072,7 +6072,7 @@ bool HopKeep(const void* mesh, int n) {            // on g_C, the pose as the ga
 // of left and right changes which way a foot points). The raise's limit by the back's fold is 1.5 times the fold
 // (it was nine tenths: at a fold of 45 deg the slider stopped doing anything at 40), and both go to 100 deg.
 volatile float g_headUp = 0.0f, g_headTurn = 0.0f;
-float g_headUpS = 0.0f, g_headTurnS = 0.0f;
+float g_headUpS = 0.0f, g_headTurnS = 0.0f; volatile float g_headEase = 0.12f, g_headRate = 200.0f;   /* (383) HJN_Set("headease", s) / ("headrate", deg/s): GrabHeadEase / GrabHeadRate -- the head's aim in a grab eased in time, and the most it turns a second (headease 0 = 382's aim, per pose) */ Q4 g_headQ = { 0.0f, 0.0f, 0.0f, 1.0f }; double g_headQT = 0.0; float g_headRollS = 0.0f; volatile float g_htHold = 0.35f, g_htOut = 0.5f; volatile int g_headAbs = 1; double g_htRelT = -1.0, g_htLandT = -1.0, g_htLastT = 0.0; float g_htW0 = 0.0f, g_headB = 0.0f; V3 g_headD = { 0.0f, 0.0f, 1.0f }; bool g_headDOk = false;   /* (384) HJN_Set("headhold" / "headout", s; "headsteady", 0/1): GrabHeadHold / GrabHeadOut / GrabHeadSteady; the head's weight let go from the release (when, at what, from which touchdown), the eased gaze and its blend (the note at HeadTailW) */   // (383) the turn the head is given (eased), when last given; the roll that levels it (eased, deg)
 V3 g_spDir = { 0.0f, 0.0f, 0.0f }; double g_spDirT = 0.0;      // the mesh's last travel over the ground, in the world (SpeedNote)
 bool BoneUnder(int i, int anc) { for (int x = i, hops = 0; x >= 0 && hops < 64; x = g_parent[x], hops++) if (x == anc) return true; return false; }
 // (v117) WHERE HE LOOKS. "The head seems fine during the grabs, except for the melon grab ... the head's like really
@@ -6129,7 +6129,7 @@ bool HeadRoll(float& deg, Q4& q) {                     // on g_Ct: deg the head 
     const V3 c = sub(c0, mul(g, dot(c0, g))), u = sub(kUp, mul(g, g.z));
     const float cl = len(c), ul = len(u);
     if (!finite3(c) || cl < 0.2f || ul < 0.2f) return false;
-    const V3 cn = mul(c, 1.0f / cl), un = mul(u, 1.0f / ul);
+    const V3 cn = mul(c, 1.0f / cl); V3 un = mul(u, 1.0f / ul); if (dot(cn, un) < 0.0f && c0.z < 0.0f && c0.x * g.x + c0.y * g.y < -0.5f * sqrtf((c0.x * c0.x + c0.y * c0.y) * (g.x * g.x + g.y * g.y))) un = mul(un, -1.0f);   // (382) the melon: a head pitched past straight down is the other way up, not a 180 on an ear. (383) only with the crown pointing back against the gaze's heading: an ear rolled past 90 (the crown out to a side) is levelled as before, not turned upside down
     deg = acosf(clampf(dot(cn, un), -1.0f, 1.0f)) * 57.2957795f;
     q = qfromto(cn, un);
     return true;
@@ -6161,13 +6161,13 @@ void HopHeadEnd() {
             g_crownN < 60 ? "NOT levelled: the head's own up is not learned yet (60 riding poses)" : "levelled");
     g_hopRollPoses = 0; g_hopRollMost = 0.0f; g_hopRollS = 0.0f;
 }
-bool HeadUp(float wgt, const void* mesh) {
+float HeadTailW(float w); bool HeadAim(V3 g, float gh, float elev, V3 way, bool haveWay, float wgt, float upMax, float turnMax); bool HeadUp(float wgt, const void* mesh) {
     if (g_neck < 0 || g_head < 0 || g_pelvis < 0 || g_uarm[0] < 0 || g_uarm[1] < 0) return false;
     if (!BoneUnder(g_head, g_neck) || BoneUnder(g_uarm[0], g_neck) || BoneUnder(g_uarm[1], g_neck)) return false;   // (a rig whose arms hang off the neck: not turned)
-    wgt = clampf(wgt, 0.0f, 1.0f);
+    wgt = HeadTailW(clampf(wgt, 0.0f, 1.0f));   /* (384) the head's own: held on through the landing (the note at HeadTailW) */
     const float upMax = clampf(g_headUp, 0.0f, 100.0f), turnMax = clampf(g_headTurn, 0.0f, 100.0f);
     V3 g;
-    if (!HeadGaze(g_Ct, g)) { g_headUpS = g_headTurnS = 0.0f; return false; }
+    if (!HeadGaze(g_Ct, g)) { g_headUpS = g_headTurnS = 0.0f; g_headQ = q4(0.0f, 0.0f, 0.0f, 1.0f); g_headRollS = 0.0f; g_headDOk = false; return false; }
     const float gh = sqrtf(g.x * g.x + g.y * g.y);
     const float elev = atan2f(g.z, gh) * 57.2957795f;                          // deg the gaze is over level (under: negative)
     V3 way = v3(0.0f, 0.0f, 0.0f);                                             // the way he travels, in the mesh's space
@@ -6178,8 +6178,8 @@ bool HeadUp(float wgt, const void* mesh) {
     way.z = 0.0f;
     const float al = len(way);
     const bool haveWay = finite3(way) && al > 0.2f;
-    if (haveWay) way = mul(way, 1.0f / al);
-    V3 h = (gh > 0.01f) ? v3(g.x / gh, g.y / gh, 0.0f) : (haveWay ? way : v3(1.0f, 0.0f, 0.0f));   // the gaze's heading
+    if (haveWay) way = mul(way, 1.0f / al); if (g_headEase > 0.0f) return HeadAim(g, gh, elev, way, haveWay, wgt, upMax, turnMax);   // (383) the note at HeadAim
+    V3 h = (gh > 0.01f) ? v3(g.x / gh, g.y / gh, 0.0f) : (haveWay ? way : v3(1.0f, 0.0f, 0.0f)); float elevF = elev; { static bool s_mel = false; V3 cq; const bool can = g_head >= 0 && g_crownN >= 60 && gh > 0.01f && elev < 0.0f && finite3(cq = qrot(g_Ct[g_head].q, g_crownL)); const bool raw = can && cq.z < (s_mel ? 0.1f : -0.1f) && cq.x * h.x + cq.y * h.y < (s_mel ? 0.1f : -0.05f); if (!can || !haveWay || g_headUpS < 2.0f || gh < 0.15f) s_mel = raw; if (s_mel && can) { h = mul(h, -1.0f); elevF = -180.0f - elev; } }   /* (382) with hysteresis */   // the gaze's heading. (381) THE MELON: the head tipped past straight down gazes down and BACK; its front is the other way (the crown points away from the gaze's heading) 
     if (haveWay) {                                                             // ...as far as it has one: looking straight down it has none, and the way of travel stands in
         const float b = Sm01((gh - 0.15f) / 0.25f);
         const V3 hb = add(mul(way, 1.0f - b), mul(h, b));
@@ -6189,12 +6189,12 @@ bool HeadUp(float wgt, const void* mesh) {
     float wantTurn = 0.0f;
     if (turnMax > 0.5f && haveWay)
         wantTurn = clampf(atan2f(h.x * way.y - h.y * way.x, h.x * way.x + h.y * way.y) * 57.2957795f, -turnMax, turnMax) * wgt;   // from the gaze round to the way of travel
-    const float wantUp = clampf(kHeadLook - elev, 0.0f, upMax) * wgt;
+    const float hfront = haveWay ? Sm01((h.x * way.x + h.y * way.y + 0.5f) / 0.5f) : 1.0f; const float wantUp = clampf(kHeadLook - elevF, 0.0f, upMax) * wgt * hfront;   /* (381) a look still behind him is not raised into a stare backwards */
     g_headUpS += (wantUp - g_headUpS) * 0.25f;
     g_headTurnS += (wantTurn - g_headTurnS) * 0.2f;
     bool ch = false;
     if (g_headUpS > 0.3f || fabsf(g_headTurnS) > 0.3f) {
-        const float yr = g_headTurnS * 0.01745329f, er = fminf(elev + g_headUpS, 10.0f) * 0.01745329f;
+        const float yr = g_headTurnS * 0.01745329f, er = fminf(elevF + g_headUpS, 10.0f) * 0.01745329f;
         const V3 h2 = v3(h.x * cosf(yr) - h.y * sinf(yr), h.x * sinf(yr) + h.y * cosf(yr), 0.0f);
         const V3 want = v3(h2.x * cosf(er), h2.y * cosf(er), sinf(er));        // the gaze he gets
         TurnComp(g_neck, qscale(qfromto(g, want), 0.35f));
@@ -6439,7 +6439,7 @@ bool g_wrGrabPose = false;   // (v127, fixer: native review 8) this pose is a gr
 void SafeStSteer();   // (v137)
 bool AltAirNow(); bool AltVarDolAir(); void AltPopLatch(const void* mesh);   /* (245) AltVarDolAir: a varial dolphin in the air (recorded only) */   // (242) a monster / dolphin in the air (recorded, every one) and its pop seen in the pose (the note at AltPopLatch)
 extern volatile float g_altTuckCm; bool AltTuck(void* mesh); bool SafeAltFlipLive(bool grab, bool wall); void SafeAltFlipLearn(void* mesh, bool live);   // (v132) the game's own flips: learned from (the monster's kick), recorded   // (v129) the alt flip set: a monster flip draws the feet up while the board turns under them
-void PosePass(void* mesh) {
+bool HeadTailLive(bool grab); void GrabEase(bool grab, bool held, float* w, float* wh); void PosePass(void* mesh) {
     if (!g_rigOk) return;
     // the mesh's own, live anim instance -- used only while it is the one Lua last confirmed as our
     // skater's ABP (a swapped instance waits the <2 s until Lua hands the new one over)
@@ -6496,7 +6496,7 @@ void PosePass(void* mesh) {
         for (int sd = 0; sd < 2; sd++) {
             w[sd] = a[sd] * relW;
             wh[sd] = clampf(a[sd] / fmaxf(g_handFull * clampf(g_strength, 0.05f, 1.0f), 0.05f), 0.0f, 1.0f) * clampf(g_strength, 0.0f, 1.0f) * relW;
-        }
+        }   GrabEase(grab, byteOn, w, wh);                   // (383) eased in and out in time (the note at GrabEase)
     }
     static bool wasGrab = false;
     if (grab && wasGrab && kindChanged && g_colN >= 5) CollideReport();   // one grab changed into another in the air
@@ -6533,7 +6533,7 @@ void PosePass(void* mesh) {
         PlantOver(false); g_plantUntil = 0;              // (v73) no plant on a ragdoll
         g_ownOn = false;                                 // (review) no hop landing's own-length window either: this branch returns before LandOwnW can end it
         g_boneOff = g_boneOffLag = g_boneS = g_boneGave = 0.0f; g_leanAdd = 0.0f; g_boneLive = false; g_boneTail = 0;
-        HopKeepOff(); g_headUpS = g_headTurnS = 0.0f;    // (v115)
+        HopKeepOff(); g_headUpS = g_headTurnS = 0.0f; g_headQ = q4(0.0f, 0.0f, 0.0f, 1.0f); g_headRollS = 0.0f; g_headDOk = false; g_htW0 = 0.0f; g_htRelT = -1.0;    // (v115; 383r the eased aim too; 384 and its tail)
         DropArmsOff();                                   // (v118)
         g_hopFeetFrames = 0; HopHeadEnd();               // (v117)
         g_boneLetGo = false; BoneSummary();              // (v114) a boned grab that ends in a bail gets its line too
@@ -6589,9 +6589,9 @@ void PosePass(void* mesh) {
     gflip = SafeAltFlipLive(grab, wall);
     if (!gflip) SafeAltFlipLearn(mesh, false);
     const bool dvAir = AltVarDolAir();                                                /* (245) a varial dolphin in the air: recorded, nothing latched */
-    const bool altAir = AltAirNow();                                                  // (242) a monster / dolphin in the air: its pop latched below, its poses recorded
-    if (!gflip && !altAir && !dvAir && !(g_altTuckCm > 0.5f) && !wall && !darms && !hk && !hdeck && !hfeet && !grab && !guard && !calib && !trace && !hold && !held && !air && !land && !gfeet && !bone && !tt && !plant && !y180 && !fhold && !unstr && !g_ownOn && !phOn && !(g_sinkOn || g_sink > 0.05f) && g_legFixW <= 0.0f && g_legLingerUntil == 0) return;   // (review) + a let-down still to be given back (v102: + the legs watched after a goofy switch plant)
-    g_stHot = (g_altTuckCm > 0.5f) || wall || darms || hdeck || hfeet || grab || guard || hold || held || air || land || gfeet || bone || plant || y180 || fhold || phOn || g_sinkOn || g_sink > 0.05f || g_swapOn != 0 || g_hkOn;   // (v97) a pose of the mod's own: SessionTweaks does not learn from it (v127: a wallride's too)
+    const bool altAir = AltAirNow(); const bool wally = WalyDrawWanted() && g_pelvis >= 0 && g_boardOk && !grab;   /* (wally 381) */                                                  // (242) a monster / dolphin in the air: its pop latched below, its poses recorded
+    const bool htail = HeadTailLive(grab); /* (384) */ if (!gflip && !altAir && !wally && !dvAir && !(g_altTuckCm > 0.5f) && !wall && !darms && !hk && !hdeck && !hfeet && !grab && !guard && !calib && !trace && !hold && !held && !air && !land && !gfeet && !bone && !tt && !plant && !y180 && !fhold && !unstr && !g_ownOn && !phOn && !(g_sinkOn || g_sink > 0.05f) && g_legFixW <= 0.0f && g_legLingerUntil == 0 && !htail) return;   // (review) + a let-down still to be given back (v102: + the legs watched after a goofy switch plant)
+    g_stHot = (g_altTuckCm > 0.5f) || wally || wall || darms || hdeck || hfeet || grab || guard || hold || held || air || land || gfeet || bone || plant || y180 || fhold || phOn || g_sinkOn || g_sink > 0.05f || g_swapOn != 0 || g_hkOn || htail || OfbBusy();   // (384) the one-foot balance's poses too. (v97) a pose of the mod's own: SessionTweaks does not learn from it (v127: a wallride's too)
     const int idx = *(const int*)((const uint8_t*)mesh + SKM_EDIT);
     if (idx < 0 || idx > 1) return;
     uint8_t* arr = (uint8_t*)mesh + SKM_CST + idx * 0x10;
@@ -6625,8 +6625,8 @@ void PosePass(void* mesh) {
     if (gflip) SafeAltFlipLearn(mesh, true);                        // (v132) g_C: the game's pose
     if (altAir) AltPopLatch(mesh);                                  // (242) g_C: the game's pose -- the pop seen (which end, which foot) for the flick's push
     LegRefLearn(calib && g_riding != 0 && !air && !land && !plant && !fhold && !bone && !y180 && g_stretchFrames <= 0);   // (v84) from plain riding poses only
-    HipLearn(calib && g_riding != 0 && !grab && !air && !land && !plant && !fhold && !bone && !y180 && !hk && !hfeet && !darms && g_stretchFrames <= 0, mesh);   // (v120) the hips' riding height, for a drop-in's crouch
-    HeadLearn(calib && g_riding != 0 && !grab && !air && !land && !plant && !fhold && !bone && !y180 && !hk && !hfeet && g_stretchFrames <= 0);   // (v117) what is up for the head, from plain riding poses
+    HipLearn(calib && g_riding != 0 && !grab && !air && !land && !plant && !fhold && !bone && !y180 && !hk && !hfeet && !darms && g_stretchFrames <= 0 && !OfbBusy(), mesh);   // (384 not on one foot) (v120) the hips' riding height, for a drop-in's crouch
+    HeadLearn(calib && g_riding != 0 && !grab && !air && !land && !plant && !fhold && !bone && !y180 && !hk && !hfeet && g_stretchFrames <= 0 && !OfbBusy());   // (384 not on one foot) (v117) what is up for the head, from plain riding poses
     // learn where each foot bone sits over the drawn deck's foot socket while the game's own foot IK holds it
     g_legFix = (plant || fhold || bone) && !grab;   // (v88, v89) see LegOwnLength(); (v94) the plain no comply too: the game hands in its shins at 31-48 cm (41.2 their own)
     if (g_legFix) g_legLingerOk = 0;
@@ -6648,7 +6648,7 @@ void PosePass(void* mesh) {
         else { g_legFix = true; if (!sound) InterlockedIncrement(&g_legLingered); }
     }
     g_hipFix = (plant || bone) && g_hipFixOn != 0;                               // (v94) ...and through a plant the hip joints go back into their sockets
-    g_noLearn = plant || fhold || bone || phOn || air || land || y180 || gfeet || hfeet || g_swapOn != 0 || wall || gflip;   // (v87) the feet are a trick's, not a stance's (v98: a stance swap's poses too; v127: a wallride's)
+    g_noLearn = plant || fhold || bone || phOn || air || land || y180 || gfeet || hfeet || g_swapOn != 0 || wall || gflip || OfbBusy();   // (384) the one-foot balance's: its hips echo in the game's pose. (v87) the feet are a trick's, not a stance's (v98: a stance swap's poses too; v127: a wallride's)
     if (calib) DeckLearn(mesh, anim, fa);
     if (calib)
         for (int k = 0; k < 2; k++) {
@@ -7161,7 +7161,7 @@ void PosePass(void* mesh) {
     if ((fhold || plant || phOn) && !grab && PoseHold(mesh, n)) changed = true;   // (v84) before the feet are placed: the body over a stance swap's frames
     if (fhold && !grab && FeetHold(mesh)) changed = true;    // (v79) first: the plant, once it has its foot, takes both legs over
     if (plant && !grab && PlantHold(mesh)) changed = true;   // (v71) before the hand: the hips come down for the planted leg first
-    if (plant && !grab && BackFlat(mesh)) changed = true;    // (v96) the soft plant's other foot: its sole flat on the drawn deck
+    if (plant && !grab && BackFlat(mesh)) changed = true; if (!grab) { if (SafeNcsLiftPose()) changed = true; if (SafeNcsBackHoldPose()) changed = true; } else NcBtOff();   /* (ncshove 365) the no comply's body lift */ if (!grab && SafeOfbPose()) changed = true;   /* (ofb 367) */    // (v96) the soft plant's other foot: its sole flat on the drawn deck
     if (bone && BoneHand(mesh, g_boneW)) changed = true;   // (v68) the boneless hand
     if (gfeet && GroundFeet(mesh)) changed = true;   // (v67) after everything else: a foot the pose left under the ground
     if (hdeck && !grab && !land) { if (HopDeck(mesh)) changed = true; }   // (v111) first: the hop's own corrections see the body where it is drawn
@@ -7170,7 +7170,7 @@ void PosePass(void* mesh) {
     if (darms && DropCrouch(mesh)) changed = true;           // (v119) a drop-in: the crouch first (the note at DropCrouch)...
     if (darms && DropArms(mesh, daW)) changed = true;        // (v118) a drop-in: the arms out for balance (the note at DropArms)
     if (air && !land) { if (HopPull(mesh, anim)) changed = true; if (HopReach(mesh)) changed = true; if (HopLegs()) changed = true; if (AnkleFree(1.0f)) changed = true; AirSave(mesh); }   // (v80) no snap longer; then the feet as the hop carries them (after this frame's edits)
-    const bool wdrawn = wall && WallPose(mesh, anim);   // (v127) the wallride: the clip's body over the drawn deck, the feet carried with it (last: nothing after it moves the body)
+    SafeWyStickHand(); if (wally && !wall && SafeWalyPose(mesh)) changed = true;   /* (wally 381) */ const bool wdrawn = wall && WallPose(mesh, anim);   // (v127) the wallride: the clip's body over the drawn deck, the feet carried with it (last: nothing after it moves the body)
     if (wdrawn) changed = true;
     if (SafeWallSmooth(wdrawn, g_pelvis >= 0 && g_boardOk && g_flipper >= 0 && !grab)) changed = true;   // (wallsmooth 254) the ride's body eased in, its arms calm, its release blended (the note at WallSmooth)
     if (g_altTuckCm > 0.5f && !grab && !wall && !GameFeet() && AltTuck(mesh)) changed = true;   // (v129) a monster flip: the feet drawn up toward the hips while the board turns under them
@@ -7179,12 +7179,12 @@ void PosePass(void* mesh) {
         const bool ncWin = plant || fhold || phOn || gfeet;   /* the no comply's own windows (its Lua alone opens them) */
         if (PlantShinFix(ncWin, !grab && !wall && !altAir && !dvAir && !gflip && !air && !land && !hk && !hdeck && !hfeet && !(bone && !ncWin))) changed = true;
     }
-    if (g_stretchFrames > 0) g_stretchFrames--;
+    if (htail && HeadUp(0.0f, mesh)) changed = true;   /* (384) the grab's head, let go through the landing (the note at HeadTailW) */ if (g_stretchFrames > 0) g_stretchFrames--;
     if (trace) TraceLines(mesh, anim);
     if (tt) { g_ttFrames--; if ((g_ttN++ % (g_ttEvery > 0 ? g_ttEvery : 3)) == 0) TrickTraceLine(mesh, anim); }   // (v70) the pose as it goes to the screen
     FootUnderWatch(mesh, anim, (air ? 0x1u : 0u) | (land ? 0x2u : 0u) | (hold ? 0x4u : 0u) | (held ? 0x8u : 0u) | (gfeet ? 0x10u : 0u) | (bone ? 0x20u : 0u) | (plant ? 0x40u : 0u)
         | (fhold ? 0x80u : 0u) | (unstr ? 0x100u : 0u) | (phOn ? 0x200u : 0u) | (grab ? 0x400u : 0u) | (calib ? 0x800u : 0u) | (y180 ? 0x1000u : 0u));   // (v87)
-    PoseDump(mesh, anim, n, (air ? 0x1u : 0u) | (land ? 0x2u : 0u) | (plant ? 0x4u : 0u) | (bone ? 0x8u : 0u) | (fhold ? 0x10u : 0u) | (phOn ? 0x20u : 0u) | (gfeet ? 0x40u : 0u) | (y180 ? 0x80u : 0u) | (grab ? 0x100u : 0u) | (tt ? 0x200u : 0u) | (calib ? 0x400u : 0u) | (changed ? 0x800u : 0u) | (hold ? 0x1000u : 0u) | (held ? 0x2000u : 0u) | (guard ? 0x4000u : 0u) | (trace ? 0x8000u : 0u) | (unstr ? 0x10000u : 0u) | (darms ? 0x20000u : 0u) | (wall ? 0x40000u : 0u) | (gflip ? 0x80000u : 0u) | ((altAir || dvAir) ? 0x8000000u : 0u));   // (v94) the pose recorder (v132: 0x80000 = a flip of the game's own) (v118: 0x20000 = a drop-in's arms; v127: 0x40000 = a wallride): every pose that gets here, written back or not
+    PoseDump(mesh, anim, n, (air ? 0x1u : 0u) | (land ? 0x2u : 0u) | (plant ? 0x4u : 0u) | (bone ? 0x8u : 0u) | (fhold ? 0x10u : 0u) | (phOn ? 0x20u : 0u) | (gfeet ? 0x40u : 0u) | (y180 ? 0x80u : 0u) | (grab ? 0x100u : 0u) | (tt ? 0x200u : 0u) | (calib ? 0x400u : 0u) | (changed ? 0x800u : 0u) | (hold ? 0x1000u : 0u) | (held ? 0x2000u : 0u) | (guard ? 0x4000u : 0u) | (trace ? 0x8000u : 0u) | (unstr ? 0x10000u : 0u) | (darms ? 0x20000u : 0u) | (wall ? 0x40000u : 0u) | (gflip ? 0x80000u : 0u) | ((altAir || dvAir || wally) ? 0x8000000u : 0u));   // (v94) the pose recorder (v132: 0x80000 = a flip of the game's own) (v118: 0x20000 = a drop-in's arms; v127: 0x40000 = a wallride): every pose that gets here, written back or not
     if (!changed) return;
     // (v10) never hand the renderer a broken pose: every bone finite, a unit rotation, and within 2 m of where
     // the animation had it -- otherwise this frame keeps the game's own pose (a NaN bone can wreck the
@@ -7403,7 +7403,7 @@ DWORD WINAPI WatchdogProc(LPVOID) {
     if (WdRange(GetModuleHandleW(L"kernel32.dll"), "kernel32", mods[nm])) nm++;
     LONG last = g_beat; ULONGLONG since = GetTickCount64(); int told = 0;
     for (;;) {
-        for (int q = 0; q < 4; q++) { Sleep(250); SafeStReplay(); SafeStLook(); }   // (v100) a second, a quarter at a time: SessionTweaks' clock in the replay editor (v118: and the look for SessionTweaks)
+        for (int q = 0; q < 4; q++) { Sleep(250); SafeStReplay(); SafeStLook(); SafeStGhWatch(); }   // (v100) a second, a quarter at a time: SessionTweaks' clock in the replay editor (v118: and the look for SessionTweaks)
         const LONG b = g_beat;
         if (b != last) { last = b; since = GetTickCount64(); told = 0; continue; }
         const ULONGLONG idle = GetTickCount64() - since;
@@ -7554,7 +7554,7 @@ void FrameWatch(double t0, double t1) {                 // t0 = this pose's hook
     g_fwOwnMost = 0.0f;
 }
 void CkPoll();                                              // (v123) the stick clicks kept for the Lua's answer (by hkInputKey)
-void SafeAltTick(void* mesh); void SafeAltPost(); void AltIdle(); void SafeHsTick(void* mesh); void HsIdle(); void SafeBdTick(void* mesh); void BdIdle();   // (bigdrop 302) the big drop landing; (v129) the alt flip set; (heelstop 299) the heel stop (defined after the wallride: the note at AltTick)
+void SafeAltTick(void* mesh); void SafeAltPost(); void AltIdle(); void SafeHsTick(void* mesh); void HsIdle(); void SafeBdTick(void* mesh); void BdIdle(); void SafeSlInput();   // (slappy 359) (bigdrop 302) the big drop landing; (v129) the alt flip set; (heelstop 299) the heel stop (defined after the wallride: the note at AltTick)
 void hkFbt(void* self) {
     InterlockedIncrement(&g_calls);
     InterlockedIncrement(&g_beat);                          // (v95) the watchdog's counter; the game thread is the one that poses
@@ -7570,7 +7570,7 @@ void hkFbt(void* self) {
         SpeedNote(self);                                        // (v96) how fast the skater really moves, for the drop-in's standstill test
         const bool whole = PoseWorld(self) != nullptr;          // (v95, review) the controller's write and the trace read the skater too: the same test
         if (whole && g_pc) SafeLateBlock();
-        if (whole && g_pc) { SafeAltTick(self); SafeHsTick(self); SafeBdTick(self); } else { AltIdle(); HsIdle(); BdIdle(); }   // (bigdrop 302) the big drop landing last; (v129) the alt flip set; (heelstop 299) the heel stop after it (it reads the alt set's writes): the mirrored back stick, the alt trick's board (the note at AltTick)
+        if (whole && g_pc) { SafeAltTick(self); SafeHsTick(self); SafeBdTick(self); SafeSlInput(); } else { AltIdle(); HsIdle(); BdIdle(); }   // (bigdrop 302) the big drop landing last; (v129) the alt flip set; (heelstop 299) the heel stop after it (it reads the alt set's writes): the mirrored back stick, the alt trick's board (the note at AltTick)
         if (whole && g_gsFaults < 3) SafeGrindSound();          // (v96) one log line a grind: what the game set its loop to
         g_stHot = false;
         SafeApply(self);
@@ -7704,7 +7704,7 @@ int nVersion(const Lua& lua) { lua.set_integer(kVersion); return 1; }
 // ankles over the deck), the deck frame, the board-socket offsets and the per-stance base memories across a map change
 // and only reset the foot IK offsets: after the map switches of 2 Oct the learned riding ankle heights had crept from
 // 15-18 to 19-24 cm and every grab sat a hand's width high ("the grabs are offset in Z"). Start clean, as at launch
-void AltForget(const char* why);                // (v129) (defined with the alt flip set)
+void AltForget(const char* why); void OfbForget();   /* (ofb 384) defined with the one-foot catch */                // (v129) (defined with the alt flip set)
 void ForgetSkater(const char* why) {
     g_footOffOk[0] = g_footOffOk[1] = false; g_pullState = 0.0f; g_guardFrames = 0; g_traceFrames = 0; g_holdFrames = 0;
     g_offBOk[0] = g_offBOk[1] = false; g_sockFrame = 0;
@@ -7714,7 +7714,7 @@ void ForgetSkater(const char* why) {
     g_learnFootH[0] = g_learnFootH[1] = -99.0f;
     g_boundsR = 0.0f; g_bail = 0; g_ownOn = false;   // (review) + the hop landing's window: nothing of the last skater's is handed on
     g_swapOn = 0; g_swapEnd = 0; g_swapEndN = 0; g_shinRideN[0] = g_shinRideN[1] = 0; g_ownTwist[0] = g_ownTwist[1] = 0.0f;
-    g_footRelN[0] = g_footRelN[1] = 0;                                  // (v100)
+    g_footRelN[0] = g_footRelN[1] = 0; OfbForget();   /* (ofb 384) no one-foot state handed to the next skater */                                  // (v100)
     g_shinAxN[0] = g_shinAxN[1] = 0; g_hopShinW = 0.0f; g_plantShinW = 0.0f; g_hopShinTail = SHIN_TAIL; g_plantShinTail = SHIN_TAIL; g_hopShinDid = false;   // (w14 wallleg) S. (shinwob 258) W.
     g_boneOff = g_boneOffLag = 0.0f; g_boneOffLive = false; g_boneOffW = v3(0, 0, 0); g_boneTail = 0;   // (v113) nor the board's share of a bone: the field it was written to is the last skater's
     g_hingeN[0] = g_hingeN[1] = 0; g_hingeAgain[0] = g_hingeAgain[1] = 0; g_hingeOdd[0] = g_hingeOdd[1] = 0; g_hopHipW = 0.0f; g_sockLive = 0;   // (v99)   // (v97) no stance swap, no riding shin of the last skater's
@@ -8988,7 +8988,7 @@ int nFootGround(const Lua& lua) {
 // again over 1.5 x g_plantStepS, quickly at first. v94: the plant LEG itself is the plan's (the note at g_plPhase) -- its
 // place, its turn, its knee -- from the pose it first comes down on until it is back with the game's own foot.
 // HJN_Set("plantmode", 2) = v77's pinned plant (the switch trick's), which stands its foot the same way (PlantFlat).
-volatile int g_plantMode = 1;
+volatile int g_plantMode = 1; volatile LONG g_ncsFree = 0;   /* (ncshove 357) the shove's feet are free: the pinned plant hands over to the soft one */
 // (v97) THE SOFT PLANT IN THE OTHER STANCE. "The switch bean plant and boneless work, but it's almost like they're holding
 // old code. They don't really mirror what the regular side does." They did run older code: a switch plant is ridden in the
 // other stance with the game's foot pull off (its targets are that stance's), and since v163 it took the PINNED plant for
@@ -9304,7 +9304,7 @@ bool PlantSoft(const void* mesh) {
         else if (risen && dh < g_plantDeckMax - 1.0f) why = "the board is on its way down";
         else if (need > limit + 1.5f) why = (room < cap) ? "the back leg has no room left under the hips and the plant leg is at full stretch" : "the body would have to come down too far";
         if (why) {
-            g_plantStage = 2; g_plPhase = 3; g_plantStepT0 = now; g_plantD0 = g_plantD;
+            g_plantStage = 2; g_plPhase = 3; g_plantStepT0 = now; g_plantD0 = g_plantD; g_ncsLiftAt = now;   /* (ncshove 364) */
             g_plantStepMs = (float)((now - g_plantT0) * 1000.0);
             g_plP0 = v3(Fw.x - mp.x, Fw.y - mp.y, Fw.z - g_plantGz); g_plQ0W = Qw; g_plPole0W = poleW; g_plYaw0 = hipsYaw(); g_plStepOk = false;
             if (flat) { g_plHeadW = headS; g_plFlatW = standQ; }   // (v99) the way back begins from the heading it had swivelled to
@@ -9338,9 +9338,9 @@ bool PlantSoft(const void* mesh) {
         const V3 Fe = lerp(g_plRelStick ? g_plRelW : v3(mp.x + g_plP0.x, mp.y + g_plP0.y, g_plantGz + g_plP0.z), v3(wa.x, wa.y, fmaxf(wa.z, g_plantGz + g_footAnkle)), w);
         g_plantD = clampf(fmaxf(g_plantD0 * r * r, needFor(Fe) * (1.0f - w)), 0.0f, fmaxf(g_plantD0, 0.0f));
     }
-    const float d = fminf(g_plantD, room);                // (v89) the body's share of the way down: not into the back leg
+    static float s_dSh = 0.0f; static double s_dT = 0.0; float d = fminf(g_plantD, room); const float dLo = (g_plantStage == 2) ? fminf(s_dSh - 2.5f, g_plantD0 * (1.0f - g_plantU)) : s_dSh - 2.5f; if (now - s_dT < 0.05 && d < dLo) d = dLo; s_dSh = d; s_dT = now;   /* (383) let go at 2.5 cm a pose at the most (it dropped 21 -> 11 -> 4: the no comply's jolt) */                // (v89) the body's share of the way down: not into the back leg
     if (d > 0.05f) SetComp(g_pelvis, g_Ct[g_pelvis].q, sub(g_Ct[g_pelvis].p, v3(0.0f, 0.0f, d / sz)));   // the whole body, as one
-    if (g_plantD > 0.2f && g_deckOk) {                    // the back foot: not under the deck
+    if (g_plantD > 0.2f && g_deckOk && !g_ncsFree) {      // the back foot: not under the deck; (ncshove 360) not while the shove's feet are free
         V3 l = qinv(g_dq, sub(g_Ct[g_foot[o]].p, g_dp));  // in the deck's own frame
         const float zr = (g_stCur >= 0 && g_dFootOk[o]) ? g_uFootP[o].z : 15.0f;   // where its ankle rides over the deck
         if (fabsf(l.x) < HalfLen() + 6.0f && fabsf(l.y) < HalfWidth() + 8.0f && l.z < zr) {
@@ -9348,12 +9348,12 @@ bool PlantSoft(const void* mesh) {
             Leg(o, add(g_dp, qrot(g_dq, l)), g_Ct[g_foot[o]].q);
         }
     }
-    if (own && g_thigh[o] >= 0 && g_calf[o] >= 0) {       // (v97) the other stance: the back foot stands on its riding spot (the game's pull is off)
+    if (own && g_thigh[o] >= 0 && g_calf[o] >= 0 && !g_ncsFree) {   // (v97) the other stance: the back foot stands on its riding spot (the game's pull is off); (ncshove 360) not while the shove's feet are free
         // ...from where the feet hold has it as the plan begins (that hold is on its way out by then), all of it 0.07 s in
         const float wf = g_feetHoldW * g_feetHoldW * (3.0f - 2.0f * g_feetHoldW), wi = fmaxf(wf, Sm01((float)(now - g_plantT0) / 0.07f));
         Leg(o, lerp(g_Ct[g_foot[o]].p, rideC[o], wi), qslerpTo(g_Ct[g_foot[o]].q, rideQ[o], wi));
     }
-    if (g_plantStage == 3) {                              // (v97) the other stance: back on the board, it stands on its riding spot while the window runs
+    if (g_plantStage == 3 && !g_ncsFree) {                // (v97) the other stance: back on the board, it stands on its riding spot while the window runs; (ncshove 360) not on a spinning deck
         if (own && on) g_plOwnW = 1.0f; else g_plOwnW -= 1.0f / 6.0f;
         if (g_plOwnW <= 0.0f) { PlantOver(on); return false; }
         const float s3 = g_plOwnW * g_plOwnW * (3.0f - 2.0f * g_plOwnW);
@@ -9446,7 +9446,7 @@ bool PlantSoft(const void* mesh) {
     return true;
 }
 bool PlantHold(const void* mesh) {
-    if (g_plantMode != 2) return PlantSoft(mesh);
+    if (g_plantMode != 2 || g_ncsFree) return PlantSoft(mesh);   /* (ncshove 357) */
     const bool on = g_plantUntil != 0 && GetTickCount64() < g_plantUntil;
     if (!on) {
         g_plantUntil = 0;
@@ -12612,6 +12612,9 @@ constexpr float WR_RD_MIN_IN = 0.15f;     // s: no transition in a ride's first 
 constexpr float WR_RD_SETTLE_FLAT = 0.12f;   /* (wallentry 249) s after the deck first lies at 90 % of its tilt that its own descent is still not the ride's (WallRideDownSettle) */
 constexpr float WR_RD_GRACE = 0.6f;       // s: WallRideTime stretches this far at the most while descending; and the longest transition
 constexpr float WR_RD_SRATE = 10.0f;      // the transition's progress rises at most dt x this a pose (0.10 s at the least)
+constexpr float WR_RD_LV_LEAD = 0.12f;   /* (389) s before the ground (at full gravity, the deck's own fall) by which the roll and pitch are given back whole: the real deck lags its target about 0.1 s. 387's #4/#5 rode down from 176-178 cm, handed over 105-109 cm up at 459-467 cm/s, "never flat to 5 deg" and touched down rolled 31/25 deg */
+constexpr float WR_RD_LV_SPAN = 0.25f;   /* (389) s over which that levelling runs (it starts 0.37 s before the ground) */
+constexpr double WR_BA_LAND_S = 0.30;    /* (389) s after a ride down's touchdown that the game's board-angle bail is passed over (given back early once the deck is within about 10 deg of its controller's up) */
 constexpr float WR_RD_FAST = 0.10f;       // s to the ground at full gravity under which there is no time to ride down: the pop-off
 constexpr float WR_POP_CRANK = 0.30f;     // s after a crouch (the ollie's crank) during which a stick pushed up is its release, not a pop
 constexpr float WR_POP_RD_S = 0.30f;      // the transition's progress after which a stick pushed up is too late for a pop
@@ -12757,6 +12760,7 @@ struct WrT {
     float spreadNow, spreadMin, spreadMax, btDzMax, twistNow, twistMax, lineRho, lineSlide, kneeK;
     // (walldown) the ride down the wall (WallRideRideDown) and the stick's pop off it (WallRidePopUp): rd = the transition runs (phase 2)
     bool rd, rdOn, rdDesc, rdFlatSeen, popped; float rdS, rdTtr, rdT0, rdH0, rdVz0, rdFlatH, rdFlatT, rdWheelMin, rdWheelFlat, rdVzHand, rdVzDeck, rdHead, rdCtrlHead, rdTravHead, rdHNow, rdFellS, popUp;
+    float rdLv, rdAheadUp, rdTauG, slamA;   /* (389) the levelling's progress by the time to the ground (0..1, never back), the most the ground ahead stood over the ground under the deck, the time to it last pose; the start's slam angle (the larger of the approach and the deck's heading off the wall) */
     float rdSettle, rdSettleDv, rdPaceDv; int rdSettleN, rdPaceN;   /* (wallentry 249) WallRideDownSettle as the ride took it; the poses its start was held by it, the most the deck's descent outran the ride's (cm/s); the transition's poses paced by the ride's descent, the most it outran the deck's */
     int rdFellCode; double crankAt; Q4 ctrlQ0;   // ctrlQ0: the board controller as the way off began (it is held absolutely from it)
     float torsoLean; long btXyN0, btXyMiss0;   // (wallbody) the torso's own lean as the ride took it (WallRideTorsoLean / WallRideTorsoLeanBS); the hook's counts at its start
@@ -13199,6 +13203,34 @@ bool WrSamePlane(const void* world, V3 o, V3 nh, float lenCm, float gap, float m
 // the walk's normal and point are then the wall's own there. A corner, a pillar's end, a step back still fail. 0 / under 50 = off (build 254).
 volatile float g_wrCurveR = 300.0f, g_wrMaxTurn = 120.0f;   /* (curvewall 255) HJN_Wall("curve", WallRideCurveRadius cm, WallRideMaxTurn deg) */
 volatile long g_wcTold = 0; volatile ULONGLONG g_wcLastMs = 0;
+// (corner 388) A WALL MET AT ITS END (7 Nov, 387: "if I hit the corner of a wall ... I could not get any wall corners to trigger"; n.log 1713/1714,
+// 2034/2035, 2146/2147, 2263/2264: met at 55-64 deg, the board's nearest part 1-10 cm off the plane, and no face where it meets it -- the
+// curve walk ended at 0 cm). Where the board meets the wall's plane past its end the face starting within WallRideCornerReach cm on along
+// the travel is met instead (the take-off's tests made from there), the in-air start's tests too, and a ride so begun lets its follow
+// ray miss for 0.45 s while the deck comes onto the face. A wall that ends AHEAD is still refused (and a ride ends off its end, as before).
+volatile LONG g_wrCorners = 1; volatile float g_wrCornerCm = 30.0f; double g_wrCornerT = -1.0e9; float g_wgCornerK = 0.0f; volatile long g_wrCornTold = 0; volatile ULONGLONG g_wrCornMs = 0;   /* HJN_Set "wrcorner" / "wrcornercm" */
+void WrCornerTell(const char* fmt, ...) {   /* (corner 388) a refusal: 3 a second, 60 a run at the most */
+    const ULONGLONG ms = GetTickCount64(); if (ms - g_wrCornMs < 300 || g_wrCornTold >= 60) return; g_wrCornMs = ms; g_wrCornTold = g_wrCornTold + 1;
+    char b[400]; va_list a; va_start(a, fmt); vsnprintf(b, sizeof(b), fmt, a); va_end(a); Log("wallride corner 388: %s", b);
+}
+float WrCornerAhead(const void* world, V3 o, V3 nh, V3 aw, float lenCm, float gap, float maxDeg, float maxGap, float reach) {   /* (corner 388) cm on along aw where WrSamePlane passes, within reach (-1: none) */
+    if (!world || !finite3(o) || !finite3(aw)) return -1.0f;
+    V3 a = flat(sub(aw, mul(nh, dot(aw, nh)))); if (len(a) < 0.1f) return -1.0f; a = norm(a);
+    for (float k = 5.0f; k <= reach + 0.1f; k += 5.0f) if (WrSamePlane(world, add(o, mul(a, k)), nh, lenCm, gap, maxDeg, maxGap)) return k;
+    return -1.0f;
+}
+// (corner 389) A WALL THAT ENDS AHEAD (8 Nov, 388's test: no corner ride taken; the corner refusals were walls ending AHEAD -- from the ground
+// n8.log 1946/2586/2608 "it ends within 171/187/151 cm", in the air 11 "not armed: the wall ends within 69-160 cm ahead" -- and the 27
+// "no corner" lines' curve walks ended at once from the rays' hit: the board meets the plane past the wall's end). Where the wall ends within
+// the start's look-ahead its face is measured (10 cm steps): run WallRideCornerFace cm (70) on from the board and the ride is taken, its own
+// look-ahead then 25 cm (it rides to the end and off it). 0 = build 388's (refused).
+volatile float g_wrCornFace = 70.0f; double g_wrShortT = -1.0e9; float g_wgShortRun = 0.0f;   /* HJN_Set "wrcornface"; the short ride's start (its R.t0); the ground's measured face */
+float WrFaceRun(const void* world, V3 o, V3 nh, V3 aw, float lenCm, float gap, float maxDeg, float maxGap, float upTo) {   /* (corner 389) cm the face runs on along aw from o (10 cm steps, upTo at most; 0: not 10) */
+    if (!world || !finite3(o) || !finite3(aw)) return 0.0f;
+    V3 a = flat(sub(aw, mul(nh, dot(aw, nh)))); if (len(a) < 0.1f) return 0.0f; a = norm(a);
+    float run = 0.0f; for (float k = 10.0f; k <= fminf(upTo, 200.0f) + 0.1f; k += 10.0f) { if (!WrSamePlane(world, add(o, mul(a, k)), nh, lenCm, gap, maxDeg, maxGap)) break; run = k; }
+    return run;
+}
 struct WcOut { float turned, walked; int step, steps; const char* why; };
 bool WrCurveOn(const void* world, V3 P, V3 nh, V3 aw, float s, float z, float gap, float maxGap, WcOut& r) {
     r.turned = 0.0f; r.walked = 0.0f; r.step = 0; r.steps = 0; r.why = "off (WallRideCurveRadius 0)";
@@ -13279,6 +13311,7 @@ void WallRdLine() {
         if (R.rdPaceN > 0) { const size_t fn = strlen(fell); snprintf(fell + fn, sizeof(fell) - fn, "; the transition paced by the ride's descent on %d poses (the deck's own up to %.0f cm/s slower: its roll back lifted it)", R.rdPaceN, R.rdPaceDv); }   /* (wallentry 249) */
         WallNews("info", "#%d rode down: began at %.2f s / deck %.0f cm (%.0f cm/s down), %s, %.0f cm/s down at the hand-over (the deck %.0f) at s %.2f, %.0f cm up; landing heading %+.0f deg out from the wall (the controller %+.0f, the travel %+.0f; WallRideExitAngle %.0f)%s",
             R.n, R.rdT0, R.rdH0, -R.rdVz0, fl, -R.rdVzHand, -R.rdVzDeck, R.rdS, R.rdHNow, R.rdHead, R.rdCtrlHead, R.rdTravHead, R.exitAng, fell);
+        Log("wallride: #%d -- (389) the ride down's levelling by the time to the ground (the roll and pitch given back whole %.2f s before it, from %.2f s): it reached %.2f (%.2f s to the ground at the last pose); the ground ahead along the travel stood up to %.0f cm over the ground under the deck", R.n, WR_RD_LV_LEAD, WR_RD_LV_LEAD + WR_RD_LV_SPAN, R.rdLv, R.rdTauG, R.rdAheadUp);
     }
     if (R.popped) WallNews("info", "#%d popped off the wall with a stick pushed up: left at (%.0f %.0f %.0f) cm/s, %.0f up (WallRidePopUp %.0f)", R.n, R.vExit.x, R.vExit.y, R.vExit.z, R.vExit.z, R.popUp);
 }
@@ -13343,21 +13376,42 @@ void WallEndLine(const char* kind, const char* why) {
 // the landing's StopBoardFlip, in both PostPhys branches, clears the bit and the roll), and a hold left set would pin the next air's roll
 // (v140) A. the falling bail's grace clock held at -0.1 (the note at WR_BM_GRACE): the board ours, in the air -- or riding, at a take-off's
 // kick (`kick`) -- and WallRideFallGuard on. false = not held
+volatile bool g_wrInTick = false;   /* (389) SafeWallTick runs: a hold taken now is the wallride's own (the slappy's comes from the anim hook) */
+bool g_wrGraceMine = false;          /* (389) the hold held now was taken by the wallride (its phase-0 give-back acts only on its own: 387's slappy holds were given back every pose, 337 lines) */
 bool WrGraceHold(uint8_t* bm, bool kick) {
     if (!g_wrRideCfg.fall || !bm || bm != BoardMC() || !PtrOk(bm, WR_BM_FLOORS + 0x10)) return false;
     const uint8_t mode = bm[BM_MODE];
     if (!(mode == 3 || (kick && mode == 1))) return false;
     float* g = (float*)(bm + WR_BM_GRACE);
     if (!(*g <= WR_GRACE)) *g = WR_GRACE;
-    g_wrGraceBm = bm;
+    g_wrGraceBm = bm; g_wrGraceMine = g_wrInTick;
     InterlockedIncrement(&g_wrGraceN);
     return true;
 }
 // ...handed back: (wallin, build 243) 0.1 -- the game's tests live again at once (242 wrote 0.0: 0.1 s more of grace nobody asked for) --
 // only to the board it was held on, still in the air and still in its grace (on the ground the landing has written the game's own)
 constexpr float WR_GRACE_BACK = 0.1f;
+float AsBaDot(void* mc); void AsBaInstall(); extern int g_asBaHook;   /* (389) defined with the alt stalls' lock (bailangle 297) */
+volatile double g_wrBaUntil = 0.0, g_wrBaTd = -1.0; volatile int g_wrBaRide = 0, g_wrBaSaid = 0; volatile LONG g_wrBaSkips = 0, g_wrBaWould = 0; volatile float g_wrBaMin = 2.0f;
+// (389) THE BOARD-ANGLE BAIL OVER A RIDE DOWN'S TOUCHDOWN: 387's #4 / #5 landed rolled 31 / 25 deg (#4 pitched -39 -> -71 after it) and bailed
+// 0.13 s later. From the ride down's hand-over to WR_BA_LAND_S after its touchdown hkAsBa passes CheckForBailBoardAngle over while the deck's
+// up . its controller's is over 0 (past 90 deg is the game's); once the deck is within about 10 deg of upright (0.985) after the touchdown it is given back.
+// Counted for the log (the touchdown's line): how often it was passed over and on how many the game would have bailed (under 0.575)
+bool WrBaHeld(void* mc) {
+    const double now = NowS();
+    if (!(now < g_wrBaUntil)) return false;
+    float d = 2.0f;
+    __try { d = AsBaDot(mc); } __except (EXCEPTION_EXECUTE_HANDLER) { d = 2.0f; }
+    if (!(d <= 1.5f)) return false;                                             // not read: the game's own test
+    if (d < g_wrBaMin) g_wrBaMin = d;
+    if (g_wrBaTd >= 0.0 && now - g_wrBaTd > 0.05 && d >= 0.985f) { g_wrBaUntil = 0.0; return false; }   // upright on the ground: given back
+    if (d < 0.0f) return false;
+    if (d < 0.575f) InterlockedIncrement(&g_wrBaWould);
+    InterlockedIncrement(&g_wrBaSkips);
+    return false;   /* (389 integration) LOG ONLY this test: counted, the game's own test runs (the landing bail's cause not yet named) */
+}
 void WrGraceGive() {
-    uint8_t* bm = g_wrGraceBm; g_wrGraceBm = nullptr;
+    uint8_t* bm = g_wrGraceBm; g_wrGraceBm = nullptr; g_wrGraceMine = false;
     if (!bm || bm != BoardMC() || !PtrOk(bm, WR_BM_FLOORS + 0x10) || bm[BM_MODE] != 3) return;
     float* g = (float*)(bm + WR_BM_GRACE);
     if (*g < WR_GRACE_BACK) *g = WR_GRACE_BACK;
@@ -13791,11 +13845,11 @@ void WallDeck(float dt, uint8_t* bm) {
     }
     R.lastT = T; R.lastP = P;
     const float e = R.e;
-    const float eR = (R.phase == 2) ? (R.rd ? R.eExit * (1.0f - Sm01(fminf(1.0f, R.rdS / WR_RD_ROLL))) : R.eExit * (1.0f - Sm01((float)((now - R.tExit) / WR_OUT_ROLL)))) : (R.rollNow ? 1.0f : e);   // (v131, B2b) leaving, the roll is given back first; (v140) a ride from the ground: the roll's whole weight from its first pose (the kick rolled the deck up the wall already)
+    const float eR = (R.phase == 2) ? (R.rd ? R.eExit * (1.0f - Sm01(fmaxf(fminf(1.0f, R.rdS / WR_RD_ROLL), R.rdLv))) : R.eExit * (1.0f - Sm01((float)((now - R.tExit) / WR_OUT_ROLL)))) : (R.rollNow ? 1.0f : e);   // (v131, B2b) leaving, the roll is given back first; (v140) a ride from the ground: the roll's whole weight from its first pose (the kick rolled the deck up the wall already)
     // (v140) E. turned off the wall (WallRideExitAngle): the heading comes back as fast as the roll, so the real deck (~0.2 s behind its target)
     // has the way off before the touchdown -- 19 Oct's ollie-in kept its nose 9-12 deg INTO the wall for 0.22 s after leaving and landed along it
     const float eY = (R.phase == 2 && R.exitAng > 0.5f && !R.rd) ? eR : e;   /* (walldown) the transition: the heading with the controller's own progress (e), so the board never swings back toward the approach */
-    R.rW = R.r0 + eR * (R.rF - R.r0); R.yW = R.y0 + eY * (R.yF - R.y0); R.pW = R.p0 + e * (R.pF - R.p0);
+    R.rW = R.r0 + eR * (R.rF - R.r0); R.yW = R.y0 + eY * (R.yF - R.y0); R.pW = R.p0 + ((R.phase == 2 && R.rd) ? fminf(e, R.eExit * (1.0f - Sm01(R.rdLv))) : e) * (R.pF - R.p0);   /* (389) the ride down: the pitch given back by the time to the ground too (387's #4 touched down nose -20 at 459 cm/s) */
     if (R.ownR) *fr = R.rW;
     if (R.ownR && R.holdR) WrRollHold(bm, R.rW);   // (v129) the game's own roll lerp holds it there through every substep (its catch alignment stays off)
     if (R.ownY) *fy = R.yW;
@@ -13863,15 +13917,26 @@ int WallRdGround(const void* world, const uint8_t* board, V3 Od, Q4 deckQ, doubl
         R.rdHead = WrOutAngle(mul(qrot(deckQ, v3(1, 0, 0)), (float)R.lead), R.Aw, R.Nw);
         if (R.bm && PtrOk(R.bm, BM_CTRLQUAT + 0x10)) R.rdCtrlHead = WrOutAngle(qrot(qnorm(*(const Q4*)(R.bm + BM_CTRLQUAT)), v3(1, 0, 0)), R.Aw, R.Nw);
         R.rdTravHead = WrOutAngle(R.vExit, R.Aw, R.Nw);
+        /* (389) the ground AHEAD along the travel (half-way and at the time to it): 387's #4 touched 0.02 s after its hand-over "105 cm up" -- the
+           ground under the deck lay far below what the wheels met (a step or a ledge's edge). The transition's pace and the levelling read the nearest */
+        float hA = 1500.0f;
+        { const V3 vf = flat(R.vExit); const float tA = (hD < 1500.0f) ? clampf(WrTimeToGround(vzD, fmaxf(hD - WR_RD_HEND, 0.0f), fmaxf(R.gEff, 1.0f)), 0.0f, 0.5f) : 0.0f;
+          if (world && len(vf) > 50.0f && tA > 0.01f) for (int k = 1; k <= 2; k++) { const float gA = WrGround(world, add(Od, mul(vf, tA * 0.5f * (float)k))); if (gA > WR_RD_HEND) hA = fminf(hA, gA); } }   /* (389 review) at the deck's own height: a face, not ground */
+        if (hA < hD && hD < 1500.0f) R.rdAheadUp = fmaxf(R.rdAheadUp, hD - hA);
+        const float hR = fminf(hD, hA);
+        if (hR < 1500.0f) {
+            R.rdTauG = WrTimeToGround(vzD, fmaxf(hR - WR_RD_HEND, 0.0f), fmaxf(R.gEff, 1.0f));
+            R.rdLv = fmaxf(R.rdLv, clampf(1.0f - (R.rdTauG - WR_RD_LV_LEAD) / WR_RD_LV_SPAN, 0.0f, 1.0f));
+        }
         if (!R.rdFlatSeen) {
             R.rdWheelMin = fminf(R.rdWheelMin, wClr);
             if (fabsf(R.lastTilt) <= 5.0f) { R.rdFlatSeen = true; R.rdFlatH = hDk; R.rdFlatT = (float)(now - R.t0); R.rdWheelFlat = wClr; }
         }
-        if (hD >= 1500.0f || now - R.tExit > WR_RD_GRACE) R.rdS = fminf(1.0f, R.rdS + dt * (hD >= 1500.0f ? 4.0f : WR_RD_SRATE));   // (no ground seen, or the longest transition over: it finishes)
+        if (hR >= 1500.0f || now - R.tExit > WR_RD_GRACE) R.rdS = fminf(1.0f, R.rdS + dt * (hR >= 1500.0f ? 4.0f : WR_RD_SRATE));   /* (389) hR: the nearest ground, ahead too */   // (no ground seen, or the longest transition over: it finishes)
         else {
             const float vzP = (R.rdSettle > 0.0f && std::isfinite(R.vz)) ? fminf(vzD, R.vz) : vzD;   /* (wallentry 249) the faster descent: the roll back toward flat lifts the deck against the ride */
             if (vzP < vzD - 1.0f) { R.rdPaceN++; R.rdPaceDv = fmaxf(R.rdPaceDv, vzD - vzP); }
-            R.rdS = WrRdNextS(R.rdS, dt, WrTimeToGround(vzP, fmaxf(hD - WR_RD_HEND, 0.0f), gR), R.rdTtr);
+            R.rdS = WrRdNextS(R.rdS, dt, WrTimeToGround(vzP, fmaxf(hR - WR_RD_HEND, 0.0f), gR), R.rdTtr);
         }
         return 0;
     }
@@ -13901,6 +13966,7 @@ int WallRdGround(const void* world, const uint8_t* board, V3 Od, Q4 deckQ, doubl
 void WallRdStart(uint8_t* bm, double now, const char* why) {
     WrT& R = g_wr;
     const V3 Zw = v3(0, 0, 1);
+    R.rdLv = 0.0f; R.rdAheadUp = 0.0f; R.rdTauG = -1.0f; if (g_asBaHook == 0) AsBaInstall();   /* (389) the levelling from 0; the board-angle bail's hook for the touchdown */
     R.rd = true; R.rdS = 0.0f; R.phase = 2; R.tExit = now; R.eExit = R.e; R.code = 7; R.rdT0 = (float)(now - R.t0); R.vExit = add(mul(R.Aw, fmaxf(R.vt, 0.0f)), v3(0.0f, 0.0f, R.vz));
     snprintf(R.why, sizeof(R.why), "%s", why);
     R.ctrlOn = false; R.ctrlTurn = R.ctrlDone = R.ctrlInto = R.ctrlU = 0.0f; R.ctrlWhy[0] = 0;
@@ -14051,7 +14117,9 @@ void WallStart(void* mesh, uint8_t* sk, uint8_t* mc, uint8_t* board, uint8_t* bm
     g_wa.usedAir = true;
     NoBail(0.3);
     g_wrLastSide = side;
-    if (w.theta >= WR_SLAM_FROM) WrSlamHold(0.30, w.theta, "ridden");        // (v131, T2) a steep start: the board's own slam held off from this very pose
+    const float hdSlam = fminf(fabsf(WrAngleAbout(mul(qrot(Q0, v3(1, 0, 0)), (float)lead), Aw, Zw)), 90.0f);   /* (389) the deck's own heading off the wall: 387's #6 met at 18 deg, its deck 39 off (the slam from 30), bailed on its first pose */
+    const float slamA = std::isfinite(hdSlam) ? fmaxf(w.theta, hdSlam) : w.theta; R.slamA = slamA;
+    if (slamA >= WR_SLAM_FROM) WrSlamHold(0.30, slamA, slamA > w.theta ? "ridden (the deck's heading)" : "ridden");        // (v131, T2) a steep start: the board's own slam held off from this very pose
     const bool right = dot(mul(w.Nh, -1.0f), cross(Zw, Aw)) > 0.0f;              // (UE: +Y = cross(Z, X) is the right of +X)
     char rollTxt[32], gTxt[40];
     if (rollWas) snprintf(rollTxt, sizeof(rollTxt), "running: taken over"); else if (g_wa.rollT >= 0.0) snprintf(rollTxt, sizeof(rollTxt), "over at %.2f s", g_wa.rollT); else snprintf(rollTxt, sizeof(rollTxt), "not seen in this air");
@@ -14065,7 +14133,7 @@ void WallStart(void* mesh, uint8_t* sk, uint8_t* mc, uint8_t* board, uint8_t* bm
     if (ownP) snprintf(pTxt, sizeof(pTxt), "%s", R.sP > 0 ? "+1" : "-1"); else snprintf(pTxt, sizeof(pTxt), "the game's own (%s; not ours this ride)", pWhy[0] ? pWhy : "?");
     char slamTxt[64];                                                            // (v131, T2) the board's own slam: held off, not needed, or switched off
     if (!g_wrCfg.slamGuard) snprintf(slamTxt, sizeof(slamTxt), "off by WallRideSlamGuard 0");
-    else if (w.theta < WR_SLAM_FROM) snprintf(slamTxt, sizeof(slamTxt), "not needed under %.0f deg", WR_SLAM_FROM);
+    else if (slamA < WR_SLAM_FROM) snprintf(slamTxt, sizeof(slamTxt), "not needed under %.0f deg", WR_SLAM_FROM);
     else snprintf(slamTxt, sizeof(slamTxt), "%s", g_wrSlam.on ? "held off" : "NOT held (the config was not read)");
     char a28[64] = "not read";                                                   // (v131, L1) the byte that makes ANY board-part hit bail (CheckForBailCollision +0x2a5 reads [bm+0x340]+0xa28; its meaning unknown)
     { const uint8_t* own = *(const uint8_t* const*)(bm + 0x340); if (own && PtrOk(own, 0xa30)) snprintf(a28, sizeof(a28), "%d (bm+0x340 is %s)", (int)own[0xa28], own == sk ? "the skater" : "not the skater"); }
@@ -14144,10 +14212,16 @@ void WallTry(void* mesh, uint8_t* sk, uint8_t* mc, uint8_t* board, uint8_t* bm, 
     if (!world || !WrDeckWorld(board, deckQ, Od)) return;
     const float vh = len(flat(v));
     if (vh < g_wrCfg.minSpeed) { WallRefuse(best, "%.0f cm/s along the ground (the least is %.0f)", vh, g_wrCfg.minSpeed); return; }
-    const V3 d = norm(flat(v)), o = add(Od, v3(0.0f, 0.0f, 15.0f));
+    const V3 d = norm(flat(v)); V3 o = add(Od, v3(0.0f, 0.0f, 15.0f)); float kC = 0.0f, shortRun = 0.0f;   /* (corner 388) o moved on along the wall at its end; (389) shortRun: the face's cm on from the board where the wall ends ahead */
     const V3 Nh = best.Nh;
     const float gE = WallG();
     const float topOver = fmaxf(v.z, 0.0f) * fmaxf(v.z, 0.0f) / (2.0f * gE);
+    if (g_wrCorners && !WrSamePlane(world, o, Nh, best.gap + 30.0f, best.gap, 15.0f, 15.0f) && !WrSamePlane(world, v3(o.x, o.y, Od.z + topOver + g_wrCfg.topRoom), Nh, best.gap + 30.0f, best.gap, 15.0f, 15.0f)) {   /* (corner 388) no face beside the board at all: the wall's END -- its face just on along the travel taken */
+        const V3 AwC = norm(flat(sub(d, mul(Nh, dot(d, Nh)))));
+        const float k = WrCornerAhead(world, o, Nh, AwC, best.gap + 30.0f, best.gap, 15.0f, 15.0f, g_wrCornerCm + 40.0f);
+        if (k > 0.0f) { kC = k; o = add(o, mul(AwC, k + 3.0f)); }
+        else WrCornerTell("in the air: no corner -- no face beside the board (met at %.0f deg), and none starts within %.0f cm on along the travel (WallRideCornerReach + 40)", best.theta, (double)g_wrCornerCm + 40.0);
+    }
     if (!WrSamePlane(world, v3(o.x, o.y, Od.z + topOver + g_wrCfg.topRoom), Nh, best.gap + 30.0f, best.gap, 15.0f, 15.0f)) {
         WallRefuse(best, "it does not rise %.0f cm over the highest the board will reach (%.0f cm over it now): you will rise over its top (a ledge to grind, a box, a lip -- not a wall)", g_wrCfg.topRoom, topOver);
         return;
@@ -14159,7 +14233,11 @@ void WallTry(void* mesh, uint8_t* sk, uint8_t* mc, uint8_t* board, uint8_t* bm, 
     if (!WrSamePlane(world, add(o, mul(Aw, aheadCm)), Nh, best.gap + 40.0f, best.gap, 20.0f, 20.0f)) {
         WcOut cw; const bool cOk = WrCurveOn(world, best.P, Nh, Aw, dot(sub(o, best.P), Aw) + aheadCm, o.z, best.gap, 20.0f, cw);   /* (curvewall 255) a curved wall: followed */
         if (g_wrCurveR >= 50.0f) WrCurveTell("in the air: it goes on ahead", cw, cOk);
-        if (!cOk) { WallRefuse(best, "it ends within %.0f cm ahead (a corner or a pillar)", aheadCm); return; }
+        if (!cOk) {
+            const bool cOn = g_wrCorners && g_wrCornFace >= 1.0f; const float run = cOn ? WrFaceRun(world, o, Nh, Aw, best.gap + 40.0f, best.gap, 20.0f, 20.0f, aheadCm) : 0.0f;   /* (corner 389) a wall that ends ahead: its face measured */
+            if (!(cOn && run >= g_wrCornFace)) { if (cOn) WallRefuse(best, "it ends within %.0f cm ahead (a corner or a pillar; corner 389: its face runs %.0f cm on from beside the board at %.0f cm/s along it, under WallRideCornerFace %.0f)", aheadCm, run, vtC, (double)g_wrCornFace); else WallRefuse(best, "it ends within %.0f cm ahead (a corner or a pillar)", aheadCm); return; }   /* (389 review) once an air (WallRefuse's own), not every pose through WrCornerTell's 60-a-session budget */
+            shortRun = run;
+        }
     }
     // the ground: under the board and where the wall meets it (a curb or a step at its foot), the higher of the two
     const V3 foot = add(best.P, mul(Nh, 20.0f));
@@ -14171,7 +14249,7 @@ void WallTry(void* mesh, uint8_t* sk, uint8_t* mc, uint8_t* board, uint8_t* bm, 
     {   // (v131, T5) NO RIDE SHORTER THAN 0.2 s: the ride's own arc 0.2 s on, from the ground under the DECK (the in-ride exit's own
         // measure: the line above takes the lower of the deck's and the wall's foot -- build 232's #2 read 28 there, 100 under its deck)
         const float hDeck = WrGround(world, Od);
-        if (hDeck < 1500.0f && WrTgAfter(hDeck, v.z, gE, g_wrCfg.grav, 0.2f) < 0.35f) { WallRefuse(best, "the ride would be over in under 0.20 s (the ground %.0f cm under the board, %+.0f cm/s): the game's own air", hDeck, v.z); return; }
+        if (hDeck < 1500.0f && WrTgAfter(hDeck, v.z, gE, g_wrCfg.grav, 0.2f) < 0.35f) { WallRefuse(best, "the ride would be over in under 0.20 s (the ground %.0f cm under the board, %+.0f cm/s): the game's own air", hDeck, v.z); return; }   /* (389 review) not held for the air: 387's #1 rode clean in the same air after this refusal (n.log 595); #6 is the slam's (sl1) */
     }
     // not a quarter pipe's face: the wall must go on down, in the same plane (a transition curves toward you there) -- not at take-off height over level ground
     if ((h >= 40.0f || !levelUnder) && !WrSamePlane(world, v3(o.x, o.y, fmaxf(Od.z - 30.0f, Od.z - h + 10.0f)), Nh, best.gap + 40.0f, best.gap, 15.0f, 15.0f)) {
@@ -14181,6 +14259,8 @@ void WallTry(void* mesh, uint8_t* sk, uint8_t* mc, uint8_t* board, uint8_t* bm, 
     int side = 0, sF = -1; char why[120];
     if (!WallSide(mesh, Od, deckQ, Aw, Nh, side, sF, why, sizeof(why))) { WallRefuse(best, "%s", why); return; }
     if (side == 2 && !g_wrCfg.fs) { WallRefuse(best, "you face it (a frontside wall) and frontside wallrides are off"); return; }
+    g_wrShortT = -1.0e9; if (shortRun > 0.0f) { g_wrShortT = now; static int cs = 0; if (++cs <= 60) Log("wallride corner 389: in the air: TAKEN at a wall that ends ahead -- met at %.0f deg at %.0f cm/s along it, its face runs %.0f cm on from beside the board (WallRideCornerFace %.0f; the start's look-ahead %.0f): ridden to 25 cm short of its end and off it", best.theta, vtC, shortRun, (double)g_wrCornFace, aheadCm); }
+    if (kC > 0.0f) { g_wrCornerT = now; static int ct = 0; if (++ct <= 60) Log("wallride corner 388: in the air: TAKEN at the wall's end -- met at %.0f deg, no face beside the board: its face starts %.0f cm on along the travel (WallRideCorners), the start's tests made from there; the ride's follow ray may miss for 0.45 s", best.theta, kC); }
     WallStart(mesh, sk, mc, board, bm, body, v, best, Aw, side, sF, h, tg, aheadCm, topOver, Od, now);
 }
 // ---- the settings and the Lua's window, adopted on the pose's thread
@@ -14331,6 +14411,7 @@ void WallNoRide(void* mesh, uint8_t* sk, uint8_t* mc, uint8_t* board, uint8_t* b
     else if (HospTurning()) gate = "a hospital flip turns the board";   /* (253 final) both would write the board's targets */
     else if (anim[WR_AI_FLIPPING] || anim[WR_AI_ROTATING]) gate = "the board flips or turns";
     else if (sk[SK_PRIMO] != 0) gate = "a primo";
+    else if (WalyOwns()) gate = "a wallie is on this wall (wallie 387: the wallie's, not a wallride's)";
     const bool armable = !gate && !A.armStop && g_wrCfg.arm > 0.0f && bodyOk && !(airNow && (board[BD_FLAGS] & 2));   // (the arm needs every gate a ride would still meet once the transient ones are over; review F3: no arm where no ride can start)
     if (!gate) {
         if (board[BD_FLAGS] & 2) gate = "the game holds the board at the skater (board flag 2)";
@@ -14375,8 +14456,9 @@ void WallNoRide(void* mesh, uint8_t* sk, uint8_t* mc, uint8_t* board, uint8_t* b
             const V3 Aw = norm(flat(sub(d, mul(c.Nh, dot(d, c.Nh)))));
             const float aheadCm = fmaxf(fminf(vh * 0.15f, 75.0f), fminf(WrCarve(dot(vLook, Aw), vh, c.theta, g_wrCfg.carveKeep) * 0.22f, 130.0f)) + 30.0f, gE = WallG(),   /* (v131, review A) the start's own wall-length floor */ vzu = fmaxf(vLook.z, 0.0f);
             const float rise = airNow ? vzu * vzu / (2.0f * gE) : fmaxf(WR_OLLIE_RISE, vzu * vzu / (2.0f * gE));   // the pop still pending: a full ollie's own rise at the least
-            if (!WrSamePlane(world, add(o, mul(Aw, aheadCm)), c.Nh, c.gap + 40.0f, c.gap, 20.0f, 20.0f)) snprintf(A.armWhy, sizeof(A.armWhy), "the wall ends within %.0f cm ahead (a corner or a pillar)", aheadCm);
-            else if (!WrSamePlane(world, v3(o.x, o.y, Od.z + rise + g_wrCfg.topRoom), c.Nh, c.gap + 30.0f, c.gap, 15.0f, 15.0f)) snprintf(A.armWhy, sizeof(A.armWhy), "it does not rise %.0f cm over the highest the board will reach (%.0f cm over the deck): a ledge, a box or a lip", g_wrCfg.topRoom, rise);
+            float aRun = -1.0f;   /* (389 review) the face's measured run, for the landing's "not armed" line */
+            if (!WrSamePlane(world, add(o, mul(Aw, aheadCm)), c.Nh, c.gap + 40.0f, c.gap, 20.0f, 20.0f) && !(g_wrCorners && g_wrCornFace >= 1.0f && (aRun = WrFaceRun(world, o, c.Nh, Aw, c.gap + 40.0f, c.gap, 20.0f, 20.0f, aheadCm)) >= g_wrCornFace)) { if (aRun >= 0.0f) snprintf(A.armWhy, sizeof(A.armWhy), "the wall ends within %.0f cm ahead (a corner or a pillar; its face runs %.0f cm on, WallRideCornerFace %.0f)", aheadCm, aRun, (double)g_wrCornFace); else snprintf(A.armWhy, sizeof(A.armWhy), "the wall ends within %.0f cm ahead (a corner or a pillar)", aheadCm); }
+            else if (!WrSamePlane(world, v3(o.x, o.y, Od.z + rise + g_wrCfg.topRoom), c.Nh, c.gap + 30.0f, c.gap, 15.0f, 15.0f) && !(g_wrCorners && !WrSamePlane(world, o, c.Nh, c.gap + 30.0f, c.gap, 15.0f, 15.0f) && WrCornerAhead(world, v3(o.x, o.y, Od.z + rise + g_wrCfg.topRoom), c.Nh, Aw, c.gap + 30.0f, c.gap, 15.0f, 15.0f, g_wrCornerCm + 40.0f) > 0.0f)) snprintf(A.armWhy, sizeof(A.armWhy), "it does not rise %.0f cm over the highest the board will reach (%.0f cm over the deck): a ledge, a box or a lip", g_wrCfg.topRoom, rise);
             else A.armOk = true;
         }
         if (A.armOk && vh < g_wrCfg.minSpeed) snprintf(A.armWhy, sizeof(A.armWhy), "%.0f cm/s along the ground (the least is %.0f)", vh, g_wrCfg.minSpeed);
@@ -14801,7 +14883,7 @@ void FeatSigScan(const wchar_t* path) {
         Log("feature group: wallride + wallride from the ground + wallride sound: OFF -- %d of %d feature signatures found (%s)", fg, kFSigN, g_featMissing);
         Log("feature group: alt flip set (monster / dolphin / nightmare / underflips) + hospital: OFF -- %d of %d feature signatures found (%s)", fg, kFSigN, g_featMissing);
     }
-    Log("feature group: drop-in set-down, BoardGo, ledge face, ground hold and the other Epic-only reads: OFF on another build (as before)");
+    Log("feature group: the optional ones (drop-in set-down, big drop, tail stop, the auto casper's bail, IsOnGrind): each on its own signature, the lines below");   /* (344) the old line said OFF (as before) */
 }
 // ---- (steam, w35) end of the feature group's search
 // (hot313) THE TWO SMALL GETTERS the big drop landing (302) and the tail stop (307) call. Both were called at the Epic exe's
@@ -14829,6 +14911,30 @@ static const uint8_t kOSigMX2[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 // SK_ONGRIND  ?IsOnGrind@ASkaterCharacterBase@@QEBA_NXZ
 static const uint8_t kOSigBX3[] = { 0x48,0x83,0xec,0x28,0x80,0xb9,0xf0,0x00,0x00,0x00,0x01,0x76,0x45,0x48,0x8b,0x81,0x50,0x05,0x00,0x00,0x48,0x85,0xc0,0x74,0x47,0x48,0x8b,0x88,0x28,0x0b,0x00,0x00 };
 static const uint8_t kOSigMX3[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// (steam 398) THE SLAPPY'S FIVE (all or none: g_slSigOk) + GetGrindMoveDirection (a cross-check). GENERATED by audit/gen_osigs.pl from the
+// Epic exe, PE stamp 6a9ae35d (all bytes fixed, each found exactly once in .text)
+extern uintptr_t RVA_SET_TGT_GRIND, RVA_SET_CUR_GRIND, RVA_GRIND_PICK, RVA_CHECK_GRIND, RVA_BAIL_BOARDANGLE;   /* defined with their code */
+uintptr_t RVA_BM_GRINDDIR = 0xfbd4e0;   /* USkateboardExMovementComponent::GetGrindMoveDirection (lea rax,[rcx+0x4f4]; ret): the signature's (a cross-check of the board's own table, SlGdInstall) */
+volatile int g_slSigOk = 0, g_slGdSigOk = 0;   /* (steam 398) 0 until OwnSigScan finds them (read only with g_sigMode); by signature on another build (OwnSigScan): the slappy's five all found | the getter's 8 bytes found once */
+inline bool SlSigOff() { return FeatSigOff() || (g_sigMode && !g_slSigOk); }   /* (steam 398) the slappies' gate: another build and not every address found */
+// SET_TGT_GRIND  ?SetTargetGrindDefinition@ASkaterCharacterBase@@QEAAXPEBVUGrindOrSlideDefinition@@@Z
+static const uint8_t kOSigBX4[] = { 0x48,0x39,0x91,0xc8,0x06,0x00,0x00,0x74,0x07,0x48,0x89,0x91,0xc8,0x06,0x00,0x00,0xc3 };
+static const uint8_t kOSigMX4[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// SET_CUR_GRIND  ?SetCurrentGrindDefinition@ASkaterCharacterBase@@QEAAXPEBVUGrindOrSlideDefinition@@@Z
+static const uint8_t kOSigBX5[] = { 0x48,0x39,0x91,0xd0,0x06,0x00,0x00,0x74,0x17,0x48,0x89,0x91,0xd0,0x06,0x00,0x00,0x48,0x85,0xd2,0x74,0x0b,0x48,0x8b,0x42,0x38,0x48,0x89,0x81,0x08,0x07,0x00,0x00 };
+static const uint8_t kOSigMX5[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// GRIND_PICK  ?GetGrindDefinitionClosestToDirection@GrindsHandler@@AEAAPEBVUGrindOrSlideDefinition@@AEBVUInputsDatabase@@W4ECatchOrientState@@W4ESkaterApproachType@@AEBUFVector2D@@@Z
+static const uint8_t kOSigBX6[] = { 0x48,0x8b,0xc4,0x44,0x88,0x48,0x20,0x44,0x88,0x40,0x18,0x48,0x89,0x50,0x10,0x55,0x41,0x56,0x48,0x8d,0xa8,0x58,0xff,0xff,0xff,0x48,0x81,0xec,0x98,0x01,0x00,0x00 };
+static const uint8_t kOSigMX6[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// CHECK_GRIND  ?CheckForGrind@USkateboardExMovementComponent@@AEAA_NMAEBUFQuat@@_N@Z
+static const uint8_t kOSigBX7[] = { 0x48,0x8b,0xc4,0x48,0x89,0x58,0x10,0x48,0x89,0x70,0x18,0x55,0x57,0x41,0x54,0x41,0x56,0x41,0x57,0x48,0x8d,0xa8,0x88,0xfe,0xff,0xff,0x48,0x81,0xec,0x50,0x02,0x00,0x00 };
+static const uint8_t kOSigMX7[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// BAIL_BOARDANGLE  ?CheckForBailBoardAngle@USkateboardExMovementComponent@@AEAA_NM@Z
+static const uint8_t kOSigBX8[] = { 0x48,0x8b,0xc4,0x48,0x89,0x58,0x10,0x56,0x48,0x81,0xec,0xc0,0x00,0x00,0x00,0x0f,0x29,0x70,0xe8,0x48,0x8b,0xf1,0x48,0x8b,0x89,0x40,0x03,0x00,0x00,0x0f,0x29,0x78,0xd8 };
+static const uint8_t kOSigMX8[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+// BM_GRINDDIR  ?GetGrindMoveDirection@USkateboardExMovementComponent@@UEBAAEBUFVector@@XZ (PdbDis scan: 1 hit)
+static const uint8_t kOSigBX9[] = { 0x48,0x8d,0x81,0xf4,0x04,0x00,0x00,0xc3 };
+static const uint8_t kOSigMX9[] = { 1,1,1,1,1,1,1,1 };
 static const HnSig kOSigs[] = {
     { "BM_ISFALLING", &RVA_BM_ISFALLING, kOSigB0, kOSigM0, 32, -1, 0, 0, -1, -1, -1, 0 },   // USkateboardExMovementComponent::IsFalling
     { "HS_SKSWITCH", &RVA_HS_SKSWITCH, kOSigB1, kOSigM1, 15, -1, 0, 0, -1, -1, -1, 0 },     // ASkaterCharacterBase::IsSkatingSwitch
@@ -14836,6 +14942,12 @@ static const HnSig kOSigs[] = {
     { "BM_GRINDSHAPE", &RVA_BM_GRINDSHAPE, kOSigBX1, kOSigMX1, 8, -1, 0, 0, -1, -1, -1, 0 },  // (steam 336) USkateboardExMovementComponent::GetGrindDetectionShape (the set-down)
     { "SK_BAIL", &RVA_SK_BAIL, kOSigBX2, kOSigMX2, 35, -1, 0, 0, -1, -1, -1, 0 },            // (steam 336) ASkaterCharacterBase::Bail (the auto casper's Landing 3)
     { "SK_ONGRIND", &RVA_SK_ONGRIND, kOSigBX3, kOSigMX3, 32, -1, 0, 0, -1, -1, -1, 0 },      // (steam 336) ASkaterCharacterBase::IsOnGrind (HJN_ToggleGates)
+    { "SET_TGT_GRIND", &RVA_SET_TGT_GRIND, kOSigBX4, kOSigMX4, 17, -1, 0, 0, -1, -1, -1, 0 },      // (steam 398) ASkaterCharacterBase::SetTargetGrindDefinition (slappies)
+    { "SET_CUR_GRIND", &RVA_SET_CUR_GRIND, kOSigBX5, kOSigMX5, 32, -1, 0, 0, -1, -1, -1, 0 },      // (steam 398) ASkaterCharacterBase::SetCurrentGrindDefinition (slappies)
+    { "GRIND_PICK", &RVA_GRIND_PICK, kOSigBX6, kOSigMX6, 32, -1, 0, 0, -1, -1, -1, 0 },            // (steam 398) GrindsHandler::GetGrindDefinitionClosestToDirection (the picker's detour)
+    { "CHECK_GRIND", &RVA_CHECK_GRIND, kOSigBX7, kOSigMX7, 33, -1, 0, 0, -1, -1, -1, 0 },          // (steam 398) USkateboardExMovementComponent::CheckForGrind (hkAsCg)
+    { "BAIL_BOARDANGLE", &RVA_BAIL_BOARDANGLE, kOSigBX8, kOSigMX8, 33, -1, 0, 0, -1, -1, -1, 0 },  // (steam 398) USkateboardExMovementComponent::CheckForBailBoardAngle (hkAsBa)
+    { "BM_GRINDDIR", &RVA_BM_GRINDDIR, kOSigBX9, kOSigMX9, 8, -1, 0, 0, -1, -1, -1, 0 },           // (steam 398) USkateboardExMovementComponent::GetGrindMoveDirection (a cross-check)
 };
 bool ForceSigs() {   /* (hot313) the test switch: Mods\ExpandedTricksNative\force-signatures.txt beside the mod = the signature path on any exe */
     static int v = -1;
@@ -14846,8 +14958,9 @@ bool ForceSigs() {   /* (hot313) the test switch: Mods\ExpandedTricksNative\forc
     }
     return v == 1;
 }
+void LeanSigScan(const wchar_t* path);   // (385 leanout) the grind lean-out's five, defined with GrindExit
 void OwnSigScan(const wchar_t* path) {   /* (hot313) on another build, after the feature group: the two getters, each on its own */
-    g_bdFallOk = 0; g_hsSwOk = 0; g_sdSigOk = 0; g_skBailOk = 0; g_onGrindOk = 0;   /* (steam 336) + the set-down's two, Bail, IsOnGrind */
+    g_bdFallOk = 0; g_hsSwOk = 0; g_sdSigOk = 0; g_skBailOk = 0; g_onGrindOk = 0; g_slSigOk = 0; g_slGdSigOk = 0;   /* (steam 398) + the slappy's */   /* (steam 336) + the set-down's two, Bail, IsOnGrind */
     constexpr int kON = (int)(sizeof(kOSigs) / sizeof(kOSigs[0]));
     static HnSigFound of[kON];
     __try { HnSigScanTabPath(path, kOSigs, kON, of, &Log); } __except (EXCEPTION_EXECUTE_HANDLER) { for (int i = 0; i < kON; i++) of[i].ok = false; Log("signatures (getters): fault while reading the exe (code %08x)", GetExceptionCode()); }
@@ -14858,8 +14971,20 @@ void OwnSigScan(const wchar_t* path) {   /* (hot313) on another build, after the
     if (of[5].ok) { RVA_SK_ONGRIND = of[5].rva; g_onGrindOk = 1; }
     Log("drop-in set-down: %s (SetOnBoardMode %s, GetGrindDetectionShape %s, IsFalling %s); the auto casper's bail: %s; IsOnGrind: %s (steam 336)", (g_sdSigOk && g_bdFallOk) ? "can run on this build" : "OFF on this build (build 211's way)",
         of[2].ok ? "found" : "NOT found", of[3].ok ? "found" : "NOT found", of[0].ok ? "found" : "NOT found", g_skBailOk ? "can run" : "off (the game's own end)", g_onGrindOk ? "found" : "not found");
+    {   /* (steam 398) the slappy's five: all or none (the Epic RVAs stay, unused, when any is missing) */
+        static_assert(sizeof(kOSigs) / sizeof(kOSigs[0]) == 12, "kOSigs: the slappy's rows are 6..11");
+        const bool all = of[6].ok && of[7].ok && of[8].ok && of[9].ok && of[10].ok;
+        if (all) { RVA_SET_TGT_GRIND = of[6].rva; RVA_SET_CUR_GRIND = of[7].rva; RVA_GRIND_PICK = of[8].rva; RVA_CHECK_GRIND = of[9].rva; RVA_BAIL_BOARDANGLE = of[10].rva; g_slSigOk = 1; }
+        if (of[11].ok) { RVA_BM_GRINDDIR = of[11].rva; g_slGdSigOk = 1; }
+        const bool epic = all && of[6].rva == 0x1006780 && of[7].rva == 0x1004820 && of[8].rva == 0x1052ad0 && of[9].rva == 0xfb41d0 && of[10].rva == 0xfb2680 && (!of[11].ok || of[11].rva == 0xfbd4e0);
+        Log("slappies: %s (steam 398) -- SetTargetGrindDefinition %s, SetCurrentGrindDefinition %s, GetGrindDefinitionClosestToDirection %s, CheckForGrind %s, CheckForBailBoardAngle %s%s; GetGrindMoveDirection's signature %s (read off the board's own table at the first slappy grind)%s",
+            !all ? "OFF on this build (not every address found)" : FeatSigOff() ? "OFF on this build (the feature group not found)" : "can run on this build",
+            of[6].ok ? "found" : "NOT found", of[7].ok ? "found" : "NOT found", of[8].ok ? "found" : "NOT found", of[9].ok ? "found" : "NOT found", of[10].ok ? "found" : "NOT found",
+            all ? "" : " (all five or none)", of[11].ok ? "found" : "not found exactly once", epic ? " -- the Epic exe's own addresses (the force-signatures test)" : "");
+    }
     Log("big drop landing: %s (USkateboardExMovementComponent::IsFalling %s)", g_bdFallOk ? "can run on this build" : "OFF on this build", of[0].ok ? "found by signature" : "NOT found exactly once");
     Log("tail stop: %s (ASkaterCharacterBase::IsSkatingSwitch %s)", g_hsSwOk ? "can run on this build" : "OFF on this build", of[1].ok ? "found by signature" : "NOT found exactly once");
+    LeanSigScan(path);   // (385 leanout)
 }
 int WgCrankUse(uint8_t* sk) {
     uint8_t* pc = (uint8_t*)g_pc;
@@ -15188,7 +15313,17 @@ bool WgWallOk(void* mesh, const void* world, const uint8_t* bm, V3 Od, Q4 deckQ,
     if (gH.n.z < WG_LEVEL_NZ) { snprintf(why, n, "the ground under the board slopes %.0f deg (%.0f at the most)", acosf(clampf(gH.n.z, -1.0f, 1.0f)) * 57.2957795f, acosf(WG_LEVEL_NZ) * 57.2957795f); return false; }
     const float g = WallG(), vz0 = fmaxf(g_wa.vFd.z, 0.0f);
     const V3 Aw = awPick ? *awPick : norm(flat(sub(d, mul(w.Nh, dot(d, w.Nh)))));   /* (wallin 247) a head-on take-off: the way picked for it */
-    const V3 M = WgMeet(pNear, d, cW, w.theta, w.P, w.Nh);                      // where the board will meet the wall
+    V3 M = WgMeet(pNear, d, cW, w.theta, w.P, w.Nh);                            // where the board will meet the wall
+    g_wgCornerK = 0.0f; g_wgShortRun = 0.0f;   /* (corner 389) */
+    if (g_wrCorners && !WrSamePlane(world, add(v3(M.x, M.y, Od.z + 3.0f), mul(w.Nh, 30.0f)), w.Nh, 60.0f, 30.0f, 15.0f, 15.0f)) {   /* (corner 388) no face where the board meets the wall's plane: its END -- the face starting just on along the travel is met there */
+        const float k = WrCornerAhead(world, add(v3(M.x, M.y, Od.z + 3.0f), mul(w.Nh, 30.0f)), w.Nh, Aw, 60.0f, 30.0f, 15.0f, 15.0f, g_wrCornerCm);
+        if (k > 0.0f) { M = add(M, mul(Aw, k + 3.0f)); g_wgCornerK = k; }
+        else if (GetTickCount64() - g_wrCornMs >= 300 && g_wrCornTold < 60) {   /* (corner 389) which way the face is: behind (the wall ends ahead, the board rides by its end) or nowhere near */
+            const float back = WrCornerAhead(world, add(v3(M.x, M.y, Od.z + 3.0f), mul(w.Nh, 30.0f)), w.Nh, mul(Aw, -1.0f), 60.0f, 30.0f, 15.0f, 15.0f, 80.0f);
+            char bw[120]; if (back > 0.0f) snprintf(bw, sizeof(bw), "its face is there %.0f cm back against the travel: the wall ENDS AHEAD, the board rides by its end", back); else snprintf(bw, sizeof(bw), "no face within 80 cm back either: its foot is a lip or a step, or a post");
+            WrCornerTell("from the ground: no corner -- where the board meets the wall's plane (met at %.0f deg, %+.0f cm on along the travel from the rays' hit) there is no face, and none starts within %.0f cm on (WallRideCornerReach): %s", w.theta, dot(sub(M, w.P), Aw), (double)g_wrCornerCm, bw);
+        }
+    }
     const V3 po = add(M, mul(w.Nh, 30.0f));                                     // the probes' origin: 30 cm out from the wall there
     // the ground where the board meets the wall, off the plane of the ground under the board: a step, a curb or a gutter at its foot
     const V3 foot = add(M, mul(w.Nh, 20.0f));
@@ -15227,7 +15362,11 @@ bool WgWallOk(void* mesh, const void* world, const uint8_t* bm, V3 Od, Q4 deckQ,
     if (!WrSamePlane(world, add(v3(po.x, po.y, Od.z + 15.0f), mul(Aw, ahead)), w.Nh, 70.0f, 30.0f, 20.0f, 20.0f)) {
         WcOut cw; const bool cOk = WrCurveOn(world, w.P, w.Nh, Aw, sMeet + ahead, Od.z + 15.0f, 30.0f, 20.0f, cw);   /* (curvewall 255) a curved wall: followed */
         if (g_wrCurveR >= 50.0f) WrCurveTell("from the ground: it goes on from where the board meets it", cw, cOk);
-        if (!cOk) { snprintf(why, n, "it ends within %.0f cm of where the board meets it (a corner or a pillar)", ahead); return false; }
+        if (!cOk) {   /* (corner 389) a wall that ends ahead: its face from where the board meets it must run the way to the ride's start + WallRideCornerFace */
+            const bool cOn = g_wrCorners && g_wrCornFace >= 1.0f; const float need = kA * a.tStart + g_wrCornFace, run = cOn ? WrFaceRun(world, v3(po.x, po.y, Od.z + 15.0f), w.Nh, Aw, 70.0f, 30.0f, 20.0f, 20.0f, ahead) : 0.0f;
+            if (!(cOn && run >= need)) { if (cOn) snprintf(why, n, "it ends within %.0f cm of where the board meets it (a corner or a pillar; corner 389: its face runs %.0f cm on from there, under the ride's start %.0f + WallRideCornerFace %.0f = %.0f)", ahead, run, kA * a.tStart, (double)g_wrCornFace, need); else snprintf(why, n, "it ends within %.0f cm of where the board meets it (a corner or a pillar)", ahead); return false; }   /* (389 review) told once an approach by WgTell, not every pose through WrCornerTell's 60-a-session budget */
+            g_wgShortRun = run;
+        }
     }
     // the room over the ride: the in-air ride's own test (WallTry: its deck's height + the rise left + WallRideTopRoom) at the predicted start,
     // where the board meets the wall and where the ride will be as it starts and 0.1 s on (failAt: -1 where it meets it, else cm along).
@@ -15453,6 +15592,7 @@ void WgWallieOrphan(const uint8_t* board, double now, float dt) {
 // pose. Computed on ride #1's approach (39 deg, 627 cm/s): 571 cm/s along, 119 into, 470 up; the air ~39 cm up, the start ~46, the apex ~100
 void WallGroundTick(void* mesh, uint8_t* sk, uint8_t* mc, uint8_t* board, uint8_t* bm, const uint8_t* anim, bool mcAir, double now) {
     WgT& G = g_wg;
+    if (WalyOwns()) return;   /* (wally 381) no ground take-off under a wally */
     if (G.sk != (const void*)sk || G.mesh != (const void*)mesh) { G = WgT{}; G.sk = sk; G.mesh = mesh; G.endsSeen = g_wrEnds; g_wrFromGround = false; }   // another skater or mesh: nothing of the last one's carried over
     if (g_wgCfgNew && G.state == 0 && InterlockedExchange(&g_wgCfgNew, 0)) { AcquireSRWLockShared(&g_wrLock); g_wgCfg = g_wgCfgIn; ReleaseSRWLockShared(&g_wrLock); }
     if (g_wrEnds != G.endsSeen) { G.endsSeen = g_wrEnds; G.endT = now; }
@@ -15592,6 +15732,8 @@ void WallGroundTick(void* mesh, uint8_t* sk, uint8_t* mc, uint8_t* board, uint8_
         return;
     }
     // ---- every gate open, the board at the wall: THE TAKE-OFF
+    if (g_wgShortRun > 0.0f) { static int cs = 0; if (++cs <= 60) Log("wallride corner 389: from the ground: TAKEN at a wall that ends ahead -- met at %.0f deg at %.0f cm/s, its face runs %.0f cm on from where the board meets it (WallRideCornerFace %.0f): the in-air start measures it again from beside the board", w.theta, vh, g_wgShortRun, (double)g_wrCornFace); }
+    if (g_wgCornerK > 0.0f) { g_wrCornerT = now; static int ct = 0; if (++ct <= 60) Log("wallride corner 388: from the ground: TAKEN at the wall's end -- met at %.0f deg at %.0f cm/s, no face where the board meets the wall's plane: its face starts %.0f cm on along the travel (WallRideCorners; WallRideCornerReach %.0f), the take-off's tests made from there; the ride's follow ray may miss for 0.45 s", w.theta, vh, g_wgCornerK, (double)g_wrCornerCm); }
     const float hDeck = WrGround(world, Od);
     G.coy = clampf(*(const float*)(bm + WG_BM_WAIT), 0.03f, 0.3f) + 1.0f / 60.0f;
     const ULONGLONG nb0 = g_noBailUntil;
@@ -15753,11 +15895,21 @@ void WallTick(void* mesh) {
             A.vzPrev = vBody.z; A.vzPrevT = now; A.vzPrevOk = true;
         }
         else A.vzPrevOk = false;
-        if (g_wrGraceBm && g_wg.state == 0) {                                   // (v140) A. after a ride's END: the falling bail held only while the board touches nothing but its wall (WrGraceAfter), 0.6 s at the most
+        if (g_wrGraceBm && g_wg.state == 0 && !g_wrGraceMine && !airNow) WrGraceGive();   /* (389 review) another feature's hold, the board down: the pointer cleared, silently (388 wrote nothing here either) */
+        if (g_wrGraceBm && g_wg.state == 0 && g_wrGraceMine) {   /* (389) only a hold the wallride took */                                   // (v140) A. after a ride's END: the falling bail held only while the board touches nothing but its wall (WrGraceAfter), 0.6 s at the most
             const char* gw = nullptr;
             if (A.watch && airNow && now - A.watchT < WR_GRACE_AFTER_S) { if ((A.watch == R.n && R.rd) ? WrRdGraceStep(bm, now, gw) : WrGraceOff(bm, board, A.wPw, A.wNw, (A.watch == R.n && R.tExit > 0.0) ? now - R.tExit : now - A.watchT, gw)) g_wrGraceAfterN++; }   /* (wallin) the way off's rule (WrGraceOff); (merge 243) a ride ended in its ride down: WrRdGraceStep */
             else { gw = !airNow ? "the board is down" : !A.watch ? "no ride is watched" : "0.6 s after the ride's end"; WrGraceGive(); }
-            if (gw && R.traced) Log("wallride: #%d -- the board's own falling bail given back %.2f s after the ride's end (held %ld poses after it): %s", R.n, A.watch ? now - A.watchT : -1.0, g_wrGraceAfterN, gw);
+            { static int s_gbSaid = -1; if (gw && R.traced && s_gbSaid != R.n) { s_gbSaid = R.n; Log("wallride: #%d -- the board's own falling bail given back %.2f s after the ride's end (held %ld poses after it): %s (389: said once a ride)", R.n, A.watch ? now - A.watchT : -1.0, g_wrGraceAfterN, gw); } }
+        }
+        if (g_wrBaRide > 0 && g_wrBaTd >= 0.0 && !(now < g_wrBaUntil) && g_wrBaSaid != g_wrBaRide) {   /* (389) the board-angle hold's line */
+            g_wrBaSaid = g_wrBaRide; const LONG bs = InterlockedExchange(&g_wrBaSkips, 0), bw = InterlockedExchange(&g_wrBaWould, 0);
+            Log("wallride: #%d -- (389) the board-angle bail over the ride down's touchdown (LOG ONLY: the game's own test ran): looked at %ld times, the game's own test bails on %ld of them (the deck's up . its controller's down to %.3f; it bails under 0.575)%s", g_wrBaRide, (long)bs, (long)bw, g_wrBaMin, g_asBaHook == 1 ? "" : " -- the hook is NOT in (signature mode, or CheckForBailBoardAngle's bytes differ): the game's own");
+            g_wrBaMin = 2.0f;
+        }
+        if (A.watch && A.watch == R.n && R.rd) {                                 /* (389) a ride down's way to the ground: the board-angle bail held over the touchdown */
+            if (airNow) { g_wrBaUntil = now + 0.15; g_wrBaRide = R.n; g_wrBaTd = -1.0; }
+            else if (g_wrBaRide != R.n || g_wrBaTd < 0.0) { g_wrBaRide = R.n; g_wrBaTd = now; g_wrBaUntil = now + WR_BA_LAND_S; g_wrBaSkips = 0; g_wrBaWould = 0; g_wrBaMin = 2.0f; }
         }
         if (A.watch) {                                                           // after a ride: where the capsule stands when the board comes down
             if (!airNow || !mc[MC_ONBOARD]) {
@@ -15855,7 +16007,7 @@ void WallTick(void* mesh) {
                         if (len(a) > 0.1f) R.Aw = norm(a);
                     }
                 }
-                else if (++R.missFollow >= 2) { code = 6; snprintf(wb, sizeof(wb), "the wall ended (the follow ray missed twice)"); }
+                else if (++R.missFollow >= ((g_wrCorners && now - g_wrCornerT < 0.45 && WrCornerAhead(world, o, R.Nw, R.Aw, fmaxf(c0, 0.0f) + 60.0f, c0, 20.0f, 20.0f, g_wrCornerCm + 40.0f) > 0.0f) ? 30 : 2)) {   /* (corner 389) only while the face is still ahead (388 flew on 0.45 s where the wall really ended) */   /* (corner 388) a ride begun at the wall's end: the deck comes onto the face a few poses in */ code = 6; snprintf(wb, sizeof(wb), "the wall ended (the follow ray missed twice)"); }
                 if (!code) {                                                     /* (curvewall 255) 25 deg + what a WallRideCurveRadius curve turns over the cm ridden, WallRideMaxTurn at the most (0 = build 254's 25) */
                     const float tot = fabsf(WrAngleAbout(R.Nw0, R.Nw, Zw));
                     const float lim = (g_wrCurveR >= 50.0f) ? fmaxf(25.0f, fminf(g_wrMaxTurn, 25.0f + fmaxf(R.dist, 0.0f) / g_wrCurveR * 57.2957795f)) : 25.0f;
@@ -15865,7 +16017,7 @@ void WallTick(void* mesh) {
                 // ...and goes on ahead
                 if (!code) {
                     const float c1 = dot(sub(o, R.Pw), R.Nw);
-                    if (!WrSamePlane(world, add(o, mul(R.Aw, fmaxf(R.vt, 0.0f) * 0.12f + 30.0f)), R.Nw, fmaxf(c1, 0.0f) + 40.0f, c1, 20.0f, 20.0f)) {
+                    if (!WrSamePlane(world, add(o, mul(R.Aw, (g_wrShortT == R.t0) ? 25.0f : fmaxf(R.vt, 0.0f) * 0.12f + 30.0f)), R.Nw, fmaxf(c1, 0.0f) + 40.0f, c1, 20.0f, 20.0f)) {
                         WcOut cw; const bool cOk = WrCurveOn(world, R.Pw, R.Nw, R.Aw, dot(sub(o, R.Pw), R.Aw) + fmaxf(R.vt, 0.0f) * 0.12f + 30.0f, o.z, fmaxf(c1, 5.0f), 20.0f, cw);   /* (curvewall 255) a curved wall: followed */
                         if (g_wrCurveR >= 50.0f && R.curveAheadTold != R.n) { R.curveAheadTold = R.n; WrCurveTell("riding: it goes on ahead", cw, cOk); }
                         if (!cOk && ++R.missAhead >= 2) { code = 6; snprintf(wb, sizeof(wb), "the wall ended ahead"); }
@@ -15954,7 +16106,7 @@ void WallTick(void* mesh) {
             else if (gw) Log("wallride: #%d -- the board's own falling bail given back %.2f s into the way off, after %d poses of it held: %s", R.n, now - R.tExit, R.graceOut, gw);
         }
         if (R.line && fabsf(g_wrBtDz) > R.btDzMax) R.btDzMax = fabsf(g_wrBtDz);   // (v140) C. the hook's hold on the board's height
-        if (R.theta >= WR_SLAM_FROM) WrSlamHold(0.30, R.theta, "ridden");        // (v131, T2) ...and the board's own slam, for a steep wall (0.3 s past the last pose too)
+        if (fmaxf(R.theta, R.phase == 1 ? (R.poses <= 2 ? R.slamA : R.headOff) : 0.0f) >= WR_SLAM_FROM) WrSlamHold(0.30, fmaxf(R.theta, R.phase == 1 ? (R.poses <= 2 ? R.slamA : R.headOff) : 0.0f), "ridden");   /* (389) riding: the deck's heading off the wall too (the start's for its first poses) */        // (v131, T2) ...and the board's own slam, for a steep wall (0.3 s past the last pose too)
         else if (R.groundBorn && g_wgKickTheta >= WR_SLAM_FROM) WrSlamHold(0.30, g_wgKickTheta, "ridden from a take-off at it");   /* (wallie2) the kick turned the travel along the wall (its START reads ~9 deg): the take-off's angle holds it. 253's wallie laid the deck on the wall sooner, its wheels touched (-0.2 cm) 0.42-0.45 s after the kick as the take-off's own hold (WG_NOBAIL_S) lapsed: "a board part slammed" */
         // (the same window the Lua shuts with HJN_Set("nobail", 0) at a no comply's end and at a skater change: its wallBlock keeps
         // a ride from starting in those, and a new skater ends the ride anyway)
@@ -15976,12 +16128,14 @@ void WallTick(void* mesh) {
     WallGroundAfter(now);                                                      // (v134) ...and the ride a take-off from the ground became, said with its START
 }
 void SafeWallTick(void* mesh) { if (g_grindLog) SafeGrindLogTick(mesh);   /* (grindalt 279) GrindLog, read only */
+    g_wrInTick = true;   /* (389) */
     __try { WallTick(mesh); }
     __except (GrabFilter(GetExceptionCode())) {
         g_wrDead = 1;
         Log("wallride: fault in its tick (code %08x) -- the ride is dropped and wallrides are off for this run", GetExceptionCode());
         __try { if (g_wr.phase) { WallGiveBack(); g_wr.phase = 0; g_wr.e = 0.0f; } } __except (EXCEPTION_EXECUTE_HANDLER) { g_wr.phase = 0; g_wr.e = 0.0f; }
     }
+    g_wrInTick = false;   /* (389) */
 }
 // (v131, P2) one leg's bones at their own length, eased by w (LegOwnLength's per-leg core: the plant's window is not on here). In
 // the air the game's foot IK keeps the thigh and drags the foot to its socket on the tilted deck, squeezing the shin to 75-87 %,
@@ -18636,7 +18790,7 @@ struct AltTrick {                                  // one alt trick (zeroed when
     // channels last written; the 180's centre (deg of the flip) and its turn so far; the target wanted (controller frame); the game's own from it at the most (deg)
     bool dolTurn, dolLive; int dolWhy; float dolFit, dsz, dsy, dsx, chA, chB, chC, dolEc, dolPsi; Q4 dolQ; float dolMissMost; int dolAg; float dolAgB2, dolAgRel;   /* (grindfix5 286) AltDolAgFit */
     float dolW;                                    // (243) AltDolphinSpread as this dolphin took it (0: build 242's window)
-    bool dolFwd; int dolToe; float dolPE, dolRS, dolRSign, paceUp;   // (246) the forward dolphin (the note at AltDolFwdAt): taken; the toes' side across the board (+1 / -1; 2 not read: +1 taken); its pitch's end and roll's start (deg of the flip); the roll's way on the roll channel; AltFlipPaceUp as taken
+    bool dolFwd; int dolToe, dolRollY; float dolPE, dolRS, dolRSign, paceUp;   // (246) the forward dolphin (the note at AltDolFwdAt): taken; the toes' side across the board (+1 / -1; 2 not read: +1 taken); its pitch's end and roll's start (deg of the flip); the roll's way on the roll channel; AltFlipPaceUp as taken
     bool por, porLate; float porBest; int porMost;   /* (251) a PORPOISE FLIP (the note at AltPorHeelX): the forward dolphin's half flip the heelflip's way; decided after the take; its lean read (deg toward the heelflip's side at most, poses in a row) */
     int uKind, uSide, uStick, uWhy, uHeel; bool uDone, uArmF, uArmB, uHold; float uCur, uTgt, uRate, uCur2, uTgt2, uMag, uRate2; double uT; LONG uNeutral;   /* (251) the underflip: its kind, the second flick (side, stick 1 front / 2 back, why not applied), the channel before / after */
     int uOs; float uOsDt, uOsSpd, uOsLo, uOsHi, uOsM2, uOsM1, uOsRate0;   /* (279) AltUnderOwnSpeed: 1 read / -1 range unread, the second flick's time from the centre, its speed (throws/s), the game's range, its multiplier, the first flip's (fth+0xc0), the turned rate before */
@@ -19384,7 +19538,7 @@ bool AltDolAgFit(AltTrick& T, const uint8_t* bm, const Q4* L, const float (*ch)[
 // off or more, and this dolphin keeps build 241's way (its line says why). Every pose the game's target is checked against the one
 // wanted (the line: at the most). AltDolphinTurn=0: build 241's way. POD: these run inside SafeAltTick's __try.
 void AltDolTurnStart(AltTrick& T, uint8_t* bm) {
-    T.dolTurn = false; T.dolLive = false; T.dolWhy = 0; T.dolFit = -1.0f;
+    T.dolTurn = false; T.dolLive = false; T.dolWhy = 0; T.dolFit = -1.0f; T.dolRollY = 0;
     if (!T.dol) return;
     if (!g_altDolTurn && !T.dolFwd) { T.dolWhy = 1; return; }   /* (246) the forward dolphin is always in its own frame */
     const float y0 = T.y0, p0 = T.pBase, r0 = ReadF(bm, ALT_BM_ROLL);
@@ -19404,6 +19558,7 @@ void AltDolTurnStart(AltTrick& T, uint8_t* bm) {
     T.dolFit = AltChanFit(L, ch, 5, &sz, &sy, &sx);
     if (!(T.dolFit < 2.0f) && !(g_agInGrind && g_agTaking && g_agTaking == T.def && AltDolAgFit(T, bm, L, ch, &sz, &sy, &sx))) { T.dolWhy = 4; return; }   /* (grindfix5 286) a grind-claimed dolphin: the note at AltDolAgFit */
     T.dsz = sz; T.dsy = sy; T.dsx = sx; T.chA = y0; T.chB = p0; T.chC = r0; T.dolPsi = 0.0f;
+    { const V3 u0 = qrot(L[0], v3(0.0f, 0.0f, 1.0f)), u3 = qrot(L[3], v3(0.0f, 0.0f, 1.0f)); const float dy = u3.y - u0.y; T.dolRollY = (std::isfinite(dy) && fabsf(dy) > 0.03f) ? ((dy > 0.0f) ? 1 : -1) : 0; }   /* (388) which way +10 of the game's roll channel tips the deck's up across the controller (its own probe): reversed under you by the last dolphin it turns the other way, and the model's sense (dsx) does not say so -- every other dolphin was a porpoise ("it alternates between dolphin flip and porpoise flip") */
     T.dolEc = AltDolCentre(p0, T.s); T.dolQ = AltChanQ(y0, p0, r0, sz, sy, sx);
     T.dolW = (float)g_altDolSpread;                // (243) AltDolphinSpread (the note at AltDolSpinW)
     T.dolTurn = true; T.dolLive = true;
@@ -19425,7 +19580,7 @@ void AltDolToeRead(AltTrick& T, const void* mesh, const uint8_t* bm) {
     T.dolToe = ok ? ((c.y > 0.0f) ? 1 : -1) : 2;
     const float tY = ok ? (float)T.dolToe : 1.0f;
     const float g = (qrot(qaxis(v3(1.0f, 0.0f, 0.0f), 10.0f), v3(0.0f, 0.0f, 1.0f)).y >= 0.0f) ? 1.0f : -1.0f;   // which way +10 deg about the long axis tips the deck's up across it
-    T.dolRSign = T.dsx * g * tY * (g_altDolRWay ? -1.0f : 1.0f);
+    T.dolRSign = (T.dolRollY != 0 ? (float)T.dolRollY : T.dsx * g) * tY * (g_altDolRWay ? -1.0f : 1.0f);   /* (388) the probed way (at an unreversed deck the same as dsx * g) */
 }
 void AltDolTurnStep(AltTrick& T) {   // (242) every pose of the turn: the dolphin's target now in the game's three channels (the caller writes the pitch, AltWobbleWrite the yaw and the roll)
     if (T.dolFwd) {   /* (246) the forward dolphin (the note at AltDolFwdAt): the take-off's yaw, the pitch, the roll, as they are */
@@ -19656,8 +19811,8 @@ void AltMonsterLine(const AltTrick& T, int how, double now, char* b, size_t n) {
     if (T.dol && !(T.dolFwd && T.dolTurn)) AltCat(b, n, "; with a %s 180 about its up (the yaw offset %+.0f -> %+.0f)%s", T.dolSide ? "FRONTSIDE" : "BACKSIDE (your varial flip's way)", T.y0, T.y0 + T.dolSpin,   // (v134)
                        (T.mStep == 2 || T.landFinish) ? ": the board lands reversed, nose and tail swapped" : (fabsf(T.dolSpin) >= 90.0f) ? ": reversed at the landing (the game takes the nearer half turn)" : ": not reversed at the landing (the nearer half turn)");
     if (T.dol) {   // (242) its 180 about its own up (the note at AltDolTurnStart), or why build 241's way
-        if (T.dolFwd && T.dolTurn) AltCat(b, n, "; FORWARD (AltDolphinStyle=2): its 180 end over end leading, done by %.0f deg of the flip, its 180 about its own long axis from %.0f to the end, %s (AltDolphinRollWay; your toes %s)%s (the game's sense of its yaw / pitch / roll %+.0f %+.0f %+.0f, the model %.2f deg off at the take, the game's target %.1f deg off the one wanted at the most)",
-                                       T.dolPE, T.dolRS, ((g_altDolRWay != 0) != T.por) ? (T.por ? "the other way to your kickflip's: a PORPOISE" : "the other way to your kickflip's") : "your kickflip's way", T.dolToe == 2 ? "not read: +1 taken" : T.dolToe == 0 ? "not read yet" : "read", (T.mStep == 2 || T.landFinish) ? "; it came round whole: reversed and upright" : "", T.dsz, T.dsy, T.dsx, T.dolFit, T.dolMissMost);   /* (246) */
+        if (T.dolFwd && T.dolTurn) AltCat(b, n, "; FORWARD (AltDolphinStyle=2): its 180 end over end leading, done by %.0f deg of the flip, its 180 about its own long axis from %.0f to the end, %s (AltDolphinRollWay; your toes %s; the roll channel probed %+d)%s (the game's sense of its yaw / pitch / roll %+.0f %+.0f %+.0f, the model %.2f deg off at the take, the game's target %.1f deg off the one wanted at the most)",
+                                       T.dolPE, T.dolRS, ((g_altDolRWay != 0) != T.por) ? (T.por ? "the other way to your kickflip's: a PORPOISE" : "the other way to your kickflip's") : "your kickflip's way", T.dolToe == 2 ? "not read: +1 taken" : T.dolToe == 0 ? "not read yet" : "read", T.dolRollY, (T.mStep == 2 || T.landFinish) ? "; it came round whole: reversed and upright" : "", T.dsz, T.dsy, T.dsx, T.dolFit, T.dolMissMost);   /* (246) */
         else if (T.dolTurn) AltCat(b, n, "; its 180 about the board's own up round the upside-down mark (%.0f..%.0f deg of the flip), the flip forward about one axis all the way (AltDolphinTurn; the game's sense of its yaw / pitch / roll %+.0f %+.0f %+.0f, the model %.2f deg off at the take, the game's target %.1f deg off the one wanted at the most)",
                                AltDolA(T), AltDolB(T), T.dsz, T.dsy, T.dsx, T.dolFit, T.dolMissMost);   /* (243) the window as this dolphin took it (AltDolphinSpread) */
         else AltCat(b, n, "; its 180 build 241's way, on the yaw offset (%s)", T.dolWhy == 1 ? "AltDolphinTurn=0" : T.dolWhy == 2 ? "a channel not readable" : T.dolWhy == 3 ? "the game's target could not be read" : T.dolWhy == 4 ? "the game's own target is not the model's" : "the turn not begun");
@@ -22744,7 +22899,8 @@ typedef const char* (*OmpPageStatusFn)(const char* key, void* user);
 typedef int (*OmpRegisterPage2Fn)(const char* title, const OmpPageItem2* items, int nItems, OmpPageSelectFn onSelect,
                                   OmpPageValueFn onValue, OmpPageGetFn onGet, OmpPageStatusFn onStatus, void* user);
 constexpr int MENU_PAGES = 12, MENU_ROWS = 48, MENU_VALS = 256;   // (247 menu) 8 -> 12 pages: Flip Tricks and Wallrides make 10 with Quick (the 9th and 10th were refused)
-struct MenuRow { int kind; char key[48], label[64], desc[400], off[24], on[24]; float lo, hi, step; };   // (v100: the description 240 -> 400)
+struct MenuRow { int kind; char key[48], label[64], desc[400], off[24], on[64]; float lo, hi, step; };   // (v100: the description 240 -> 400) (387: on 24 -> 64)
+int MenuOptN(const MenuRow& w) { int n = 2; for (const char* s = w.on; *s; s++) if (*s == '|') n++; return n > 4 ? 4 : n; }   /* (387) a switch's states: Off + the '|'-split names in on (OneFootCatchInput: Off / Buttons / Stick clicks / Both) */
 struct MenuPage { char title[64]; MenuRow row[MENU_ROWS]; OmpPageItem2 item[MENU_ROWS]; int n; };
 MenuPage g_mpage[MENU_PAGES]; int g_mpageN = 0;
 struct MenuVal { char key[48]; float v; }; MenuVal g_mval[MENU_VALS]; int g_mvalN = 0;
@@ -22835,6 +22991,7 @@ int MenuRegisterFlat() {
             bool dup = false;
             for (int i = 0; i < n; i++) if (strcmp(flat[i].key, w.key) == 0) dup = true;
             if (dup) continue;
+            if (w.kind == MENU_TOGGLE && MenuOptN(w) > 2) continue;   /* (387) SessionOpenMP's switch has two states: a row of more stays off its flat page (the ini sets it) */
             OmpPageItem2 it = { w.kind, w.key, w.label, w.desc[0] ? w.desc : nullptr, w.off[0] ? w.off : nullptr, w.on[0] ? w.on : nullptr, w.lo, w.hi, w.step };
             flat[n++] = it;
         }
@@ -23179,12 +23336,896 @@ void HsNua(uint8_t* a, LONG how) {   /* POD only (the caller's __try) */
     }
 }
 void SafeHsNua(void* anim, LONG how) { __try { HsNua((uint8_t*)anim, how); InterlockedIncrement(&g_hsNuaN); } __except (EXCEPTION_EXECUTE_HANDLER) { g_hsNua = 0; } }
+/* (ncshove 345) THE NO COMPLY SHOVE-IT: "play the no comply anim for the player and the shuvit for the board" (4 Nov). When a trick starts
+   (IsTrickPending rises) and the game took a plain regular shove-it (TRICK_RGS_BS_ShoveIt / TRICK_RGS_FS_ShoveIt) with one stick held DOWN
+   (within ~30 deg of straight down) and the other off centre (the scoop), the rider's other trick slot gets the no comply's four blend spaces
+   -- the wired pressure kickflip's set, its address handed over by the Lua (HJN_Set("ncshovedef")) -- after every NativeUpdateAnimation,
+   the index put on it (SetFlipTrick refills the game's own slot every frame: the hop ollie's way), until the skater rides again after the
+   air, another trick, or 2.5 s. The board is the game's shove-it's: nothing of the board is touched. HJN_Set("ncsstate") hands the Lua the
+   count while one runs (0 otherwise), so it covers it as a no comply. Epic's exe only (the NativeUpdateAnimation hook). Every trick that
+   starts with a stick held down is logged (60 lines a run) to learn what the game takes for that input. */
+struct NcsT { uintptr_t ncDef; int was; int active; ULONGLONG t0; uintptr_t def; int setOff; int air; long n; int told;
+    float sx[48], sy[48]; int sk[48]; ULONGLONG st[48]; int sh;        /* (ncshove 347) the sticks of the last 48 frames (sk: 0 left, 1 right; two a frame) */
+    int spin; int sState; ULONGLONG sT; float sMax; long sN;
+    int nc; ULONGLONG ncT0, ncAirT; int ncDone; uintptr_t ncTrick;
+    int fOn; ULONGLONG fEnd; float pBase, pWrote; int pFresh, pKept, pTold;
+    float pS; int pN; int nosePct;
+    ULONGLONG fT0; float best; float backLift; int liftN;
+    int sws;
+    int trN, trF; ULONGLONG trT0;
+    float rideX[2]; int rideOk, sfK, sfOk; float sfX; V3 hp; int hpOk, hpN, clampN; float deckHPrev;
+    float rideLead; ULONGLONG freeUntil; int landSeen;
+    int bkL, hqOk, gdN[2], gdTold; Q4 hq; ULONGLONG gdUntil; } g_ncs = {};   /* (ncshove 362) the back foot latched for the shove | its socket's own turn held (hq) | the return's turned-back sockets, its window */   /* (ncshove 360) +1 = the deck's +x leads the travel | the feet free to 200 ms past the touchdown */   /* (ncshove 359) the riding sockets' x on the deck | the back foot, its riding x | the shove's held socket | switch clamps | the deck's last height */   /* (trace 358) no complies traced, frames of this one, its start */   /* (ncshove 356) the no comply in the air is the switch one */   /* (ncshove 354) the feet's let-go start | the best air sweep | NoComplyBackLift cm | frames lifted */   /* (ncshove 353) the nose pop: its sign, frames written, NoComplyNosePop */
+float NcsNoseAt(float ms) {   /* (ncshove 353) the no comply clip's own board angle (deg, nose up) by ms since the trick began: the trick traces of 4 Nov 20:42-20:43 */
+    static const float T[][2] = { {0,4},{47,42},{94,60},{141,63},{203,64},{297,64},{344,38},{391,21},{453,13},{500,7},{547,3},{594,2},{650,0} };
+    const int n = (int)(sizeof(T) / sizeof(T[0]));
+    if (!(ms > 0.0f)) return T[0][1];
+    for (int i = 1; i < n; i++) if (ms <= T[i][0]) { const float u = (ms - T[i - 1][0]) / (T[i][0] - T[i - 1][0]); return T[i - 1][1] + (T[i][1] - T[i - 1][1]) * u; }
+    return 0.0f;
+}   /* (ncshove 351) the pitch turned with the spin: the game's own value, what we wrote, how often the game wrote anew / left ours */   /* (ncshove 350) the back foot let go: on while the spin runs, fEnd = when it came back */   /* (ncshove 348) a no comply's air: the scoop that shoves it */
+constexpr float NCS_AIR_SWEEP = 75.0f;   /* (ncshove 354) was 90 (353: two fired at 93 / 90, the misses unseen) */   /* (ncshove 353) 90 again, the one-frame jumps left out */   /* (ncshove 352) was 70: a let-go pressure stick swept 73-90 */
+ constexpr float NCS_AIR_SWEEP_OLD = 70.0f; constexpr ULONGLONG NCS_AIR_WIN = 300, NCS_AIR_MAX = 1200;   /* (ncshove 348) the in-air scoop: deg, within ms; the air it is looked for in */
+constexpr float NCS_SPIN_RATE = 520.0f, NCS_SWEEP_MIN = 50.0f;   /* (ncshove 347) deg/s of the shove's 180 (the game's pop shove-its take ~0.35 s); the arc a scoop sweeps */
+float NcsSweep(const NcsT& C, int stick, ULONGLONG now, ULONGLONG win = 350, ULONGLONG since = 0) {   /* (ncshove 347) the angle the stick swept while out past half, the last 0.35 s (+ = anticlockwise) */
+    float sum = 0.0f, prev = 0.0f; bool have = false;
+    for (int i = 47; i >= 0; i--) {   /* oldest first */
+        const int k = (C.sh + 48 - i) % 48;
+        if (C.sk[k] != stick || C.st[k] == 0 || now - C.st[k] > win || C.st[k] < since) continue;
+        const float x = C.sx[k], y = C.sy[k];
+        if (x * x + y * y < 0.25f) { have = false; continue; }
+        const float a = atan2f(y, x) * 57.29578f;
+        if (have) { float d = a - prev; while (d > 180.0f) d -= 360.0f; while (d < -180.0f) d += 360.0f; if (fabsf(d) <= 90.0f) sum += d; }   /* (ncshove 353) a step of more than 90 deg is the stick crossing the middle, not a scoop */
+        prev = a; have = true;
+    }
+    return sum;
+}
+float NcsDeckH(const uint8_t* sk) {   /* (ncshove 359) the deck over the ground under it, cm; -1 = not known */
+    const uint8_t* board = *(const uint8_t* const*)(sk + SK_BOARD);
+    if (!board || !PtrOk(board, 0x530)) return -1.0f;
+    const uint8_t* c = *(const uint8_t* const*)(board + WG_PART[0]);
+    if (!c || !PtrOk(c, SC_C2W + 0x30)) return -1.0f;
+    const V3 p = *(const V3*)(c + SC_C2W + 0x10); const void* world = SkaterWorld();
+    if (!world || !finite3(p)) return -1.0f;
+    RayHit h; if (!Ray(world, add(p, v3(0.0f, 0.0f, 5.0f)), add(p, v3(0.0f, 0.0f, -300.0f)), h)) return -1.0f;
+    return p.z - h.p.z;
+}
+void NcsSockApply(float* l0, float* l1, int fromTurn, ULONGLONG now);
+/* (ncshove 369) BACK ON, THE FEET PINNED: the body (pelvis) raised and both feet put back where they were -- the knees take it up, the feet (and the board the game carries on them) stay. No leg clearing. 368 had it off: */
+/* (ncshove 368) OFF ALTOGETHER: the user on 367, "if you did a lift move, you did it to the board, not the player" -- the board rides the drawn feet in every no comply (365-367: up to 76-82 cm); NoComplyBodyLift is read and not used. */
+/* (ncshove 367) NOT IN A SHOVE-IT: the game carries the board on the drawn feet there, so a lifted body (and feet moved up out of it) lifted the BOARD -- its top 77-82 cm over the ground in 365-366 for 62-65 before ("the board goes crazy high"); a plain no comply lets the body down before the board tops out (53-57). */
+/* (ncshove 365) NoComplyBodyLift, DRAWN. 364 gave the skater's speed +195 cm/s up as the plant foot left the ground: nothing -- his
+   speed read 0 there every time (the no comply's rise is the trick's own height curve, not a speed), the hips peaked at 113-114 cm as
+   in 363. Now the body is lifted in the pose itself: the pelvis (the whole body with it, the drawn deck not) NoComplyBodyLift cm up,
+   eased in over 0.1 s from the pose the plant foot leaves the ground, held, eased out over 0.08 s from the feet's return (the shove's
+   "the feet come back") or 0.24 s after the leave -- the feet are back at their own height by the time they reach the deck. */
+struct NcsLiftT { int on, poses, capped; double t0, outT; ULONGLONG ms0; float most, prev; long n; } g_ncsLift = {}; float g_ncsLetDown = 0.26f;   /* (ncshove 384) the body lift's let-down, s (NoComplyLetDown; 383: 0.20), its end kept at 0.40 s after the leave */
+/* (ncshove 366) THE LEGS KEPT OUT OF THE DECK. 365 (the body lifted): still 4-8 cm of shin / foot into the deck at 0.42-0.47 s (the deck
+   coming down pitched 20-30 deg) and of the feet as they land, a thigh 5-8 cm into its end at its top (0.35 s, pitched 45-52 deg). From the
+   plant foot's leave to 0.25 s after the body is let down: each leg's shin (r 4.5) and foot (r 4) tested against the drawn deck (its own
+   frame: +-HalfLen, +-HalfWidth, -1.5..+1.5); a leg in it has its foot moved out by the deepest point's way out -- up off the top when
+   that point is over the deck's middle, else out past its nearer side or end (never down through it) -- at most 14 cm, the leg solved
+   to it (the knee with it) */
+struct NcsClrT { double until; int poses, legs; float most; } g_ncsClr = {};
+int NcsLegClear() {
+    const void* mesh = g_mesh;
+    if (!g_boardOk || !mesh || !DeckXf(mesh)) return 0;
+    const float hl = HalfLen() + 1.0f, hwd = HalfWidth() + 1.0f;
+    int moved = 0;
+    for (int k = 0; k < 2; k++) {
+        if (g_foot[k] < 0 || g_calf[k] < 0 || g_thigh[k] < 0) continue;
+        const V3 K = qinv(g_dq, sub(g_Ct[g_calf[k]].p, g_dp)), A = qinv(g_dq, sub(g_Ct[g_foot[k]].p, g_dp));
+        const V3 T = (g_toe[k] >= 0) ? qinv(g_dq, sub(g_Ct[g_toe[k]].p, g_dp)) : A;
+        if (!finite3(K) || !finite3(A) || !finite3(T)) continue;
+        float need = 0.0f; V3 way = v3(0.0f, 0.0f, 0.0f);
+        for (int s = 0; s < 2; s++) {
+            const V3 P0 = s ? A : K, P1 = s ? T : A; const float r = s ? 4.0f : 4.5f;
+            for (int i = 0; i <= 8; i++) {
+                const V3 p = lerp(P0, P1, i / 8.0f);
+                if (fabsf(p.x) > hl + r || fabsf(p.y) > hwd + r || p.z > 1.5f + r || p.z < -1.5f - r) continue;
+                V3 w; float d;
+                if (p.z >= 0.5f) { d = 1.5f + r - p.z; w = v3(0.0f, 0.0f, 1.0f); }
+                else { const float dy = hwd + r - fabsf(p.y), dx = hl + r - fabsf(p.x);
+                       if (dy <= dx) { d = dy; w = v3(0.0f, p.y >= 0.0f ? 1.0f : -1.0f, 0.0f); } else { d = dx; w = v3(p.x >= 0.0f ? 1.0f : -1.0f, 0.0f, 0.0f); } }
+                if (d > need) { need = d; way = w; }
+            }
+        }
+        if (need < 1.5f) continue;
+        need = fminf(need + 0.5f, 14.0f);
+        const V3 F = add(g_Ct[g_foot[k]].p, qrot(g_dq, mul(way, need)));
+        Leg(k, F, g_Ct[g_foot[k]].q);
+        moved++; if (need > g_ncsClr.most) g_ncsClr.most = need;
+    }
+    if (moved) { g_ncsClr.poses++; g_ncsClr.legs += moved; }
+    return moved;
+}
+/* (ncshove 370) THE SHOVE-IT'S BOARD LOWERED WITH THE BODY'S LIFT. The 369 audit: in a shove-it the board's target (the game's
+   GetControlledBoardTargetLocation, hooked for the wallride: hkWrBt) follows the DRAWN pelvis -- 369's 15 cm lift raised the deck's top
+   77-82 cm (368: 54-65), the hips over the deck unchanged. While the lift is on in a shove-it the target is lowered by the lift plus
+   NCS_SHOVE_DROP (never under 12 cm off the ground): the body rises, the board does not. Plain no complies are left as they are */
+constexpr float NCS_SHOVE_DROP = 8.0f;
+struct NcBtT { volatile float w, dz, cap; const void* mc; volatile ULONGLONG at; } g_ncBt = {};
+volatile LONG g_ncBtCalls = 0; volatile float g_ncBtMost = 0.0f, g_ncBtLast = 0.0f;
+bool NcBtApply(V3* r) {
+    if (!(g_ncBt.w > 0.0005f) || GetTickCount64() > g_ncBt.at + 250ull || !finite3(*r)) return false;
+    float d = fminf(g_ncBt.w, 1.0f) * g_ncBt.dz; d = fminf(d, g_ncBt.cap);
+    if (!std::isfinite(d) || d <= 0.0f) return false; d = fminf(d, 40.0f); g_ncBtLast = d;
+    r->z -= d; if (d > g_ncBtMost) g_ncBtMost = d;
+    return true;
+}
+bool SafeNcBtApply(V3* r) { __try { return NcBtApply(r); } __except (EXCEPTION_EXECUTE_HANDLER) { g_ncBt.w = 0.0f; return false; } }
+void NcBtOff() { g_ncBt.w = 0.0f; }   /* (370 review) a grab took the pose: the board back to the game's own */
+/* (wally 381) THE BOARD'S PID TARGET IN THE AIR: GetControlledBoardTargetLocation's answer while a wally's board is in the air -- the
+   plan's place for the board's root (the deck middle's plan + the root's offset from the deck middle as it stands this pose), blended
+   by w. The tick publishes it; the hook only reads it (the board's physics substep: POD only, its own __try; nothing older than
+   0.15 s is taken). Why: the game aims the board at the drawn pelvis less 82.5 cm in the air -- the wally draws the pelvis 25-40 cm
+   over the deck, so the game's own target would pull the board DOWN through the climb */
+struct WyBtT { volatile float w; volatile float px, py, pz; const void* mc; volatile ULONGLONG at; } g_wyBt = {};
+volatile LONG g_wyBtCalls = 0;
+bool WyBtApply(V3* r) {
+    const float w = g_wyBt.w;
+    if (!(w > 0.0005f) || GetTickCount64() > g_wyBt.at + 150ull || !finite3(*r)) return false;
+    const V3 p = v3(g_wyBt.px, g_wyBt.py, g_wyBt.pz);
+    if (!finite3(p) || len(sub(p, *r)) > 400.0f) return false;
+    *r = lerp(*r, p, w > 1.0f ? 1.0f : w);
+    return true;
+}
+bool SafeWyBtApply(V3* r) { __try { return WyBtApply(r); } __except (EXCEPTION_EXECUTE_HANDLER) { g_wyBt.w = 0.0f; return false; } }
+bool NcsLiftPose() {
+    NcsLiftT& B = g_ncsLift; NcsT& C = g_ncs;
+    const double now = NowS();
+    if (g_ncsLiftAt > 0.0) {
+        const double la = g_ncsLiftAt; g_ncsLiftAt = 0.0;
+        if (g_ncsBodyLift > 0.5f && C.nc && now - la < 0.1) { const long n = B.n + 1; B = NcsLiftT{}; B.on = 1; B.t0 = la; B.outT = la + 0.40 - (double)g_ncsLetDown;   /* (384) the end where it was, the let-down slower */   /* (383r) 0.24 in 382: the top kept, the let-down slower */ B.ms0 = GetTickCount64() - (ULONGLONG)((now - la) * 1000.0); B.n = n; g_ncBtCalls = 0; g_ncBtMost = 0.0f; }   /* (370, N4) the lift's own start on the ms clock */
+    }
+    if (!B.on) { g_ncBt.w = 0.0f; }
+    if (!B.on) {   /* (ncshove 366) the legs kept out of the deck to 0.25 s after the let-down */
+        if (g_ncsClr.until > 0.0) {
+            if (false && now < g_ncsClr.until) return NcsLegClear() > 0;
+            static LONG nc = 0; if (g_ncsClr.poses && InterlockedIncrement(&nc) <= 200) Log("ncshove 366: #%ld the legs kept out of the deck on %d poses (%d legs moved), up to %.0f cm", C.sN, g_ncsClr.poses, g_ncsClr.legs, g_ncsClr.most);
+            g_ncsClr = NcsClrT{};
+        }
+        return false;
+    }
+    g_ncsClr.until = B.outT + 0.08 + 0.25;
+    if (C.fEnd && C.fEnd >= B.ms0) { const double fe = B.t0 + (double)(C.fEnd - B.ms0) / 1000.0; if (fe < B.outT) B.outT = fe; }   /* (383r) out over 0.20 s, never from the past */
+    if (now > B.outT + (double)g_ncsLetDown || now - B.t0 > 1.0) {   /* (384) */
+        B.on = 0; g_ncBt.w = 0.0f;
+        if (g_ncBtCalls) Log("ncshove 370: #%ld the shove-it's board target lowered up to %.0f cm on %ld calls (the body lifted, the board not)", C.sN, g_ncBtMost, (long)g_ncBtCalls);
+        static LONG nl = 0; if (InterlockedIncrement(&nl) <= 200) Log("ncshove 366: #%ld the body lifted up to %.0f cm over its own (NoComplyBodyLift %.0f) from the plant foot's leave for %.2f s, %d poses -- let down %s", C.sN, B.most, g_ncsBodyLift, now - B.t0, B.poses, (C.fEnd && C.fEnd >= B.ms0) ? "as the feet came back to the deck" : "0.24 s after the leave (no shove's return seen)");
+        return false;
+    }
+    const float wi = Sm01((float)(now - B.t0) / 0.15f), wo = 1.0f - Sm01((float)(now - B.outT) / g_ncsLetDown);   /* (384) NoComplyLetDown */   /* (383) in over 0.15 s, out over 0.20 (0.10 / 0.08: it fell 15 cm in 0.08 s) */
+    const float w = fminf(wi, wo); float lift = g_ncsBodyLift * w;
+    const uint8_t* m = (const uint8_t*)g_mesh;
+    if (!(lift > 0.1f) || g_pelvis < 0 || !m || !PtrOk(m, SC_C2W + 0x30)) { g_ncBt.w = 0.0f; return false; }
+    const Q4 mq = *(const Q4*)(m + SC_C2W); const V3 ms = *(const V3*)(m + SC_C2W + 0x20);
+    if (fabsf(ms.x) < 1e-3f || fabsf(ms.y) < 1e-3f || fabsf(ms.z) < 1e-3f) { g_ncBt.w = 0.0f; return false; }
+    V3 e = qinv(mq, v3(0.0f, 0.0f, lift)), d = v3(e.x / ms.x, e.y / ms.y, e.z / ms.z);   /* world up, in the mesh's own frame */
+    if (!finite3(d)) { g_ncBt.w = 0.0f; return false; }
+    V3 fp[2]; Q4 fq[2]; for (int k = 0; k < 2; k++) if (g_foot[k] >= 0) { fp[k] = g_Ct[g_foot[k]].p; fq[k] = g_Ct[g_foot[k]].q; }
+    {   /* (370, N2) no more lift than the straighter leg has slack for: Leg()'s 0.995 clamp let a near-straight leg's pinned foot ride up 9-13 cm */
+        float s = 1.0f;
+        for (int k = 0; k < 2; k++) {
+            if (g_foot[k] < 0 || g_calf[k] < 0 || g_thigh[k] < 0) continue;
+            const V3 hp = g_Ct[g_thigh[k]].p; const float mx = 0.995f * (len(sub(g_Ct[g_calf[k]].p, hp)) + len(sub(fp[k], g_Ct[g_calf[k]].p)));
+            if (len(sub(add(hp, d), fp[k])) <= mx) continue;
+            float lo = 0.0f, hi = 1.0f; for (int i = 0; i < 14; i++) { const float md = 0.5f * (lo + hi); if (len(sub(add(hp, mul(d, md)), fp[k])) <= mx) lo = md; else hi = md; }
+            if (lo < s) s = lo;
+        }
+        if (s < 0.999f) { d = mul(d, s); lift *= s; B.capped++; } if (lift > B.prev + 2.5f) { const float k = (B.prev + 2.5f) / lift; d = mul(d, k); lift *= k; } B.prev = lift;   /* (383) 2.5 cm a pose at the most (the cap's let-go jumped 10-13) */
+    }
+    if (C.fOn) {   /* (370, N1) the shove-it: the board's target lowered with it */
+        const uint8_t* sk = (const uint8_t*)g_skater; const float dh = sk ? NcsDeckH(sk) : -1.0f;
+        g_ncBt.mc = (sk && PtrOk(sk, SK_MC + 8)) ? *(const void* const*)(sk + SK_MC) : nullptr; g_ncBt.dz = lift + NCS_SHOVE_DROP * w; g_ncBt.cap = (dh > 0.0f) ? fmaxf(dh + g_ncBtLast - 12.0f, 0.0f) : 0.0f; g_ncBt.w = 1.0f;   /* (370 review) the lift as made (after the leg cap); the cap on the unlowered height */ g_ncBt.at = GetTickCount64();
+    } else g_ncBt.w = 0.0f;
+    SetComp(g_pelvis, g_Ct[g_pelvis].q, add(g_Ct[g_pelvis].p, d));
+    for (int k = 0; k < 2; k++) if (g_foot[k] >= 0 && g_calf[k] >= 0 && g_thigh[k] >= 0) Leg(k, fp[k], fq[k]);   /* (ncshove 369) the feet where they were */
+    B.poses++; if (lift > B.most) B.most = lift;
+    return true;
+}
+bool SafeNcsLiftPose() {
+    __try { return NcsLiftPose(); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { g_ncsLift.on = 0; g_ncsBodyLift = 0.0f; g_ncBt.w = 0.0f; static LONG n = 0; if (InterlockedIncrement(&n) <= 3) Log("ncshove 365: a fault in the body lift -- off for this run"); return false; }
+}
+extern volatile double g_awPosed;   /* (ofb 368) the airwalk's: a grab posed within 0.12 s */
+/* (ofb 368) ONE-FOOT BALANCE. 367's F8 look (5 Nov, screen caps): the lifted leg scrunched up high, the standing leg bent and its foot
+   angled. The user: the free foot only a little up, "a little bit bent or even a little bit out to the side for balance"; "the plant
+   foot has to be perfectly straight". Now: the standing leg straightened (the body raised until it is at 98.5 % of its length over its
+   foot, 18 cm at the most) and its foot turned square across the deck; the free foot 9 cm up and 12 cm out along the board away from the
+   standing one, the knee left as its leg solve gives it. The animation is told it is in a manual (the balancing arms), the board is not.
+   (ofb 368) THE CATCH: in a flip trick's air (not in a grab), A or X = land in it, that foot up (OneFootButtons 1: A the front foot, X the
+   back, whatever the stance -- 0: A the right foot, X the left); held while the button is (0.8 s at the least) once landed; the press is
+   kept from the game. F8 (DevKeys) still cycles it for testing. */
+volatile LONG g_ofbIn = 1, g_ofbStand = 1;   /* (ofb 387) OneFootCatchInput: 0 off, 1 A / X (386's), 2 the stick clicks, 3 both; OneFootClickStand: 1 = a click's catch stands you on THAT stick's foot (the other comes up), 0 = that foot comes up */
+volatile LONG g_ofbMode = 0, g_ofbBtnMode = 1, g_ofKeys = 0, g_ofHips = 1;   /* (384) OneFootHips: 0 = 383's, 1 (default) = the hips back in their sockets + the legs their own length + no learning from one-foot poses, 2 = and the pelvis over the standing foot along the board (374's place, 30 cm: the user on 374 "the hips look pretty bad", 376 took it out -- a test only) */   /* (374) g_ofKeys (OneFootKeys): 0 = A / X, 1 = the stick clicks (R3 as A, L3 as X) for the judo air, the airwalk and the one-foot catch */
+uint64_t OfMapKey(uint64_t n, uint64_t a, uint64_t x) {   /* (374) the key as the A / X it stands for (0 = none of ours) */
+    if (!g_ofKeys) return n;
+    static uint64_t l3 = 0, r3 = 0; if (!l3) { __try { MakeFName("Gamepad_LeftThumbstick", &l3); MakeFName("Gamepad_RightThumbstick", &r3); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; } }
+    return (n && n == r3) ? a : (n && n == l3) ? x : (n == a || n == x) ? 0 : n;
+}
+struct OfbT { double t0, tOff; int last, k, poses; long n; float ratioMax, liftMax;
+    int armBit, armWhich, auto_, held, catchN, catchDone; double armT, autoT, relT; long caught; int armK, swallow, endReq; float shinMax, plumbMax; double landT; int wasAir; float plantMax, tiltMax, pw; double pwT; float balF, trunkMax, trunkTurn, comOff, comLeft, bwF; double balT, bwT; int balInit; int clk, armSrc; } g_ofb = {};   /* (387) clk: the stick clicks (1 L3, 2 R3) kept from the game, so their releases are too; armSrc: 1 = armed by a click */   /* (386) the balance's    /* (377) */   /* (371) */
+uint64_t g_ofbFnA = 0, g_ofbFnX = 0;
+int OfbFront(const uint8_t* a) { const int goofy = (a && PtrOk(a, 0x310) && a[0x304]) ? 1 : 0; return (goofy ^ (g_switchNow ? 1 : 0)) ? 1 : 0; }   /* the front foot: R for goofy, L for regular, the other way round switch */
+bool OfbKey(const void* key, int ev) {   /* hkInputKey, after the airwalk's: A / X in a flip's air -> land on one foot */
+    if (FeatSigOff() || !g_nuaOn) return false;   /* (392 steam audit) its catch writes controller+0x728 and reads board+0x7e9: only the feature signatures confirm them, and OfbNua (the anim hook) clears its arming */
+    uint64_t n = 0;
+    __try { if (!g_ofbFnA) { MakeFName("Gamepad_FaceButton_Bottom", &g_ofbFnA); MakeFName("Gamepad_FaceButton_Left", &g_ofbFnX); } n = *(const uint64_t*)key; }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    /* (387) A / X as they are: OneFootKeys moves only the judo air and the airwalk to the clicks now; the one-foot catch's clicks are OfbClick's (OneFootCatchInput) */
+    if (!n || (n != g_ofbFnA && n != g_ofbFnX)) return false;
+    const int bit = (n == g_ofbFnA) ? 1 : 2;
+    const double now = NowS();
+    if (ev != 0) { if (g_ofb.swallow & bit) { if (ev == 1) g_ofb.swallow &= ~bit; return true; } if (g_ofb.armBit == bit && !g_ofb.armSrc) { if (ev == 1) { g_ofb.held = 0; g_ofb.relT = now; } return true; } return false; }   /* (387) not when a click armed it: a button's release is the game's then */
+    if (g_ofb.auto_) {   /* (371) ON ONE FOOT: held until the OTHER button is tapped; every A / X press kept from the game meanwhile (no push) */
+        g_ofb.swallow |= bit;
+        if (bit != g_ofb.armWhich && !g_ofb.endReq) { g_ofb.endReq = 1; Log("ofb 371: #%ld %s tapped -- the foot back on the board", g_ofb.caught, bit == 1 ? "A (cross)" : "X (square)"); }
+        return true;
+    }
+    if (g_ofb.armBit) { g_ofb.swallow |= bit; return true; }   /* (371) armed in the air: a second press kept from the game */
+    if (!(g_ofbIn & 1)) return false;   /* (387) OneFootCatchInput 0 / 2: A and X do not catch (on one foot, above, they are still kept from the game and the other one puts the foot back) */
+    uint8_t* sk = (uint8_t*)g_skater; if (!sk || !PtrOk(sk, 0x5a0)) return false;
+    const uint8_t* mc = *(const uint8_t* const*)(sk + SK_MC);
+    if (!mc || !PtrOk(mc, 0x170) || mc[0x168] != 6 || mc[0x169] != 2) return false;                    /* in the air */
+    if (!*(const uintptr_t*)(sk + ALT_SK_TRICK)) return false;                                            /* a trick of the game's in it */
+    if (now - g_awPosed < 0.12) return false;                                                             /* a grab: the airwalk's / the game's */
+    if ((PtrOk(sk, SK_GRAB + 1) && sk[SK_GRAB] != 0) || g_grabKind != 0) return false;                  /* (394) a grab of any kind: A / X there are the judo air's / the airwalk's, never a one-foot landing */
+    { const uint8_t* an = (const uint8_t*)g_anim; const int front = (an && PtrOk(an, 0x340)) ? OfbFront(an) : 0; g_ofb.armK = g_ofbBtnMode ? ((bit == 1) ? front : 1 - front) : ((bit == 1) ? 1 : 0); g_ofb.endReq = 0; }   /* (371) the foot known at the press: up from the catch */
+    g_ofb.armBit = bit; g_ofb.armWhich = bit; g_ofb.armT = now; g_ofb.held = 1; g_ofb.relT = -1.0e9; g_ofb.catchN = 4; g_ofb.armSrc = 0;   /* (ofb 369) and the catch itself: both sticks pushed for 4 poses */
+    Log("ofb 369: %s pressed in a trick's air -- it lands on one foot (the %s up; OneFootButtons %ld)", bit == 1 ? "A (cross)" : "X (square)", g_ofbBtnMode ? (bit == 1 ? "FRONT foot" : "BACK foot") : (bit == 1 ? "RIGHT foot" : "LEFT foot"), (long)g_ofbBtnMode);
+    return true;
+}
+/* (ofb 387) THE ONE-FOOT CATCH ON THE STICK CLICKS. User (7 Nov, on 386): "wire those up to the STICK CLICKS: each stick would be the one-foot catch
+   as well ... a 4-state setting: off, buttons, stick clicks, or both". OneFootCatchInput 2 / 3: L3 or R3 in the same window as A / X (a flip trick
+   of the game's in the air, no grab) arms the same catch; each stick is the foot it drives in the game's own stick mode (EInputModeType at
+   InputHandler+0x20: 2 front foot / back foot = the left stick the front foot; 1 left foot / right foot, Legacy or not read = the left stick the
+   left foot). OneFootClickStand 1 (default): you stand on the clicked stick's foot, the other comes up -- in the front / back-foot mode R3 is A's
+   catch and L3 X's, as 374's OneFootKeys had them; 0: the clicked stick's foot comes up. The click is given the A / X bit that lifts the same
+   foot, so the two inputs mix (a click's catch is ended by the other button or the other click). Only a click that arms the catch, or that
+   puts the foot back on one foot, is kept from the game (with its release and repeats); every other click goes on exactly as before (the
+   replay editor's pass-through runs before this, a pause menu skips it). */
+int CkIndex(const void* key);   /* (the click hold's) 0 L3, 1 R3, -1 another key */
+int OfbStickFoot(bool left, int front) {   /* (387) the foot a stick drives: 0 left, 1 right */
+    const uint8_t* pc = (const uint8_t*)g_pc; int mode = -1;
+    if (pc && PtrOk(pc, PC_INPUT + 8)) { const uint8_t* ih = *(const uint8_t* const*)(pc + PC_INPUT); if (ih && PtrOk(ih, 0x40)) mode = ih[ALT_IH_MODE]; }
+    if (mode == 2) return left ? front : 1 - front;   /* front foot / back foot */
+    return left ? 0 : 1;                              /* left foot / right foot (Legacy, not read) */
+}
+bool OfbClick(const void* key, int ev) {   /* hkInputKey, before the click hold: true = the one-foot catch's (kept from the game and the Lua) */
+    if (FeatSigOff() || !g_nuaOn) return false;   /* (392 steam audit) as OfbKey */
+    const int ci = CkIndex(key); if (ci < 0) return false;
+    const int cb = ci ? 2 : 1;
+    const double now = NowS();
+    if (ev != 0) {                                                           /* its release and repeats: ours if its press was */
+        if (!(g_ofb.clk & cb)) return false;
+        if (ev == 1) { g_ofb.clk &= (3 - cb); if (g_ofb.armSrc && g_ofb.armBit) { g_ofb.held = 0; g_ofb.relT = now; } }
+        return true;
+    }
+    g_ofb.clk &= (3 - cb);                                                        /* a new press: whatever was kept of the last one is over */
+    if (!(g_ofbIn & 2)) return false;                                        /* OneFootCatchInput 0 / 1: the clicks are not looked at */
+    const uint8_t* an = (const uint8_t*)g_anim; if (!an || !PtrOk(an, 0x340)) return false;
+    const int front = OfbFront(an), foot = OfbStickFoot(ci == 0, front);
+    const int up = g_ofbStand ? 1 - foot : foot;                             /* the foot that comes up */
+    const int bit = g_ofbBtnMode ? ((up == front) ? 1 : 2) : ((up == 1) ? 1 : 2);   /* the button that lifts that foot (OneFootButtons' rule) */
+    if (g_ofb.auto_) {                                                       /* on one foot: the OTHER foot's click puts the foot back; the standing foot's goes on as usual */
+        if (up == g_ofb.armK || g_ofb.endReq) return false;   /* (387r) by the foot, not the button: a 180 changes which bit lifts it */
+        g_ofb.endReq = 1; g_ofb.clk |= cb;
+        Log("ofb 387: #%ld %s clicked -- the foot back on the board", g_ofb.caught, ci ? "R3" : "L3");
+        return true;
+    }
+    if (g_ofb.armBit) return false;                                          /* armed already (a button or the other click): this one goes on */
+    uint8_t* sk = (uint8_t*)g_skater; if (!sk || !PtrOk(sk, 0x5a0)) return false;
+    const uint8_t* mc = *(const uint8_t* const*)(sk + SK_MC);
+    if (!mc || !PtrOk(mc, 0x170) || mc[0x168] != 6 || mc[0x169] != 2) return false;                    /* in the air */
+    if (!*(const uintptr_t*)(sk + ALT_SK_TRICK)) return false;                                            /* a trick of the game's in it */
+    if (now - g_awPosed < 0.12) return false;                                                             /* a grab: the airwalk's / the game's */
+    g_ofb.armK = up; g_ofb.endReq = 0;
+    g_ofb.armBit = bit; g_ofb.armWhich = bit; g_ofb.armT = now; g_ofb.held = 1; g_ofb.relT = -1.0e9; g_ofb.catchN = 4; g_ofb.armSrc = 1; g_ofb.clk |= cb;
+    Log("ofb 387: %s clicked in a trick's air -- it lands on one foot, the %s foot up (the %s stick drives the %s foot; OneFootClickStand %ld: %s)",
+        ci ? "R3" : "L3", up ? "RIGHT" : "LEFT", ci ? "right" : "left", foot ? "right" : "left", (long)g_ofbStand, g_ofbStand ? "you stand on the clicked stick's foot" : "the clicked stick's foot comes up");
+    return true;
+}
+void OfbNua(uint8_t* a) {
+    if (!a || !PtrOk(a, 0x340)) return;
+    uint8_t* sk = (uint8_t*)g_skater; if (!sk || !PtrOk(sk, 0x5a0)) return;
+    const uint8_t* mc = *(const uint8_t* const*)(sk + SK_MC);
+    if (!mc || !PtrOk(mc, 0x170)) return;
+    const bool offB = PtrOk(mc, MC_ONBOARD + 8) && !mc[MC_ONBOARD];   /* (ofb 384) off the board: a missed catch puts you on your feet (08:34:25: X pressed, "you left the board 0.20 s after the take-off", on foot, the throwdown at 08:34:28 LANDED ON ONE FOOT -- the armed state lived 3 s) */
+    const bool riding = mc[0x168] == 6 && mc[0x169] == 1 && !offB, bail = mc[0x169] == 5 || g_bail != 0 || (PtrOk(sk, 0x718) && (sk[WR_SK_FLAGS] & 2)) || offB;   /* (ofb 384) the game's bail bit and the Lua's too */
+    const double now = NowS();
+    if (g_ofb.armBit && !g_ofb.auto_ && ((PtrOk(sk, SK_GRAB + 1) && sk[SK_GRAB] != 0) || g_grabKind != 0)) { Log("ofb 394: the one-foot catch called off -- a grab began after the press (%.2f s): a grab lands on both feet", NowS() - g_ofb.armT); g_ofb.armBit = 0; g_ofb.catchN = 0; g_ofb.endReq = 0; }   /* (394) */
+    if (g_ofb.armBit && !g_ofb.auto_) {                                                                  /* armed in the air: on the landing, the foot */
+        const bool lost = bail || mc[0x168] != 6 || mc[0x169] == 4;   /* (ofb 384) a bail, off the board, not skating, the spawn's limbo (a respawn): the catch missed */
+        if (lost || now - g_ofb.armT > 3.0) { Log("ofb 384: the one-foot catch called off before a landing (%s, %.2f s after the press; skater %d/%d)", offB ? "off the board: the catch missed" : bail ? "a bail" : mc[0x169] == 4 ? "a respawn" : mc[0x168] != 6 ? "not skating" : "3 s without a landing", now - g_ofb.armT, (int)mc[0x168], (int)mc[0x169]); g_ofb.armBit = 0; g_ofb.catchN = 0; g_ofb.endReq = 0; }
+        else if (riding) {
+            const int front = OfbFront(a);
+            const int k = g_ofb.armK;   /* (371) the foot already up since the catch */
+            g_ofb.auto_ = k + 1; g_ofb.autoT = now; g_ofb.caught++;
+            Log("ofb 369: #%ld landed on one foot -- the %s foot up (the front foot is the %s)", g_ofb.caught, k ? "RIGHT" : "LEFT", front ? "right" : "left");
+        }
+    }
+    if (g_ofb.auto_ && (bail || !riding || g_ofb.endReq)) {   /* (371) held until the other button (369: while the button was held) */
+        Log("ofb 371: #%ld off one foot after %.2f s (%s)", g_ofb.caught, now - g_ofb.autoT, bail ? "a bail" : !riding ? "not riding" : "the other button");
+        g_ofb.auto_ = 0; g_ofb.armBit = 0; g_ofb.endReq = 0; g_ofb.catchN = 0;
+    }
+    const LONG m = g_ofbMode ? g_ofbMode : g_ofb.auto_;
+    if (!m || !riding) return;
+    a[0x32e] = 1;                                                       /* IsInManual: the balancing arms */
+    const float r = *(const float*)(a + 0x330); if (std::isfinite(r) && r > g_ofb.ratioMax) g_ofb.ratioMax = r;
+}
+void SafeOfbNua(void* a) { __try { OfbNua((uint8_t*)a); } __except (EXCEPTION_EXECUTE_HANDLER) { g_ofbMode = 0; g_ofb.auto_ = 0; } }
+void OfbForget() { g_ofb.armBit = 0; g_ofb.auto_ = 0; g_ofb.endReq = 0; g_ofb.catchN = 0; g_ofb.held = 0; g_ofb.swallow = 0; g_ofb.wasAir = 0; g_ofb.landT = 0.0; g_ofb.pw = 0.0f; g_ofb.pwT = 0.0; g_ofb.last = 0; g_ofb.tOff = 0.0; }   /* (ofb 384) ForgetSkater: nothing of the last skater's one-foot state kept */
+/* (ofb 384) THE STANDING FOOT KEPT ON THE DECK (OneFootPlant 1). The user on 383: "If I ollie with the X button, in the air his back foot comes off, but his
+   front foot also kind of comes off, and then his shin tears, and he lands on his front foot. If that could stay on the board throughout that trick..."
+   Pose seg 61 (08:37:42, ollie + X, goofy, the RIGHT foot standing): the game's own front ankle went from 14 to 34 cm over the deck and 24 cm forward
+   (the late Ollie North the catch's push set off, cut at OfbKey now); 379 moved it to the deck's middle but kept its HEIGHT -- 20 cm over the deck
+   through the air, the ankle twisted 38-47 deg. Now its height is its riding height (the learned stance, 15 cm when none) in the air, eased back to the
+   game's own over the 0.3 s after the touchdown (wl); its sole tilted flat on the deck the same way (only the tilt: its turn about the deck's up is
+   the squaring's below, as in 380). The place pinned, the leg solved and shin-fixed to it (372's shin fix at the end, unchanged). Not while a flip
+   or a scoop still turns the board (before its catch the deck's frame tumbles: OfbPlantW eases it in from the catch). */
+volatile LONG g_ofbPlant = 1;
+/* (386) THE BODY'S MASS OVER THE STANDING FOOT (OneFootBalance 1). The user on 385: "the plant foot is bearing all the weight, so it has to almost
+   make physical sense -- it still seems like there's a bit of an angle to it". Recorded (7 Nov 13:12-13:14, segments 48-53): the body's centre of
+   mass 13-25 cm along the board off the standing sole, on the lifted foot's side, 8-15 deg of lean; the trunk (spine_01 to neck) 13-28 deg off
+   upright along the board. 376's rule moved the hips WITH the standing foot to the deck's middle (they kept their riding place between both feet)
+   and sat at its 20 cm cap; the game's manual pose leans the chest toward the nose. Now: the trunk turned upright along the board (0.8 of its
+   lean, 18 deg at most, about spine_01), then the hips placed along the board so the whole body's mass is over the standing sole (an absolute
+   place, from the pose as it came each pose: nothing builds up; eased in with the standing foot's plant, in the air too, smoothed 0.12 s).
+   Replayed on the recording: the hips 1-19 cm off the game's own (385: 16-20 the other way), the trunk 3-10 deg. 0 = 385's. */
+volatile LONG g_ofBal = 1;
+/* (387) THE STANDING SOLE ON THE DECK (OneFootSole 1). The user on 386: "His PLANT foot is HOVERING above the board, and it's not exactly PARALLEL
+   to the board -- a little twisted". Recorded (7 Nov 14:20-14:35): after the touchdown the drawn foot was the game's own (OfbPlantZ / OfbPlantQ
+   eased out over 0.3 s), and the game's manual pose holds it 2.2-2.4 cm high on the front foot (X rides) and tilts its sole 7-11 deg (X) / 19-20
+   (A: onto its edge) off the deck; in the air the back foot (A) was turned to its riding sole ON THE TAIL'S KICK, 28-31 deg off the flat, at
+   its kick height (17-18 cm; the deck's middle is flat, 15). Now the sole is held flat on the deck on the ground too, with the riding sole and
+   ankle height of the stance foot that rides on the deck's flat (the one nearest its middle); the other foot's sole is that one's carried
+   over by the 180 deg turn about one of the foot's own axes that carries the one's toe offset onto the other's (a rig's L / R feet are
+   turned copies: bone frames are rotations, never mirrors). 0 = 386's. */
+volatile LONG g_ofSole = 1;
+/* (387) THE A-FRAME (OneFootSplay, deg). The user: "you could splay that out a couple of degrees from his hip, so the legs are more of an A-FRAME
+   shape than two parallel pipes" (the back-foot ride: "already kind of in an A shape"). Measured: the legs 5-9 deg apart along the board on
+   the X rides, 10-15 on the A rides. The lifted leg turned out at the hip, away from the standing leg, by up to OneFootSplay -- only until
+   the legs stand three times that apart (an A ride, already open, gets less). 0 = 386's. */
+volatile float g_ofSplay = 7.0f;
+int g_ofFlatF = -1, g_ofFlatMap = -1; float g_ofFlatZ = 0.0f, g_ofSplayMax = 0.0f, g_ofOpenMin = 999.0f, g_ofOpenMax = -999.0f;   /* (387) for the log */
+int OfbFlatFoot() {   /* (387) the stance foot that rides on the deck's flat: the one nearer the deck's middle along it (the back foot rides the tail's kick) */
+    if (g_stCur < 0 || g_stCur >= ST_N || !g_st[g_stCur].ok) return -1;
+    const float cx = CentreX(), a0 = fabsf(g_st[g_stCur].P[0].x - cx), a1 = fabsf(g_st[g_stCur].P[1].x - cx);
+    if (!std::isfinite(a0) || !std::isfinite(a1)) return -1;
+    return (a0 <= a1) ? 0 : 1;
+}
+float OfbFlatZ(int s, float z) {   /* (387) the riding ankle height of the foot on the flat (z if none) */
+    const int f = OfbFlatFoot(); if (f < 0 || s < 0 || s > 1) return z;
+    const float h = g_st[g_stCur].P[f].z; if (!std::isfinite(h) || !(h > 5.0f) || !(h < 25.0f)) return z;
+    g_ofFlatZ = h; return h;
+}
+bool OfbFlatN(int s, V3& nF) {   /* (387) the deck's up in foot s's own frame for a flat sole: the flat-riding foot's, carried over to foot s */
+    const int f = OfbFlatFoot(); if (f < 0 || s < 0 || s > 1) return false;
+    V3 n = qinv(qnorm(g_st[g_stCur].Q[f]), v3(0.0f, 0.0f, 1.0f)); if (!finite3(n) || !(len(n) > 0.5f)) return false; n = norm(n);
+    int map = 0;
+    if (f != s) {
+        if (g_toe[0] < 0 || g_toe[1] < 0 || g_foot[0] < 0 || g_foot[1] < 0) return false;
+        const V3 tf = qinv(qnorm(g_C[g_foot[f]].q), sub(g_C[g_toe[f]].p, g_C[g_foot[f]].p)), ts = qinv(qnorm(g_C[g_foot[s]].q), sub(g_C[g_toe[s]].p, g_C[g_foot[s]].p));
+        const float L = len(tf); if (!finite3(tf) || !finite3(ts) || !(L > 2.0f) || !(len(ts) > 2.0f)) return false;
+        float best = 1.0e9f;
+        for (int i = 0; i < 4; i++) {   /* 0 the same axes, 1-3 turned 180 deg about the foot's x / y / z */
+            const V3 m = (i == 0) ? tf : (i == 1) ? v3(-tf.x, tf.y, tf.z) : (i == 2) ? v3(tf.x, -tf.y, tf.z) : v3(-tf.x, -tf.y, -tf.z);   /* (387r) mirrored left / right frames: reflections (det -1), not turns */
+            const float e = len(sub(m, ts)); if (e < best) { best = e; map = i; }
+        }
+        if (!(best < 0.15f * L)) return false;   /* no turn carries one foot onto the other: the foot's own riding sole (386) */
+        n = (map == 0) ? n : (map == 1) ? v3(-n.x, n.y, n.z) : (map == 2) ? v3(n.x, -n.y, n.z) : v3(-n.x, -n.y, -n.z);
+    }
+    g_ofFlatF = f; g_ofFlatMap = (f != s) ? map : -1; nF = n; return true;
+}
+void OfbAcc(V3& c, float& m, float& mv, V3 p, float w, float mov) { if (!finite3(p)) return; c = add(c, mul(p, w)); m += w; mv += w * mov; }
+V3 OfbCom(V3 Hs, V3 Fs, V3 Hk, V3 Tk, float* gain) {   /* the whole body's centre of mass (Dempster's shares), the legs as they are about to be drawn; *gain = the share of it that goes with the pelvis */
+    V3 c = v3(0.0f, 0.0f, 0.0f); float m = 0.0f, mv = 0.0f; const V3 P = g_Ct[g_pelvis].p;
+    if (g_neck >= 0) OfbAcc(c, m, mv, mul(add(P, g_Ct[g_neck].p), 0.5f), 0.497f, 1.0f); else if (g_spine1 >= 0) OfbAcc(c, m, mv, g_Ct[g_spine1].p, 0.497f, 1.0f); else OfbAcc(c, m, mv, P, 0.497f, 1.0f);   /* the trunk */
+    if (g_head >= 0) OfbAcc(c, m, mv, g_Ct[g_head].p, 0.081f, 1.0f);
+    for (int j = 0; j < 2; j++) {
+        if (g_uarm[j] >= 0 && g_larm[j] >= 0) OfbAcc(c, m, mv, mul(add(g_Ct[g_uarm[j]].p, g_Ct[g_larm[j]].p), 0.5f), 0.028f, 1.0f);
+        if (g_larm[j] >= 0 && g_hand[j] >= 0) OfbAcc(c, m, mv, mul(add(g_Ct[g_larm[j]].p, g_Ct[g_hand[j]].p), 0.5f), 0.022f, 1.0f);
+    }
+    OfbAcc(c, m, mv, lerp(Hs, Fs, 0.25f), 0.100f, 0.75f); OfbAcc(c, m, mv, lerp(Hs, Fs, 0.75f), 0.0465f, 0.25f); OfbAcc(c, m, mv, Fs, 0.0145f, 0.0f);   /* the standing leg: its foot stays */
+    OfbAcc(c, m, mv, lerp(Hk, Tk, 0.25f), 0.100f, 1.0f); OfbAcc(c, m, mv, lerp(Hk, Tk, 0.75f), 0.0465f, 1.0f); OfbAcc(c, m, mv, Tk, 0.0145f, 1.0f);   /* the free leg: its foot goes with the hips (Leg(k, Tk + sh)) */
+    if (!(m > 0.5f)) { if (gain) *gain = 0.0f; return P; }
+    if (gain) *gain = mv / m;
+    return mul(c, 1.0f / m);
+}
+float OfbPlantW(bool deck, V3 u) {   /* how much of it: none while the board still turns under the feet (a flip / a scoop not yet caught: the deck's frame spins away from them, the feet must not follow it) or lies over about 70 deg off the body's up; eased 0.15 a pose */
+    float tg = 0.0f;
+    if (g_ofbPlant && deck) {
+        const V3 n = qrot(g_dq, v3(0.0f, 0.0f, 1.0f)); const float c = (finite3(n) && len(n) > 0.5f && finite3(u)) ? dot(norm(n), u) : 0.0f;
+        tg = clampf((c - 0.3f) / 0.3f, 0.0f, 1.0f);
+        const uint8_t* bm = BoardMC(); if (bm && PtrOk(bm, ALT_BM_FLAGS + 8)) { const uint8_t fl = bm[ALT_BM_FLAGS]; if ((fl & 0x28) && !(fl & 0x04)) tg = 0.0f; }
+    }
+    const double tN = NowS(); const float dtN = (g_ofb.pwT > 0.0 && tN > g_ofb.pwT) ? (float)fmin(tN - g_ofb.pwT, 0.1) : (1.0f / 60.0f); g_ofb.pwT = tN;   /* (ofb 384, verify) by the clock: 9 a second (0.15 a pose at 60 fps), the same at 90 or 144 fps */
+    const float stN = 9.0f * dtN; g_ofb.pw += clampf(tg - g_ofb.pw, -stN, stN); if (!std::isfinite(g_ofb.pw)) g_ofb.pw = 0.0f;
+    return g_ofb.pw;
+}
+float OfbPlantZ(int s, float z, bool air, float wl, float pa) {
+    if (!g_ofbPlant || !(pa > 0.001f) || s < 0 || s > 1 || !std::isfinite(z)) return z;
+    float zp = 15.0f;
+    if (g_stCur >= 0 && g_stCur < ST_N && g_st[g_stCur].ok) { const float h = g_st[g_stCur].P[s].z; if (std::isfinite(h) && h > 5.0f && h < 25.0f) zp = h; }
+    if (g_ofSole) { V3 nfT; if (OfbFlatN(s, nfT)) zp = OfbFlatZ(s, zp); }   /* (387r) the flat height only with the flat sole */   /* (387) the riding height of the foot on the deck's flat (the back foot's was on the tail's kick, 2-3 cm higher) */
+    const float a = ((air || g_ofSole) ? 1.0f : clampf(1.0f - wl, 0.0f, 1.0f)) * clampf(pa, 0.0f, 1.0f);   /* (387) OneFootSole: held after the touchdown too (386 eased it to the game's own: 2.2-2.4 cm up) */
+    const float r = z + (zp - z) * a;
+    if (std::isfinite(r) && fabsf(r - z) > g_ofb.plantMax) g_ofb.plantMax = fabsf(r - z);
+    return std::isfinite(r) ? r : z;
+}
+Q4 OfbPlantQ(int s, Q4 q, float a) {   /* the foot's riding sole normal (the deck's up in the foot's own frame, riding) turned onto the deck's up now, by a */
+    if (!g_ofbPlant || !(a > 0.001f) || s < 0 || s > 1 || g_stCur < 0 || g_stCur >= ST_N || !g_st[g_stCur].ok) return q;
+    V3 nF = qinv(qnorm(g_st[g_stCur].Q[s]), v3(0.0f, 0.0f, 1.0f));
+    if (g_ofSole) { V3 nf; if (OfbFlatN(s, nf)) nF = nf; }   /* (387) the sole of the foot that rides on the flat (the back foot's riding sole lies on the kick, 28-31 deg off) */
+    const V3 cur = qrot(qnorm(q), nF), n = qrot(g_dq, v3(0.0f, 0.0f, 1.0f));
+    if (!finite3(cur) || !finite3(n) || !(len(cur) > 0.5f) || !(len(n) > 0.5f)) return q;
+    const V3 c1 = norm(cur), n1 = norm(n), ax = cross(c1, n1); const float al = len(ax);
+    const float ang = acosf(clampf(dot(c1, n1), -1.0f, 1.0f)) * 57.2957795f;
+    if (!(al > 1.0e-4f) || !std::isfinite(ang) || ang > 90.0f) return q;
+    const float tu = ang * clampf(a, 0.0f, 1.0f); if (tu > g_ofb.tiltMax) g_ofb.tiltMax = tu;
+    const Q4 r = qnorm(qmul(qaxis(mul(ax, 1.0f / al), tu), q));
+    return (std::isfinite(r.x) && std::isfinite(r.y) && std::isfinite(r.z) && std::isfinite(r.w)) ? r : q;
+}
+/* (384) THE HIPS BACK IN THEIR SOCKETS, THE LEGS THEIR OWN LENGTH. The recording of 7 Nov 08:34-08:38 (segments 56-62 of poses.bin):
+   the game's NEXT pose carries about 55 % of the hips' move of the pose before into the pelvis's children -- thighs 0.5-0.6, spine_01 0.5, the
+   spine above it 0.3-0.4, the arms 0.2, the pelvis bone itself 0 (fitted pose to pose over the move's onset). With the move at its 20 cm cap
+   both hip joints and spine_01 stood 9-12 cm out of the pelvis, in the game's pose and so in the drawn one (OfbPose moves the pelvis with
+   its children), and the game's leg IK, reaching from those hips, drew the shins out to 43-48 cm (41 their own); the knee-plane solve then
+   rolled the thighs 15-23 deg. A one-foot catch on the BACK foot (A: the front foot up) centres that foot 28 cm and the move stays at the
+   cap for the whole ride: the tear never goes. On the FRONT foot (X) the move is 20 at the landing and 7-8 once the game's front foot is back
+   on its spot (about 1.2 s): the echo shrinks with it -- "after a couple of seconds he's normal". Here, each pose, first thing: the thighs and
+   spine_01 put back where they sit in the pelvis riding (LegOwnLength's learned sockets, its mirrored-pose test), the leg bones their own
+   length (the feet are solved again after this anyway), eased with the balance's weight. OfbBusy keeps the riding learners (stance,
+   knee hinge, hip sockets, hips' height, head) and SessionTweaks' idle re-learn off these poses: on 383 the R knee's hinge was "learned
+   afresh" from them 7 s into a ride (08:35:28). */
+float g_ofbSeatMax = 0.0f, g_ofbLenMax = 0.0f;
+void OfbSeat(float w) {
+    if (g_pelvis < 0 || !(w > 0.001f)) return;
+    const float a = clampf(w, 0.0f, 1.0f);
+    const bool pair = g_thigh[0] >= 0 && g_thigh[1] >= 0 && g_parent[g_thigh[0]] == g_pelvis && g_parent[g_thigh[1]] == g_pelvis && g_hipRefN[0] >= 30 && g_hipRefN[1] >= 30;
+    if (pair && dot(sub(g_Lt[g_thigh[0]].p, g_Lt[g_thigh[1]].p), sub(g_hipRef[0], g_hipRef[1])) > 0.0f)   /* (the other way round = a mirrored pose: left alone, as LegOwnLength does) */
+        for (int sd = 0; sd < 2; sd++) {
+            const int th = g_thigh[sd]; const V3 cur = g_Lt[th].p; const float gap = len(sub(cur, g_hipRef[sd]));
+            if (!(gap > 0.3f) || !(gap < 30.0f)) continue;
+            g_Lt[th].p = lerp(cur, g_hipRef[sd], a); CompOf(th, g_Lt, g_Ct); RebuildSub(th);
+            if (gap > g_ofbSeatMax) g_ofbSeatMax = gap;
+        }
+    if (g_spine1 >= 0 && g_spine1 != g_pelvis && g_parent[g_spine1] == g_pelvis && g_spRefN >= 30) {   /* spine_01: the belly and the lower back (the body above goes with it) */
+        const V3 cur = g_Lt[g_spine1].p; const float gap = len(sub(cur, g_spRef));
+        if (gap > 0.3f && gap < 30.0f) { g_Lt[g_spine1].p = lerp(cur, g_spRef, a); CompOf(g_spine1, g_Lt, g_Ct); RebuildSub(g_spine1); if (gap > g_ofbSeatMax) g_ofbSeatMax = gap; }
+    }
+    if (!g_legRefOk) return;
+    for (int sd = 0; sd < 2; sd++) {   /* the thigh and shin their own length (LegRefLearn's); the knee is solved again by Leg() */
+        const int th = g_thigh[sd], ca = g_calf[sd], ft = g_foot[sd];
+        if (th < 0 || ca < 0 || ft < 0 || g_legRef[sd][0] < 1.0f || g_legRef[sd][1] < 1.0f) continue;
+        const int bone[2] = { ca, ft }; bool fix = false;
+        for (int j = 0; j < 2; j++) {
+            const float cur = len(g_Lt[bone[j]].p), ref = g_legRef[sd][j];
+            if (cur > 1.0f && fabsf(cur - ref) > 0.3f) { g_Lt[bone[j]].p = mul(g_Lt[bone[j]].p, (cur + (ref - cur) * a) / cur); if (fabsf(cur - ref) > g_ofbLenMax) g_ofbLenMax = fabsf(cur - ref); fix = true; }
+        }
+        if (fix) RebuildSub(th);
+    }
+}
+bool OfbBusy() {   /* (384) a one-foot pose is drawn (or armed in the air), or ended under 0.6 s ago: not a riding pose to learn from */
+    if (!g_ofHips) return false;
+    if (g_ofbMode != 0 || g_ofb.auto_ != 0 || g_ofb.armBit != 0 || g_ofb.last == 1 || g_ofb.last == 2) return true;
+    return g_ofb.tOff > 0.0 && NowS() - g_ofb.tOff < 0.6;
+}
+bool OfbPose() {
+    const LONG m = g_ofbMode ? g_ofbMode : g_ofb.auto_ ? g_ofb.auto_ : g_ofb.armBit ? (LONG)(g_ofb.armK + 1) : 0; const double now = NowS();   /* (371) armed: the free foot up from the catch, in the air */
+    bool air = false; { const uint8_t* sk = (const uint8_t*)g_skater; const uint8_t* mc = (sk && PtrOk(sk, 0x5a0)) ? *(const uint8_t* const*)(sk + SK_MC) : nullptr; air = mc && PtrOk(mc, 0x170) && mc[0x169] == 2; }
+    if (air) g_ofb.wasAir = 1; else if (g_ofb.wasAir) { g_ofb.wasAir = 0; g_ofb.landT = now; }   /* (377) the touchdown */
+    const float wl = air ? 0.0f : (g_ofb.landT > 0.0 ? Sm01((float)(now - g_ofb.landT) / 0.3f) : 1.0f);   /* (377) the hips' move and the straight leg eased in over 0.3 s from it */
+    if (m != g_ofb.last) {
+        if (g_ofb.last == 1 || g_ofb.last == 2) g_ofb.tOff = now;
+        if (m == 1 || m == 2) { g_ofb.k = (m == 1) ? 0 : 1; g_ofb.t0 = now; g_ofb.n++; }
+        Log("ofb 369: one-foot balance %s (last: ManualRatio up to %.2f, %d poses drawn, the body raised up to %.0f cm for the standing leg; 372: the hips moved over its foot up to %.0f cm, the shins turned up to %.0f deg)", m == 0 ? "OFF" : m == 1 ? "ON: the LEFT foot up" : m == 2 ? "ON: the RIGHT foot up" : "ON: the balancing arms only, both feet down", g_ofb.ratioMax, g_ofb.poses, g_ofb.liftMax, g_ofb.plumbMax, g_ofb.shinMax); if (g_ofHips && (g_ofb.last == 1 || g_ofb.last == 2)) Log("ofb 384: ...and the hip joints / spine_01 put back into the pelvis up to %.1f cm (the game's echo of the hips' move), the leg bones to their own length up to %.1f cm (OneFootHips %ld)", g_ofbSeatMax, g_ofbLenMax, (long)g_ofHips); g_ofbSeatMax = 0.0f; g_ofbLenMax = 0.0f;
+        if (g_ofb.last == 1 || g_ofb.last == 2) Log("ofb 384: the standing foot kept on the deck (OneFootPlant %ld): to its riding height by up to %.0f cm, its sole turned flat on the deck by up to %.0f deg", (long)g_ofbPlant, g_ofb.plantMax, g_ofb.tiltMax);
+        if ((g_ofb.last == 1 || g_ofb.last == 2) && g_ofBal && g_ofHips) Log("ofb 386: the balance (OneFootBalance 1): the body's mass over the standing foot along the board -- 385's place would have left it up to %.0f cm off the sole, %.1f cm left off it (the 20 cm cap); the trunk's lean along the board up to %.0f deg, turned upright by up to %.0f deg", g_ofb.comOff, g_ofb.comLeft, g_ofb.trunkMax, g_ofb.trunkTurn);   /* (386) */
+        if (g_ofb.last == 1 || g_ofb.last == 2) Log("ofb 387: the standing sole (OneFootSole %ld): flat on the deck in the air and on the ground, its riding sole and height (%.1f cm) from the %s foot%s; the A-frame (OneFootSplay %.0f): the lifted leg turned out up to %.1f deg (the legs stood %.0f..%.0f deg apart on the ground before it)", (long)g_ofSole, g_ofFlatZ, g_ofFlatF == 0 ? "LEFT" : g_ofFlatF == 1 ? "RIGHT" : "(none: no stance)", g_ofFlatMap < 0 ? " (its own)" : g_ofFlatMap == 0 ? " (the same axes)" : g_ofFlatMap == 1 ? " (turned about the foot's x)" : g_ofFlatMap == 2 ? " (turned about the foot's y)" : " (turned about the foot's z)", (double)g_ofSplay, g_ofSplayMax, g_ofOpenMin < 900.0f ? g_ofOpenMin : 0.0f, g_ofOpenMax > -900.0f ? g_ofOpenMax : 0.0f);   /* (387) */
+        g_ofFlatF = -1; g_ofFlatMap = -1; g_ofFlatZ = 0.0f; g_ofSplayMax = 0.0f; g_ofOpenMin = 999.0f; g_ofOpenMax = -999.0f;   /* (387) */
+        g_ofb.plantMax = 0.0f; g_ofb.tiltMax = 0.0f; g_ofb.trunkMax = 0.0f; g_ofb.trunkTurn = 0.0f; g_ofb.comOff = 0.0f; g_ofb.comLeft = 0.0f; if (m == 1 || m == 2) { g_ofb.pw = 0.0f; g_ofb.pwT = 0.0; g_ofb.balInit = 0; g_ofb.balT = 0.0; g_ofb.bwF = 0.0f; g_ofb.bwT = 0.0; }   /* (386) the balance's too */   /* (ofb 384, verify) a new one-foot from none: the last one's plant (1 on the ground) not carried into this one's flip */
+        g_ofb.last = (int)m; g_ofb.ratioMax = 0.0f; g_ofb.poses = 0; g_ofb.liftMax = 0.0f; g_ofb.plumbMax = 0.0f; g_ofb.shinMax = 0.0f;
+    }
+    float w;
+    if (m == 1 || m == 2) w = Sm01((float)(now - g_ofb.t0) / 0.2f);
+    else { w = 1.0f - Sm01((float)(now - g_ofb.tOff) / 0.2f); if (!(w > 0.01f)) return false; }
+    const int k = g_ofb.k, s = 1 - k;
+    const uint8_t* mesh = (const uint8_t*)g_mesh;
+    if (k < 0 || k > 1 || g_pelvis < 0 || g_foot[k] < 0 || g_calf[k] < 0 || g_thigh[k] < 0 || g_foot[s] < 0 || g_calf[s] < 0 || g_thigh[s] < 0 || !mesh || !PtrOk(mesh, SC_C2W + 0x30)) return false;
+    const Q4 mq = *(const Q4*)(mesh + SC_C2W); const V3 ms = *(const V3*)(mesh + SC_C2W + 0x20);
+    if (fabsf(ms.x) < 1e-3f || fabsf(ms.y) < 1e-3f || fabsf(ms.z) < 1e-3f) return false;
+    const V3 e0 = qinv(mq, v3(0.0f, 0.0f, 1.0f)), up = v3(e0.x / ms.x, e0.y / ms.y, e0.z / ms.z);
+    if (!finite3(up) || !(len(up) > 0.1f)) return false;
+    const V3 u = norm(up);
+    const V3 Fk = g_Ct[g_foot[k]].p, Fs0 = g_Ct[g_foot[s]].p; const Q4 Qk = g_Ct[g_foot[k]].q, Qs = g_Ct[g_foot[s]].q;
+    if (g_ofHips) OfbSeat(w);   /* (384) the game's echo of the hips' move taken out, the bones their own length -- after the feet are read (both are solved to their own targets below) */
+    const bool deck = g_boardOk && DeckXf(g_mesh);
+    const float pa = OfbPlantW(deck, u);   /* (ofb 384) the standing foot on the deck: how much of it now */ V3 Fs = Fs0;   /* (371) THE STANDING FOOT IN THE BOARD'S MIDDLE: on one foot over a truck the board would tip -- its place along the deck moved to the deck's centre, across and height its own */
+    if (deck) { const V3 dl = qinv(g_dq, sub(Fs0, g_dp)); if (finite3(dl)) { const V3 c = add(g_dp, qrot(g_dq, v3(CentreX(), dl.y, OfbPlantZ(s, dl.z, air, wl, pa)))); if (finite3(c)) Fs = lerp(Fs0, c, w); } }   /* (ofb 384) its height: on the deck (OfbPlantZ) */
+    /* (386) THE BALANCE: how much of it (with the standing foot's plant: none while the board still turns, in the air once it is caught; on the ground
+       from the touchdown at the latest), the board's length level, and the trunk turned upright along it about spine_01 (its root stays: the belly) */
+    const bool bal = g_ofBal != 0 && g_ofHips != 0 && deck;
+    float bw = 0.0f;
+    if (bal) {   /* its onset eased (4 a second: 0.25 s) -- the board caught in the air puts the hips 10-25 cm elsewhere -- its end with w (nothing left when the pose is handed back) */
+        const float tgB = g_ofbPlant ? fmaxf(pa, air ? 0.0f : wl) : (air ? 0.0f : wl);
+        const float dtW = (g_ofb.bwT > 0.0 && now > g_ofb.bwT) ? (float)fmin(now - g_ofb.bwT, 0.1) : (1.0f / 60.0f); g_ofb.bwT = now;
+        g_ofb.bwF = (tgB < g_ofb.bwF || !std::isfinite(g_ofb.bwF)) ? tgB : fminf(tgB, g_ofb.bwF + 4.0f * dtW);
+        bw = w * clampf(g_ofb.bwF, 0.0f, 1.0f);
+    }
+    V3 bax = deck ? qrot(g_dq, v3(1.0f, 0.0f, 0.0f)) : v3(0.0f, 0.0f, 0.0f); bax = sub(bax, mul(u, dot(bax, u))); const bool baxOk = finite3(bax) && len(bax) > 0.2f; if (baxOk) bax = norm(bax);
+    if (bw > 0.001f && baxOk && g_spine1 >= 0 && g_spine1 != g_pelvis && g_neck >= 0) {
+        const V3 tv = sub(g_Ct[g_neck].p, g_Ct[g_spine1].p); const float tu = dot(tv, u), ta = dot(tv, bax);
+        if (tu > 5.0f * len(up)) {
+            const float tilt = atan2f(ta, tu) * 57.2957795f, turn = clampf(-0.8f * tilt, -18.0f, 18.0f) * clampf(bw, 0.0f, 1.0f);
+            const V3 lat = cross(u, bax);
+            if (std::isfinite(turn) && fabsf(turn) > 0.05f && len(lat) > 0.5f) { TurnComp(g_spine1, qaxis(norm(lat), turn)); if (fabsf(turn) > g_ofb.trunkTurn) g_ofb.trunkTurn = fabsf(turn); }
+            if (bw > 0.9f && std::isfinite(tilt) && fabsf(tilt) > g_ofb.trunkMax) g_ofb.trunkMax = fabsf(tilt);
+        }
+    }
+    /* the free foot: 9 cm up, 12 cm out along the board away from the standing one */
+    V3 out = sub(Fk, Fs); if (deck) { const V3 ax = qrot(g_dq, v3(1.0f, 0.0f, 0.0f)); out = mul(ax, dot(out, ax) >= 0.0f ? 1.0f : -1.0f); }
+    out = sub(out, mul(u, dot(out, u))); out = (len(out) > 0.1f) ? norm(out) : v3(0.0f, 0.0f, 0.0f);
+    const float sc = len(up);
+    const V3 Tk = add(Fk, add(mul(u, (14.0f - 5.0f * wl) * w * sc), mul(out, 12.0f * w * sc)));   /* (371) in the air 14 up: suspended from the catch */
+    /* the standing leg straight: the body raised until it reaches 98.5 % of its length */
+    const V3 H0 = g_Ct[g_thigh[s]].p;
+    const float Lmax = g_ofHips ? len(sub(g_Ct[g_calf[s]].p, H0)) + len(sub(g_Ct[g_foot[s]].p, g_Ct[g_calf[s]].p)) : len(sub(g_Ct[g_calf[s]].p, H0)) + len(sub(Fs0, g_Ct[g_calf[s]].p));   /* (384) the bones as OfbSeat left them (their own) */   /* (372) the shin's own length (the foot as drawn, not the centred one) */
+    float balA = 0.0f, balX = 0.0f, balG = 0.0f; bool balOn = false;   /* (386) the hips' place along the board for the balance */
+    if (bw > 0.001f && baxOk) {
+        V3 sole = Fs; if (g_toe[s] >= 0) { const V3 tf = sub(g_Ct[g_toe[s]].p, g_Ct[g_foot[s]].p); if (finite3(tf) && len(tf) < 30.0f * sc) sole = add(Fs, mul(sub(tf, mul(bax, dot(tf, bax))), 0.5f)); }   /* the sole's middle; (386r) across only: the foot is squared across the deck after this (the game's yaw put up to 5 cm along) */
+        const V3 cm = OfbCom(H0, Fs, g_Ct[g_thigh[k]].p, Tk, &balG);
+        if (finite3(cm) && balG > 0.5f) {
+            balX = clampf(dot(sub(sole, cm), bax) / balG, -30.0f * sc, 30.0f * sc);   /* the pelvis' move along the board that brings the mass over the sole */
+            const double tB = now; const float dtB = (g_ofb.balT > 0.0 && tB > g_ofb.balT) ? (float)fmin(tB - g_ofb.balT, 0.1) : (1.0f / 60.0f); g_ofb.balT = tB;
+            if (!g_ofb.balInit || !std::isfinite(g_ofb.balF)) { g_ofb.balF = balX; g_ofb.balInit = 1; } else g_ofb.balF += (balX - g_ofb.balF) * clampf(dtB / 0.12f, 0.0f, 1.0f);   /* smoothed 0.12 s: the arms' waving does not shake the hips */
+            balA = g_ofb.balF; balOn = std::isfinite(balA);
+        }
+    }
+    V3 sh = v3(0.0f, 0.0f, 0.0f);   /* (372) THE STANDING LEG PLUMB: the hips moved over the standing foot (the user on 371: "perfectly vertical", it stood 10-15 deg off) -- not in the air */
+    {   /* (379) in the air too: the foot is centred there (Codex), so the hips go with it from the catch -- no jump at the touchdown. (374) along the board the PELVIS over the foot, across it the standing hip 60 % of the way (372: the hip joint, 15 cm at most -- "the hips still follow the old stance") */
+        const V3 dh = sub(H0, Fs), dp = sub(g_Ct[g_pelvis].p, Fs); V3 ax = deck ? qrot(g_dq, v3(1.0f, 0.0f, 0.0f)) : v3(0.0f, 0.0f, 0.0f); ax = sub(ax, mul(u, dot(ax, u)));
+        if (len(ax) > 0.2f) { ax = norm(ax); const V3 lat = norm(cross(u, ax)); const float fol = dot(sub(Fs, Fs0), ax), ovr = -dot(dp, ax) * w, alo = balOn ? ((g_ofHips >= 2) ? ovr : fol) + (balA - ((g_ofHips >= 2) ? ovr : fol)) * clampf(bw, 0.0f, 1.0f) : (g_ofHips >= 2) ? ovr : fol;   /* (386r) eased in from the place OneFootHips had */   /* (386) the balance's place, eased in from the foot's (376) */   /* (384) OneFootHips 2: the PELVIS over the standing foot along the board, an absolute place (the game's own pose sat it 10-15 cm off the back foot, 25-40 off the front one; 383's "with the foot's move" left it 2-16 cm off the back foot and 24-35 BEHIND the front one), eased in with the balance's weight from the catch, in the air as on the ground: nothing new at the touchdown (379) */
+            sh = add(mul(ax, alo), mul(lat, -0.6f * dot(dh, lat) * w * (air ? 0.0f : wl)));   /* (379) across: on the ground, eased in from the touchdown. (376) along: the hips go with the foot moved to the middle (374: the pelvis over it, 30 cm) */ } else sh = v3(0.0f, 0.0f, 0.0f);
+        const float shl = len(sh); const float cap = ((g_ofHips >= 2) ? 30.0f : 20.0f) * sc; if (shl > cap) sh = mul(sh, cap / shl);   /* (384) 30 cm with the pelvis placed (the back foot is 28 from the middle) */ if (!finite3(sh)) sh = v3(0.0f, 0.0f, 0.0f);
+    }
+    if (balOn && bw > 0.9f) { const float fol0 = dot(sub(Fs, Fs0), bax), off0 = fabsf(balG * (balX - fol0)), lft = fabsf(balG * (balX - dot(sh, bax))); if (std::isfinite(off0) && off0 > g_ofb.comOff) g_ofb.comOff = off0; if (std::isfinite(lft) && lft > g_ofb.comLeft) g_ofb.comLeft = lft; }   /* (386) for the log: 385's offset, what is left */
+    const V3 H = add(H0, sh); if (len(sh) > g_ofb.plumbMax) g_ofb.plumbMax = len(sh);
+    const V3 d = sub(H, Fs); const float v = dot(d, u), h2 = fmaxf(dot(d, d) - v * v, 0.0f), want = 0.985f * Lmax;
+    float rise = (want * want > h2) ? sqrtf(want * want - h2) - v : 0.0f;
+    rise = clampf(rise, 0.0f, (bal ? 26.0f : 18.0f) * sc) * (air ? 0.0f : w * wl);   /* (386) 26 with the balance: the hips over the foot need more of it for the same straight leg (385 sat at 18, the leg at 93-97 %) */   /* (371) not in the air */
+    if (rise > 0.1f || len(sh) > 0.1f) SetComp(g_pelvis, g_Ct[g_pelvis].q, add(add(g_Ct[g_pelvis].p, sh), mul(u, rise)));
+    if (rise > g_ofb.liftMax) g_ofb.liftMax = rise;
+    Q4 QsSq = deck ? OfbPlantQ(s, Qs, w * pa * ((air || g_ofSole) ? 1.0f : clampf(1.0f - wl, 0.0f, 1.0f))) : Qs;   /* (387) OneFootSole: flat on the ground too (386: the game's own, 7-20 deg off) */   /* (380, Codex) squared first, then the leg solved to it; (ofb 384) its sole flat on the deck first */
+    const bool tilted = QsSq.x != Qs.x || QsSq.y != Qs.y || QsSq.z != Qs.z || QsSq.w != Qs.w;   /* (ofb 384) */
+    /* its foot square across the deck */
+    if (deck && g_toe[s] >= 0) {
+        const V3 n = norm(qrot(g_dq, v3(0.0f, 0.0f, 1.0f))), lat = qrot(g_dq, v3(0.0f, 1.0f, 0.0f));
+        V3 tv = sub(g_Ct[g_toe[s]].p, g_Ct[g_foot[s]].p); if (tilted) tv = qrot(QsSq, qinv(qnorm(Qs), tv)); tv = sub(tv, mul(n, dot(tv, n)));   /* (ofb 384) the toe as the flattened foot has it */
+        V3 tg = (dot(tv, lat) >= 0.0f) ? lat : mul(lat, -1.0f); tg = sub(tg, mul(n, dot(tg, n)));
+        if (len(tv) > 1.0f && len(tg) > 0.2f) { tv = norm(tv); tg = norm(tg); const float yw = atan2f(dot(cross(tv, tg), n), dot(tv, tg)) * 57.2957795f; if (std::isfinite(yw)) QsSq = qnorm(qmul(qaxis(n, yw * w), QsSq)); }   /* (ofb 384) on the flattened foot */
+    }
+    Leg(s, Fs, QsSq);
+    V3 Tf = add(Tk, sh);   /* (377) the free foot with the hips */
+    if (deck && len(out) > 0.5f) {   /* (387) THE A-FRAME: the lifted leg turned out at the hip along the board, away from the standing leg, OneFootSplay, less what would open the legs past 3 x OneFootSplay */
+        const V3 Hk = g_Ct[g_thigh[k]].p, Hs = g_Ct[g_thigh[s]].p; const V3 vk = sub(Tf, Hk), vs = sub(Fs, Hs); const float dk = -dot(vk, u), ds = -dot(vs, u);
+        if (dk > 10.0f * sc && ds > 10.0f * sc) {
+            const float opn = (atan2f(dot(vk, out), dk) - atan2f(dot(vs, out), ds)) * 57.2957795f;   /* + = the free foot out past the standing leg's line */
+            if (!air && wl > 0.9f && w > 0.9f && std::isfinite(opn)) { if (opn < g_ofOpenMin) g_ofOpenMin = opn; if (opn > g_ofOpenMax) g_ofOpenMax = opn; }
+            const float spl = clampf(g_ofSplay, 0.0f, 20.0f), turn = clampf(3.0f * spl - opn, 0.0f, spl) * clampf(w, 0.0f, 1.0f) * (air ? clampf(pa, 0.0f, 1.0f) : 1.0f);   /* (387r) in the air only once the board is under the foot */
+            const V3 ax = cross(mul(u, -1.0f), out);   /* turning +: down toward out */
+            if (std::isfinite(turn) && turn > 0.05f && len(ax) > 0.5f) { const V3 v2 = qrot(qaxis(norm(ax), turn), vk); if (finite3(v2)) { Tf = add(Hk, v2); if (turn > g_ofSplayMax) g_ofSplayMax = turn; } }
+        }
+    }
+    Leg(k, Tf, Qk);   /* (377) the free foot with the hips; (387) splayed */
+    {   /* (372) THE SHIN FIX on both legs (the user on 371: "his shins are tore up when he lands in one foot", the X ollie's too): each shin bone turned the least way onto its knee-to-ankle line, the foot put back as drawn */
+        const float st = clampf(3.0f * w, 0.0f, 1.0f);
+        for (int j = 0; j < 2; j++) {
+            const int ca = g_calf[j], ft = g_foot[j];
+            if (ca < 0 || ft < 0 || g_shinAxN[j] < 30) continue;
+            const V3 shv = sub(g_Ct[ft].p, g_Ct[ca].p); const float sl = len(shv);
+            const V3 ax = qrot(qnorm(g_Ct[ca].q), g_shinAx[j]);
+            if (!(sl > 5.0f) || !finite3(ax) || !(len(ax) > 0.5f)) continue;
+            const V3 a0 = norm(ax), a1 = mul(shv, 1.0f / sl);
+            const float off = acosf(clampf(dot(a0, a1), -1.0f, 1.0f)) * 57.2957795f;
+            const V3 nn = cross(a0, a1); const float nl = len(nn);
+            if (!std::isfinite(off) || off <= HOP_SHIN_AIM_MIN || off >= SHIN_AIM_MAX2 + SHIN_AIM_FADE2 || !(nl > 1.0e-4f)) continue;
+            const float turn = off * st * clampf((SHIN_AIM_MAX2 + SHIN_AIM_FADE2 - off) / SHIN_AIM_FADE2, 0.0f, 1.0f);
+            if (!std::isfinite(turn) || !(turn > 0.01f)) continue;
+            const Q4 fq0 = g_Ct[ft].q; const V3 fp0 = g_Ct[ft].p;
+            TurnComp(ca, qaxis(mul(nn, 1.0f / nl), turn));
+            ShinRoll(j, ca, ft, turn);
+            SetComp(ft, fq0, fp0);
+            if (turn > g_ofb.shinMax) g_ofb.shinMax = turn;
+        }
+    }
+    g_ofb.poses++;
+    return true;
+}
+bool SafeOfbPose() { __try { return OfbPose(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_ofbMode = 0; g_ofb.auto_ = 0; return false; } }
+bool SafeOfbKey(const void* key, int ev) { __try { return OfbKey(key, ev); } __except (EXCEPTION_EXECUTE_HANDLER) { return false; } }
+volatile LONG g_ofbClickDead = 0;   /* (387r) */
+bool SafeOfbClick(const void* key, int ev) { __try { return OfbClick(key, ev); } __except (EXCEPTION_EXECUTE_HANDLER) { InterlockedExchange(&g_ofbIn, g_ofbIn & 1); g_ofbClickDead = 1; Log("ofb 387: a fault in the stick clicks' one-foot catch -- the clicks are the game's again for this run"); return false; } }   /* (387) */
+void OfbCatchInput() {   /* (ofb 369) from SlInput (the pose pass, after the engine's stick values): A / X catches too -- 368 only landed on one foot when the board came round by itself */
+    if (FeatSigOff()) { g_ofb.catchN = 0; return; }   /* (392 steam audit) */
+    if (g_ofb.catchN <= 0 || !g_pc || !PtrOk(g_pc, ALT_PC_STICKS + 16)) return;
+    {   /* (ofb 384) ONLY WHILE THE BOARD STILL TURNS, NOT YET CAUGHT (bm+0x7e9: 0x08 a flip / 0x20 a scoop turning it, 0x04 CatchBoard's bit). 383 pushed in an
+           ollie too (08:37:16, 08:37:42) and on a 360 shove-it (08:38:28, still turning: caught on the push's first pose): the game read both sticks up as its LATE trick, Late_LF_OllieNorth
+           (st.log 08:37:42.706, 08:38:28.975), whose front foot kicks off 20 cm up and 24 forward (pose seg 61) -- "his front foot also kind of comes off".
+           Caught (0x04, nothing turning): nothing pushed (any more). Nothing turning (yet): waited for, 0.35 s from the press (a flip's turn may begin a few poses after the pop),
+           then given up -- an ollie's. Flags unread (no board): pushed as before. */
+        const uint8_t* bmC = BoardMC(); const int flC = (bmC && PtrOk(bmC, ALT_BM_FLAGS + 8)) ? (int)bmC[ALT_BM_FLAGS] : -1;
+        if (flC >= 0 && (flC & 0x04) && (!(flC & 0x28) || g_ofb.catchN < 4)) { if (g_ofb.catchN == 4) Log("ofb 384: the board already caught (its flags %02x) -- no catch pushed, so no late trick of the game's", flC); else Log("ofb 384: the catch took after %d pose(s) of the push (its flags %02x) -- the rest not pushed, so no late trick of the game's (383, 08:38:28: a 360 shove-it caught on the push's first pose, still turning, then Late_LF_OllieNorth after the 4)", 4 - g_ofb.catchN, flC); g_ofb.catchN = 0; return; }   /* (ofb 384, verify) caught once our push began: stopped there too, the scoop's bit may outlive its catch */
+        if (flC >= 0 && !(flC & 0x28)) { if (NowS() - g_ofb.armT > 0.35) { Log("ofb 384: no flip or scoop turning the board 0.35 s after the press (its flags %02x: an ollie's) -- no catch pushed, so no late trick of the game's (383: a late Ollie North, the front foot off)", flC); g_ofb.catchN = 0; } return; }
+    }
+    float* s = (float*)((uint8_t*)g_pc + ALT_PC_STICKS);
+    s[0] = 0.0f; s[1] = 1.0f; s[2] = 0.0f; s[3] = 1.0f;
+    if (g_ofb.catchN == 4) Log("ofb 369: the catch handed to the game -- both sticks pushed up for 4 poses");
+    g_ofb.catchN--;
+}
+void NcsNua(uint8_t* a) {   /* POD + AltDefName (the caller's __try) */
+    NcsT& C = g_ncs;
+    uint8_t* sk = (uint8_t*)g_skater; const uint8_t* pc = (const uint8_t*)g_pc;
+    if (!sk || !PtrOk(sk, 0x5a0)) { C.active = 0; return; }
+    const uint8_t* mc = *(uint8_t* const*)(sk + SK_MC);
+    const int pend = a[0x310] ? 1 : 0;
+    const ULONGLONG now = GetTickCount64();
+    if (pc && PtrOk(pc, ALT_PC_STICKS + 16)) { const float* s = (const float*)(pc + ALT_PC_STICKS); for (int j = 0; j < 2; j++) { C.sh = (C.sh + 1) % 48; C.sx[C.sh] = s[2 * j]; C.sy[C.sh] = s[2 * j + 1]; C.sk[C.sh] = j; C.st[C.sh] = now; } }   /* (ncshove 347) */
+    if (!pend && !C.nc && !C.fOn && mc && PtrOk(mc, 0x170) && mc[0x168] == 6 && mc[0x169] == 1) {   /* (ncshove 359) riding: where the two sockets sit along the deck */
+        bool okR = true; float rx[2];
+        for (int k = 0; k < 2; k++) { const float* s = (const float*)(a + (k ? 0x41c : 0x404)); const V3 d = qinv(g_dq, sub(v3(s[0], s[1], s[2]), g_dp)); if (!finite3(d)) okR = false; rx[k] = d.x; }
+        if (okR) { C.rideX[0] = rx[0]; C.rideX[1] = rx[1]; C.rideOk = 1; }
+        const uint8_t* msh = (const uint8_t*)g_mesh;   /* (ncshove 360) which end of the deck leads: its x axis in the world against the speed */
+        if (msh && PtrOk(msh, SC_C2W + 0x30)) { const V3 dx = qrot(*(const Q4*)(msh + SC_C2W), qrot(g_dq, v3(1.0f, 0.0f, 0.0f))); const V3 vl = *(const V3*)(mc + 0xc4); const float ld = dx.x * vl.x + dx.y * vl.y; if (std::isfinite(ld) && fabsf(ld) > 20.0f) C.rideLead = (ld > 0.0f) ? 1.0f : -1.0f; }
+    }
+    if (pend && !C.was) {
+        C.active = 0;
+        const uintptr_t def = *(const uintptr_t*)(sk + ALT_SK_TRICK);
+        float lx = 0, ly = 0, rx = 0, ry = 0;
+        if (pc && PtrOk(pc, ALT_PC_STICKS + 16)) { const float* s = (const float*)(pc + ALT_PC_STICKS); lx = s[0]; ly = s[1]; rx = s[2]; ry = s[3]; }
+        const bool lDown = ly < -0.6f && fabsf(lx) < 0.55f, rDown = ry < -0.6f && fabsf(rx) < 0.55f;
+        const float lm = sqrtf(lx * lx + ly * ly), rm = sqrtf(rx * rx + ry * ry);
+        const bool down = (lDown && rm > 0.5f) || (rDown && lm > 0.5f);
+        char nm[100]; AltDefName(def, nm, sizeof(nm));
+        const char* rn = (strncmp(nm, "TRICK_", 6) == 0) ? nm + 6 : nm;   /* (ncshove 346) AltDefName gives "RGS_BS_PopShuvIt": 345 wanted "TRICK_RGS_" and never fired */
+        const bool shove = strncmp(rn, "RGS_", 4) == 0 && strstr(rn, "Late_") == nullptr && (strstr(rn, "_ShoveIt") != nullptr || strstr(rn, "_PopShuvIt") != nullptr || strstr(rn, "_ShuvIt") != nullptr);   /* (ncshove 346) the pop shove-its too: the pressure crouch + a scoop round to up */
+        if ((down || lDown || rDown || shove) && C.told < 60) { C.told++; Log("ncshove 345: a trick starts: %s, sticks L %+.2f %+.2f R %+.2f %+.2f (%s)%s", nm, lx, ly, rx, ry, down ? "one held down, the other off centre" : (lDown || rDown) ? "one held down, the other in the middle" : "no stick held down", C.ncDef ? "" : " -- off (no no comply set handed over)"); }
+        if ((strcmp(rn, "RGS_Pressure_KickFlip") == 0 || strcmp(rn, "SWS_Pressure_KickFlip") == 0) && C.ncDef) { C.sws = (rn[0] == 'S') ? 1 : 0; if (C.sws && g_sockOn && g_sockBad == 2) { g_sockBad = 0; Log("ncshove 362: the switch plant's socket turn is back on for this switch no comply (a trip had switched it off for the run)"); } C.gdUntil = 0; C.bkL = -1; if (C.rideLead == 0.0f) C.rideLead = 1.0f; C.sfK = (C.rideX[0] * C.rideLead <= C.rideX[1] * C.rideLead) ? 0 : 1;   /* (ncshove 360) the one further back along the travel */ C.sfX = C.rideX[C.sfK]; C.sfOk = C.rideOk; C.hpOk = 0; C.clampN = 0; C.deckHPrev = -1.0f; if (C.trN < 40) { C.trN++; C.trF = 0; C.trT0 = now; } else C.trF = 999; C.nc = 1;   /* (ncshove 356) switch too */ C.ncT0 = now; C.ncAirT = 0; C.ncDone = 0; C.ncTrick = def; C.best = 0.0f; C.liftN = 0; }   /* (ncshove 348) its air is watched for a scoop */
+        if (strcmp(rn, "RGS_Pressure_KickFlip") == 0 && C.ncDef && (lDown || rDown)) {   /* (ncshove 347) the no comply, scooped: the board gets a shove-it's 180 */
+            const int other = lDown ? 1 : 0;
+            const float sw = NcsSweep(C, other, now);
+            if (fabsf(sw) >= NCS_SWEEP_MIN) { C.spin = (sw > 0.0f) ? 1 : -1; C.sState = 1; C.sT = now; C.sMax = 0.0f; C.sN++; }
+            if (C.told < 120) { C.told++; Log("ncshove 347: the no comply with the %s stick swept %+.0f deg in 0.35 s -> %s", other ? "right" : "left", sw, (fabsf(sw) >= NCS_SWEEP_MIN) ? (sw > 0.0f ? "a NO COMPLY SHOVE-IT, the board +180 (anticlockwise sweep)" : "a NO COMPLY SHOVE-IT, the board -180 (clockwise sweep)") : "a plain no comply (a flick, not a scoop)"); }
+        }
+        if (shove && down && C.ncDef && PtrOk((const void*)C.ncDef, 0x140) && def && PtrOk((const void*)def, 0x140)) {
+            const uint8_t gi = a[SAI_SETINDEX] & 1;
+            const void* gt = *(void* const*)(a + (gi ? 0x530 : 0x4f0));
+            const int off = (gt && gt == *(void* const*)(def + 0x100)) ? 0x100 : (gt && gt == *(void* const*)(def + 0x120)) ? 0x120 : 0;
+            if (off && *(void* const*)(C.ncDef + off)) { C.active = 1; C.t0 = now; C.setOff = off; C.def = def; C.air = 0; C.n++; Log("ncshove 345: #%ld TAKEN -- %s plays the no comply's animation (its set at +0x%x), the board the game's shove-it", C.n, nm, off); }
+            else Log("ncshove 345: %s with a stick down, but the game's trick slot holds neither of its animation sets (%p) -- left as the game's", nm, gt);
+        }
+    }
+    C.was = pend;
+    if (C.nc) {   /* (ncshove 348) the scoop in a no comply's air */
+        const int md = (mc && PtrOk(mc, 0x170)) ? ((mc[0x168] == 6 && mc[0x169] == 2) ? 2 : 1) : 0;   /* (ncshove 349) the air: custom mode 6, sub-mode 2 */
+        const uintptr_t cur = *(const uintptr_t*)(sk + ALT_SK_TRICK);
+        if (md == 2 && !C.ncAirT) C.ncAirT = now;
+        if (cur != C.ncTrick) { char tn[100]; AltDefName(cur, tn, sizeof(tn)); if (C.told < 120) { C.told++; Log("ncshove 348: the game took %s in the no comply's air (its own late trick?) -- the scoop watch ends", tn); } C.nc = 0; }
+        else if ((C.ncAirT && md != 2) || now - C.ncT0 > 2500 || (C.ncAirT && now - C.ncAirT > NCS_AIR_MAX)) C.nc = 0;
+        else if (C.ncAirT && !C.ncDone && !C.sState && now - C.ncAirT > 30) {
+            const float s0 = NcsSweep(C, 0, now, NCS_AIR_WIN + 150, C.ncT0), s1 = NcsSweep(C, 1, now, NCS_AIR_WIN + 150, C.ncT0);   /* (ncshove 369) from the trick's start: a sweep begun with the pop counts (switch: only "pop then rotate" did) */
+            const float sw = (fabsf(s0) >= fabsf(s1)) ? s0 : s1;
+            if (fabsf(sw) > C.best) C.best = fabsf(sw);   /* (ncshove 354) */
+            if (fabsf(sw) >= NCS_AIR_SWEEP) {
+                C.ncDone = 1; C.spin = (sw > 0.0f) ? -1 : 1;   /* (ncshove 351) the other way: 350's went against the stick */ C.sState = 1; C.sT = now; C.sMax = 0.0f; C.sN++; C.fOn = 1; C.fEnd = 0; C.fT0 = now; C.landSeen = 0; C.freeUntil = 0; C.bkL = -1; C.hqOk = 0; C.gdUntil = 0; C.gdN[0] = C.gdN[1] = 0; C.gdTold = 0;   /* (ncshove 362) */   /* (ncshove 354) the feet let go at the scoop */
+                Log("ncshove 348: #%ld a scoop in the no comply's air, %.2f s up: the %s stick swept %+.0f deg -> the board %+.0f", C.sN, (now - C.ncAirT) / 1000.0, (fabsf(s0) >= fabsf(s1)) ? "left" : "right", sw, 180.0f * (float)C.spin);
+            }
+        }
+    }
+    if (C.sState) {   /* (ncshove 347) the shove's 180 on the game's own scoop channel, from the first frame in the air */
+        uint8_t* bm = BoardMC();
+        const int md = (mc && PtrOk(mc, 0x170)) ? ((mc[0x168] == 6 && mc[0x169] == 2) ? 2 : 1) : 0;   /* (ncshove 349) the air: custom mode 6, sub-mode 2 */
+        if (!bm || !PtrOk(bm, 0x8a0) || now - C.sT > 2000) { Log("ncshove 347: #%ld shove given up (%s)", C.sN, bm ? "2 s and still not in the air" : "no board"); C.sState = 0; }
+        else if (C.sState == 1 && md == 2 && (!C.ncAirT || now - C.ncAirT >= 120)) {   /* (ncshove 351) the tail's slap first */
+            *(float*)(bm + ALT_BM_SCOOPTGT) = 180.0f * (float)C.spin; *(float*)(bm + ALT_BM_SCOOPDONE) = 0.0f; *(float*)(bm + ALT_BM_SCOOPRATE) = NCS_SPIN_RATE * (float)C.spin;
+            _InterlockedOr8((char*)(bm + ALT_BM_FLAGS), (char)0x20);
+            C.sState = 2; C.sT = now; Log("ncshove 347: #%ld the shove starts (%+.0f deg at %.0f deg/s, the deck's yaw offset %.1f)", C.sN, 180.0f * (float)C.spin, NCS_SPIN_RATE, ReadF(bm, ALT_BM_YAW));
+        } else if (C.sState == 2) {
+            const float d = ReadF(bm, ALT_BM_SCOOPDONE);
+            if (std::isfinite(d) && fabsf(d) > C.sMax) C.sMax = fabsf(d);
+            const bool on = (bm[ALT_BM_FLAGS] & 0x20) != 0;
+            if (!on || md != 2 || C.sMax >= 179.5f) { Log("ncshove 347: #%ld the shove over after %.2f s: turned %.0f deg (%s), the deck's yaw offset %.1f", C.sN, (now - C.sT) / 1000.0, C.sMax, md != 2 ? "down" : on ? "whole" : "the game ended it", ReadF(bm, ALT_BM_YAW)); C.sState = 0; }   /* (ncshove 352) the feet stay off until the board is down */
+            else *(float*)(bm + ALT_BM_SCOOPRATE) = NCS_SPIN_RATE * (float)C.spin;   /* held: the game's scoop has a friction on its rate */
+        }
+    }
+    g_ncsFree = (C.fOn || now < C.freeUntil || (C.gdUntil && now < C.gdUntil)) ? 1 : 0;   /* (ncshove 362) the whole return too */   /* (ncshove 360) to 200 ms past the touchdown */   /* (ncshove 357) the pinned plant stands no foot on the spinning deck */
+    if (C.fOn) {   /* (ncshove 351) both feet off the deck from the spin's start until it is down (back over 150 ms); the pitch turned with the spin */
+        const int md2 = (mc && PtrOk(mc, 0x170)) ? ((mc[0x168] == 6 && mc[0x169] == 2) ? 2 : 1) : 0;
+        if (!C.fEnd && C.sState == 0 && md2 == 2) {   /* (ncshove 362) switch too: its sockets are right while its turn stays on (360 left it out for the fallback's) */   /* (ncshove 359; 360: regular only -- switch sockets are the other stance's until the touchdown) the deck coming down: the feet come back before the touchdown */
+            const float dh = NcsDeckH(sk);
+            if (dh >= 0.0f && dh < 25.0f && C.deckHPrev >= 0.0f && dh < C.deckHPrev) { C.fEnd = now; C.gdUntil = now + 1500; Log("ncshove 359: #%ld the deck %.0f cm over the ground and falling: the feet come back (80 ms) -- the back foot held on %d poses", C.sN, dh, C.hpN); }
+            C.deckHPrev = dh;
+        }
+        if (md2 != 2 && !C.landSeen) { C.landSeen = 1; C.freeUntil = now + 300; C.gdUntil = now + 300; }   /* (ncshove 362) 300 ms past the touchdown */   /* (ncshove 360) */
+        if (md2 != 2 && !C.fEnd) { C.fEnd = now; if (!C.gdUntil) C.gdUntil = now + 300; Log("ncshove 351: #%ld down: the feet come back (the back foot held on %d poses) (359)", C.sN, C.hpN); }
+        float w = C.fEnd ? fminf(1.0f, (float)(now - C.fEnd) / 80.0f) : 1.0f - fminf(1.0f, (float)(now - C.fT0) / 40.0f);
+        if (C.fEnd && w >= 1.0f) { C.fOn = 0; Log("ncshove 351: #%ld the feet are back on the board", C.sN); }
+        else {
+            { const int pf = (C.bkL == 0 || C.bkL == 1) ? 1 - C.bkL : (g_plantFoot == 0 || g_plantFoot == 1) ? g_plantFoot : (C.sfOk ? 1 - C.sfK : -1);   /* (ncshove 362) the latched pair */   /* (ncshove 361) */ for (int s = 0; s < 2; s++) { if (pf >= 0 && s != pf) continue; float* p = (float*)(a + (s ? ALT_AI_RFOOT_A : ALT_AI_LFOOT_A)); if (std::isfinite(*p)) *p *= w; } }   /* (ncshove 359) the plant foot only: the back foot is held by its socket (NcsSockApply) */
+        }
+    }
+    if (C.gdUntil && !C.landSeen && mc && PtrOk(mc, 0x170) && !(mc[0x168] == 6 && mc[0x169] == 2)) { C.landSeen = 1; C.freeUntil = now + 300; C.gdUntil = now + 300; }   /* (ncshove 362) the touchdown, seen after the hold ended too */
+    if (C.gdUntil && now >= C.gdUntil && !C.gdTold) { C.gdTold = 1; C.gdUntil = 0; Log("ncshove 362: #%ld the feet's return over: their sockets turned back to their own ends of the spun deck on %d (L) / %d (R) poses; the back foot (%s) held on %d poses, its own turn %s", C.sN, C.gdN[0], C.gdN[1], C.bkL == 1 ? "R" : C.bkL == 0 ? "L" : "none", C.hpN, C.hqOk ? "held" : "not read"); }
+    {   /* (ncshove 353) the no comply's NOSE POP: the deck driven to the clip's own board angle through its air, the game's pitch curve held off */
+        const int md3 = (mc && PtrOk(mc, 0x170)) ? ((mc[0x168] == 6 && mc[0x169] == 2) ? 2 : 1) : 0;
+        uint8_t* bm = BoardMC();
+        if (C.nosePct > 0 && md3 == 2 && C.nc && C.ncT0 && bm && PtrOk(bm, 0x8a0)) {
+            const float tms = (float)(now - C.ncT0);
+            if (!C.pTold) { const float y = ReadF(bm, ALT_BM_YAW); const float s = (std::isfinite(y) ? cosf(y * 0.01745329f) : 1.0f) * ((bm[ALT_BM_FLAGS] & 0x80) ? -1.0f : 1.0f); C.pS = ((s >= 0.0f) ? 1.0f : -1.0f) * (C.sws ? -1.0f : 1.0f); C.pN = 0; }   /* (ncshove 356) switch: the deck rides tail first, the pop the other way */
+            if (tms <= 650.0f) {
+                const float p = NcsNoseAt(tms) * (float)C.nosePct / 100.0f * C.pS;
+                if (!C.pTold && C.told < 120) { C.told++; Log("ncshove 353: the no comply's nose pop from %.0f ms%s (the game's pitch target %+.1f, the yaw offset %.1f, bit 0x80 %s, sign %+.0f, %d %%)", tms, C.sws ? ", SWITCH" : "", ReadF(bm, WR_BM_PITCH), ReadF(bm, ALT_BM_YAW), (bm[ALT_BM_FLAGS] & 0x80) ? "set" : "clear", C.pS, C.nosePct); }
+                *(float*)(bm + WR_BM_PITCH) = p; bm[ALT_BM_CURVE] = 0; C.pN++; C.pTold = 1;
+                if (C.backLift > 0.0f && !C.fOn) {   /* (ncshove 354; 359: not while the shove holds the back foot) the back foot drawn up off the deck with the pop (regular: the left foot's socket, goofy: the right's) */
+                    float* sz = (float*)(a + (((a[ALT_AI_GOOFY] != 0) != (C.sws != 0)) ? 0x41c : 0x404) + 8);   /* (ncshove 356) switch: the other foot is behind */
+                    const float lw = fminf(1.0f, NcsNoseAt(tms) / 64.0f);
+                    if (std::isfinite(*sz)) { if (!C.liftN && C.told < 120) { C.told++; Log("ncshove 354: the back foot's socket Z %.1f, lifted %.1f cm x %.2f", *sz, C.backLift, lw); } *sz += C.backLift * lw; C.liftN++; }
+                }
+            } else if (C.pTold == 1) { *(float*)(bm + WR_BM_PITCH) = 0.0f; C.pTold = 2; }
+        } else if (md3 != 2 && C.pTold) { Log("ncshove 353: down -- (359: switch back socket kept from sliding forward on %d poses) the nose pop written on %d frames, the back foot lifted on %d; the best scoop in its air %.0f deg (%s at %.0f) (ncshove 354)", C.clampN, C.pN, C.liftN, C.best, C.best >= NCS_AIR_SWEEP ? "taken" : "short", NCS_AIR_SWEEP); C.pTold = 0; C.pN = 0; }
+    }
+    g_ncsSwNc = (C.sws && (C.nc || C.fOn)) ? 1 : 0; if (!C.sws || NowS() - g_sockSeenT > 0.1) NcsSockApply((float*)(a + 0x404), (float*)(a + 0x41c), 0, now);   /* (ncshove 359) regular here; switch after the socket turn (NcsSockFix) */
+    if ((C.nc || C.fOn) && C.trF < 70) {   /* (trace 358) a no comply's frame */
+        C.trF++;
+        const int mdT = (mc && PtrOk(mc, 0x170)) ? mc[0x169] : -1; uint8_t* bmT = BoardMC();
+        const float* sl = (const float*)(a + 0x404); const float* sr = (const float*)(a + 0x41c);
+        Log("ncs tr #%d +%3llu ms %s | air %d | plant %d free %d | IK L %.2f R %.2f | sockets L %+.0f %+.0f %+.0f R %+.0f %+.0f %+.0f | pitch tgt %+.1f yaw %.1f | shove %d %.0f deg feet %d end %d | nose w %.2f (trace 358)",
+            C.trN, now - C.trT0, C.sws ? "SWS" : "RGS", mdT, (int)g_plantMode, (int)g_ncsFree, ReadF(a, ALT_AI_LFOOT_A), ReadF(a, ALT_AI_RFOOT_A), sl[0], sl[1], sl[2], sr[0], sr[1], sr[2],
+            (bmT && PtrOk(bmT, 0x8a0)) ? ReadF(bmT, WR_BM_PITCH) : -999.0f, (bmT && PtrOk(bmT, 0x8a0)) ? ReadF(bmT, ALT_BM_YAW) : -999.0f, C.sState, C.sMax, C.fOn, C.fEnd ? 1 : 0, fminf(1.0f, NcsNoseAt((float)(now - C.ncT0)) / 64.0f));
+    }
+    if (!C.active) return;
+    const int mode = (mc && PtrOk(mc, 0x170)) ? ((mc[0x168] == 6 && mc[0x169] == 2) ? 2 : 1) : 0;   /* (ncshove 349) the air: custom mode 6, sub-mode 2 */
+    if (mode == 2) C.air = 1;
+    if ((C.air && mode != 2 && !pend) || now - C.t0 > 2500 || *(const uintptr_t*)(sk + ALT_SK_TRICK) != C.def) {
+        C.active = 0; Log("ncshove 345: #%ld over after %.2f s (%s)", C.n, (now - C.t0) / 1000.0, (now - C.t0 > 2500) ? "2.5 s" : (*(const uintptr_t*)(sk + ALT_SK_TRICK) != C.def) ? "another trick" : "riding again"); return;
+    }
+    const uint8_t oi = (a[SAI_SETINDEX] & 1) ^ 1;
+    memcpy(a + (oi ? 0x530 : 0x4f0), (const void*)(C.ncDef + C.setOff), 32);   /* Trick, TrickLoop, Catch, Land */
+    a[SAI_SETINDEX] = oi;
+}
+int NcsTurnBack(float* s, int k, float cx) {   /* (ncshove 362) the return's guard: after the 180 the game's foot anchors still ride the spun deck until the landing re-anchors them -- each foot's socket stands at the deck's OTHER end (361's regular #1, +594 ms: the back foot's at +25 -7, the front's at -14 -12: the feet crossing at the catch). A socket whose half turn about the deck's middle stands 10 cm or more nearer the drawn foot is given that half turn (its place and its own turn, as SockTurn turns them): 1 = turned */
+    if (k < 0 || k > 1 || g_foot[k] < 0) return 0;
+    const V3 f0 = g_Ct[g_foot[k]].p, p = v3(s[0], s[1], s[2]);
+    if (!finite3(f0) || !finite3(p) || !std::isfinite(s[3]) || !std::isfinite(s[4]) || !std::isfinite(s[5])) return 0;
+    const V3 d = qinv(g_dq, sub(p, g_dp)), f = qinv(g_dq, sub(f0, g_dp));
+    const V3 t = v3(2.0f * cx - d.x, -d.y, d.z);
+    const float e0 = sqrtf((d.x - f.x) * (d.x - f.x) + (d.y - f.y) * (d.y - f.y)), e1 = sqrtf((t.x - f.x) * (t.x - f.x) + (t.y - f.y) * (t.y - f.y));
+    if (!std::isfinite(e0) || !std::isfinite(e1) || !(e1 + 10.0f < e0)) return 0;
+    const V3 np = add(g_dp, qrot(g_dq, t)), up = norm(qrot(g_dq, v3(0.0f, 0.0f, 1.0f)));
+    const Q4 nq = qnorm(qmul(q4(up.x, up.y, up.z, 0.0f), RotQ(s + 3)));
+    if (!finite3(np) || !std::isfinite(nq.x) || !std::isfinite(nq.y) || !std::isfinite(nq.z) || !std::isfinite(nq.w)) return 0;
+    s[0] = np.x; s[1] = np.y; s[2] = np.z; QRot(nq, s + 3);
+    return 1;
+}
+/* (ncshove 371) THE BACK FOOT KEPT OVER THE DECK through the shove: 370's late scoops (0.22-0.34 s up) latched it where it stood, its ankle 23-29 cm
+   UNDER the rising deck (poses seg 20: "the back foot does not lift up ... drags along the ground"). Now its socket is never under NCS_BF_DECK cm
+   over the deck's middle (riding: 13-16) while the shove holds it -- raised straight up (the knee comes up with it, the thigh lifting from the hip) */
+constexpr float NCS_BF_DECK = 22.0f,   /* (375) 22 (24) */ NCS_BF_RIDE = 17.0f, NCS_BF_UP_MS = 120.0f, NCS_BF_FLOOR = 11.0f, NCS_BF_MID = 24.0f;   /* (383) after the pop: the foot held at the deck's middle + MID straight up, only a FLOOR over the deck (22 off a 60 deg deck was 44-49 straight up: the frontside shove-it's foot at hip height) */   /* (381) the lift from 120 ms after the scoop (220: it only showed in the last 120 ms) */   /* (373) THE BACK FOOT ON THE DECK THROUGH THE POP, THEN UP: its socket HELD at NCS_BF_RIDE over the deck's middle (riding: 13-16) -- it rides the popped tail down instead of hanging where the scoop left it (372: 31-38 over the deck at 116-216 ms, "it lifts up the second the trick starts") -- then eased up to NCS_BF_DECK from NCS_BF_UP_MS after the scoop over 0.12 s and held there until the feet come back (372's fade-out at 0.3 s took the late lift away) */
+struct NcsBfT { long n; float most, dzS, tgt, wf, wv; int k; ULONGLONG at; long post; float postMost, fz; } g_ncsBf = {}; long g_ncsBfTold = -1; float g_ncsBfMidSw = 28.0f; volatile LONG g_ncsPfMode = 1;   /* (ncshove 384) the SWITCH shove-it's back foot over the deck's middle after the pop (NoComplySwitchShoveFoot) | the plant foot kept on top of the spun deck: 0 off, 1 switch, 2 all shove-its (NoComplyShovePlantFloor) */
+bool NcsBackHoldPose() {   /* (ncshove 379) THE FINAL HOLD: the drawn back foot never under the hold's height over the deck, after every pose edit (Codex: PlantSoft lowered the whole body after the socket hold -- t378 #3 the socket 3 cm clear, the drawn ankle 8 cm UNDER) */
+    NcsBfT& B = g_ncsBf;
+    if (!g_ncs.fOn || !B.at || GetTickCount64() - B.at > 80 || !(B.wf > 0.01f) || B.wv >= 1.0f) { B.fz = 0.0f; return false; }
+    const int k = B.k; if (k < 0 || k > 1 || g_foot[k] < 0 || !g_boardOk || !g_mesh || !DeckXf(g_mesh)) return false;
+    const V3 F = g_Ct[g_foot[k]].p; const V3 dd = qinv(g_dq, sub(F, g_dp)); const float nz = qrot(g_dq, v3(0.0f, 0.0f, 1.0f)).z;
+    if (!finite3(dd) || !std::isfinite(nz) || !(nz > 0.3f)) return false;
+    const float need = B.tgt - 1.0f - dd.z;   /* (383r) at right angles, as the socket's floor */
+    const float want = (need > 0.0f) ? fminf(need / nz, 12.0f) * B.wf * (1.0f - B.wv) : 0.0f;
+    B.fz += clampf(want - B.fz, (B.wv > 0.0f) ? -1e9f : -3.0f, 3.0f);   /* (382) through the return: straight to its want (no snap when fOn drops) */   /* (381) eased: 3 cm a pose, 18 at the most (it switched on 5-9 cm a pose: the mid-spin steps) */
+    if (!(B.fz > 0.3f)) return false;
+    const float dz = B.fz;
+    Leg(k, add(F, v3(0.0f, 0.0f, dz)), g_Ct[g_foot[k]].q); B.post++; if (dz > B.postMost) B.postMost = dz;
+    return true;
+}
+struct NcsPfT { float fz; long n; float most; long told; } g_ncsPf = { 0.0f, 0, 0.0f, -1 };   /* (ncshove 384) */
+bool NcsPlantFloor() {   /* (ncshove 384) THE PLANT FOOT ON TOP OF THE SPUN DECK: t383's switch shove-its #4 #6 #8 -- the spun deck's half came in UNDER the free plant foot (its IK 0 from the scoop) and its ankle stood 3-7 cm over the deck for 3-11 poses at 365-532 ms (riding: 15; the sole in the board). Its ankle kept at least NCS_BF_FLOOR - 1 over the deck where it is over the deck's top (never pulled up through it from under), eased 3 cm a pose, let go with the feet's return */
+    NcsBfT& B = g_ncsBf; NcsPfT& P = g_ncsPf; const NcsT& C = g_ncs;
+    const LONG mode = g_ncsPfMode;
+    const bool live = mode > 0 && (mode >= 2 || C.sws) && C.fOn && B.at && GetTickCount64() - B.at <= 80 && B.wv < 1.0f && (B.k == 0 || B.k == 1);
+    if (!live) {
+        if (P.n && P.told != C.sN) { P.told = C.sN; static LONG nl = 0; if (InterlockedIncrement(&nl) <= 60) Log("ncshove 384: #%ld the plant foot kept on top of the spun deck on %ld poses, raised up to %.0f cm (its ankle at least %.0f over the deck)", C.sN, P.n, P.most, NCS_BF_FLOOR - 1.0f); }
+        P.fz = 0.0f; P.n = 0; P.most = 0.0f; return false;
+    }
+    const int k = 1 - B.k; if (g_foot[k] < 0 || !g_boardOk || !g_mesh || !DeckXf(g_mesh)) return false;
+    const V3 F = g_Ct[g_foot[k]].p; const V3 dd = qinv(g_dq, sub(F, g_dp)); const float nz = qrot(g_dq, v3(0.0f, 0.0f, 1.0f)).z;
+    if (!finite3(dd) || !std::isfinite(nz) || !(nz > 0.3f)) return false;
+    const float wy = clampf((14.0f - fabsf(dd.y)) / 4.0f, 0.0f, 1.0f), wx = clampf((HalfLen() + 2.0f - fabsf(dd.x - CentreX())) / 6.0f, 0.0f, 1.0f);   /* over the deck's top: full within 10 cm of its centre line and its half length, none from 14 / +8 */
+    const float need = NCS_BF_FLOOR - 1.0f - dd.z;
+    const float want = (need > 0.0f && dd.z > -4.0f) ? fminf(need / nz, 10.0f) * wx * wy * (1.0f - B.wv) : 0.0f;
+    P.fz += clampf(want - P.fz, (B.wv > 0.0f) ? -1e9f : -3.0f, 3.0f);
+    if (!(P.fz > 0.3f)) return false;
+    Leg(k, add(F, v3(0.0f, 0.0f, P.fz)), g_Ct[g_foot[k]].q); P.n++; if (P.fz > P.most) P.most = P.fz;
+    return true;
+}
+bool SafeNcsPlantFloor() { __try { return NcsPlantFloor(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_ncsPfMode = 0; g_ncsPf.fz = 0.0f; return false; } }
+bool SafeNcsBackHoldPose() { bool r = false; __try { r = NcsBackHoldPose(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_ncsBf.at = 0; r = false; } if (SafeNcsPlantFloor()) r = true; return r; }   /* (384) the plant foot's floor after the back foot's */
+void NcsSockApply(float* l0, float* l1, int fromTurn, ULONGLONG now) {   /* (ncshove 359) the back foot's socket: held through the shove, kept from sliding forward in switch. (362) the back foot LATCHED for the whole shove (361 re-picked it by the travel once the plant ended mid-air, and held nothing at all when no riding sample was taken: its regular #1), its socket's own TURN held too (361: the held foot stood still and spun with the deck, 170 deg in 0.1 s), both sockets turned back to their feet's own ends from the return to 300 ms past the touchdown */
+    NcsT& C = g_ncs;
+    if (!l0 || !l1) return;
+    if (fromTurn && !C.sws) return;
+    const bool guard = C.fEnd != 0 && C.gdUntil != 0 && now < C.gdUntil;
+    if (!(C.nc || C.fOn || guard)) return;
+    int bk = (C.bkL == 0 || C.bkL == 1) ? C.bkL : (g_plantFoot == 0 || g_plantFoot == 1) ? 1 - g_plantFoot : (C.sfOk ? C.sfK : -1);   /* (ncshove 361) the foot NOT planted */
+    if (bk < 0 && C.fOn && C.pTold && std::isfinite(C.pS)) {   /* (ncshove 362) no plant foot named and no riding sample: the front foot is the one at the popped end */
+        const V3 d0 = qinv(g_dq, sub(v3(l0[0], l0[1], l0[2]), g_dp)), d1 = qinv(g_dq, sub(v3(l1[0], l1[1], l1[2]), g_dp));
+        if (finite3(d0) && finite3(d1)) bk = (d0.x * C.pS >= d1.x * C.pS) ? 1 : 0;
+    }
+    if (C.fOn && C.bkL < 0 && bk >= 0) C.bkL = bk;
+    if (guard) { const float cx = CentreX(); for (int k = 0; k < 2; k++) if (NcsTurnBack(k ? l1 : l0, k, cx)) C.gdN[k]++; }
+    if (C.fOn) {
+        if (bk < 0) return;
+        if (g_boardOk && g_mesh) DeckXf(g_mesh);   /* (379) the deck read now (Codex: the regular path held against the last pose's g_dp / g_dq) */
+        float* s = bk ? l1 : l0;
+        if (!std::isfinite(s[0]) || !std::isfinite(s[1]) || !std::isfinite(s[2])) return;
+        const V3 g = v3(s[0], s[1], s[2]);
+        if (!C.hpOk) {
+            V3 src = g; if (g_foot[bk] >= 0 && finite3(g_Ct[g_foot[bk]].p)) src = g_Ct[g_foot[bk]].p;   /* (ncshove 360) the drawn foot itself: in switch the socket is the other stance's */
+            C.hp = src; C.hpOk = 1; C.hpN = 0; g_ncsBf.fz = 0.0f;   /* (381) no +6 at the latch: the +7 jump at the scoop */ g_ncsBf.dzS = 0.0f;   /* (376) */   /* (372) back to 6 cm (371: 10) */
+            C.hqOk = 0;
+            if (std::isfinite(s[3]) && std::isfinite(s[4]) && std::isfinite(s[5])) { const Q4 q0 = RotQ(s + 3); if (std::isfinite(q0.x) && std::isfinite(q0.y) && std::isfinite(q0.z) && std::isfinite(q0.w)) { C.hq = q0; C.hqOk = 1; } }
+            Log("ncshove 359: #%ld the back foot (%s, the deck's %s leading) held at the scoop's place (373: at 17 over the deck through the pop, 24 from 0.22 s), with the body (its socket %+.0f %+.0f %+.0f, the foot %+.0f %+.0f %+.0f in the mesh) (361: the plant foot %d; 362: latched for the shove%s, its socket's own turn %s)",
+                C.sN, bk ? "R" : "L", C.rideLead > 0.0f ? "+x" : "-x", g.x, g.y, g.z, src.x, src.y, src.z, (int)g_plantFoot, fromTurn ? ", after the switch turn" : "", C.hqOk ? "held as it stands" : "NOT read (it turns with the deck)");
+        }
+        const float w = C.fEnd ? fminf(1.0f, (float)(now - C.fEnd) / 80.0f) : 0.0f;
+        V3 r = lerp(C.hp, g, w);
+        {   /* (371) never under the deck; (376) SMOOTHED: the move eased in and out at 4 cm a pose, and eased out past the deck's ends (375 cut it there: the foot jerked) */
+            float dzRaw = 0.0f;
+            if (w < 1.0f && g_boardOk && finite3(g_dp)) {
+                const V3 dd = qinv(g_dq, sub(r, g_dp)); const float nz = qrot(g_dq, v3(0.0f, 0.0f, 1.0f)).z;
+                if (finite3(dd) && std::isfinite(nz) && nz > 0.3f) {
+                    const float rr = sqrtf((dd.x - CentreX()) * (dd.x - CentreX()) + dd.y * dd.y), wf = clampf((HalfLen() + 14.0f - rr) / 12.0f, 0.0f, 1.0f);   /* (378) ROUND the deck's middle: 1 within its half length + 2 cm, 0 from 14 cm past -- the spinning deck puts the foot BESIDE it (376 #2: |y| > 30 let the hold go, the ankle under the deck) */
+                    const float tS = (now >= C.fT0) ? (float)(now - C.fT0) : 0.0f, u = Sm01((tS - NCS_BF_UP_MS) / 120.0f), tgt = NCS_BF_RIDE + (NCS_BF_FLOOR - NCS_BF_RIDE) * u;   /* (373) on the tail through the pop; (383) then the floor over the deck, and the height straight up */
+                    const float mid = C.sws ? g_ncsBfMidSw : NCS_BF_MID, flo = wf * (tgt - dd.z) / nz, upT = fmaxf(flo, g_dp.z + mid - r.z), hi = C.sws ? clampf(24.0f + u * (upT - 24.0f), 24.0f, 64.0f) : 24.0f;   /* (ncshove 384) SWITCH: the cap follows the height wanted -- 383's 24 over the place LATCHED at the scoop left a late scoop's foot (latched -15..-20 on the popped tail, t383 #4 #7) with its socket 1.5-8 cm UNDER the deck's top as the spun deck came down; regular as it was */
+                    dzRaw = clampf((1.0f - u) * flo + u * upT, -30.0f, hi);   /* (383); (384) the same sum, the switch cap */
+                    g_ncsBf.tgt = tgt; g_ncsBf.wf = wf; g_ncsBf.wv = w; g_ncsBf.k = bk; g_ncsBf.at = now;   /* (379) for the final hold in the pose pass */
+                }
+            }
+            g_ncsBf.dzS += clampf(dzRaw - g_ncsBf.dzS, -7.0f, 7.0f);   /* (381) 7 a pose: at 4 it was always at its limit (the review) */
+            const float dz = g_ncsBf.dzS * (1.0f - w);
+            if (fabsf(dz) > 0.05f) { r.z += dz; g_ncsBf.n++; if (fabsf(dz) > g_ncsBf.most) g_ncsBf.most = fabsf(dz); }
+        }
+        if ((w > 0.5f || (now >= C.fT0 && now - C.fT0 > 450)) && g_ncsBf.n && g_ncsBfTold != C.sN) { g_ncsBfTold = C.sN; Log("ncshove 381: #%ld the back foot held at its height over the deck on %ld poses, moved up to %.0f cm, the drawn foot raised after the plant on %ld poses up to %.0f cm (%.0f over its middle through the pop, %.0f from %.0f ms after the scoop)", C.sN, g_ncsBf.n, g_ncsBf.most, g_ncsBf.post, g_ncsBf.postMost, NCS_BF_RIDE, NCS_BF_DECK, NCS_BF_UP_MS); g_ncsBf.n = 0; g_ncsBf.most = 0.0f; g_ncsBf.post = 0; g_ncsBf.postMost = 0.0f; }   /* (379) the counters only: Codex -- zeroing dzS here dropped the foot mid-shove */
+        s[0] = r.x; s[1] = r.y; s[2] = r.z; C.hpN++;
+        if (C.hqOk && std::isfinite(s[3]) && std::isfinite(s[4]) && std::isfinite(s[5])) {
+            const Q4 rq = (w > 0.0f) ? qslerpTo(C.hq, RotQ(s + 3), w) : C.hq;
+            if (std::isfinite(rq.x) && std::isfinite(rq.y) && std::isfinite(rq.z) && std::isfinite(rq.w)) QRot(rq, s + 3);
+        }
+        return;
+    }
+    if (guard) return;
+    if (C.sws && C.nc && C.ncAirT && C.sfOk && bk >= 0) {
+        float* s = bk ? l1 : l0;
+        if (!std::isfinite(s[0]) || !std::isfinite(s[1]) || !std::isfinite(s[2])) return;
+        V3 d = qinv(g_dq, sub(v3(s[0], s[1], s[2]), g_dp));
+        const float bx = C.rideX[bk]; const float ld = (C.rideX[bk] <= C.rideX[1 - bk]) ? 1.0f : -1.0f;   /* (ncshove 361) forward = toward the other (front) foot's riding place */
+        if (finite3(d) && (d.x - bx) * ld > 4.0f) { d.x = bx + 4.0f * ld;   /* (ncshove 360) forward = the travel's way */ const V3 r = add(g_dp, qrot(g_dq, d)); if (finite3(r)) { s[0] = r.x; s[1] = r.y; s[2] = r.z; C.clampN++; } }
+    }
+}
+void NcsSockFix(float* l0, float* l1) { __try { NcsSockApply(l0, l1, 1, GetTickCount64()); } __except (EXCEPTION_EXECUTE_HANDLER) { g_ncs.sfOk = 0; } }
+void SafeNcsNua(void* self) {
+    __try { NcsNua((uint8_t*)self); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { g_ncs.active = 0; g_ncs.ncDef = 0; g_ncsSwNc = 0; Log("ncshove 345: fault -- off until the Lua hands the set over again"); }
+}
+void SafeSlTick();   /* (slappy 355) defined with forcegrind */ void SafeOfbNua(void* a);   /* (ofb 367) */ bool SafeOfbKey(const void* key, int ev);   /* (ofb 368) */
+void SafeWyEnd(const char* why);   /* (382) */
 void hkNua(void* self, float dt) {
     o_Nua(self, dt);
     const LONG bits = g_loopBits;
     if (bits && g_nuaOn && FpLive() && self && self == g_faAnim) SafeLoopWrite((uint8_t*)self, bits);   /* (243) FpLive */
     if (g_altStall && g_nuaOn && self && self == g_anim) SafeAltStallNua(self);   /* (stall5 280) the alt stall's rider: the game's manual lean, not the crouch */
     { const LONG hn = g_hsNua; if (hn && g_nuaOn && self && self == g_anim) SafeHsNua(self, hn); }   /* (heelanim 300) the heel stop's pose */
+    if (g_ncs.ncDef && g_nuaOn && self && self == g_anim) SafeNcsNua(self);   /* (ncshove 345) */
+    if (g_nuaOn && self && self == g_anim) { SafeSlTick(); SafeWalyTick(); SafeOfbNua(self); }
+    else if (!g_nuaOn && WalyOwns() && self && self == g_anim) SafeWyEnd("the anim hook stood down");   /* (382) its lends given back */   /* (wally 381) */   /* (slappy 355) (ofb 367) */
 }
 void FbInstall() {
     static const uint8_t fbExpect[18] = { 0x48, 0x89, 0x74, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0xB9, 0x68, 0x05, 0x00, 0x00, 0x00 };
@@ -23262,7 +24303,9 @@ bool SafeWrBtApply(V3* r) {
 }
 V3* hkWrBt(void* self, V3* out) {
     V3* r = o_WrBt(self, out);
-    if (g_wrBtOn && g_wrBt.w > 0.0005f && self && self == g_wrBt.mc && r && SafeWrBtApply(r)) InterlockedIncrement(&g_wrBtCalls);
+    if (g_wrBtOn && g_wyBt.w > 0.0005f && self && self == g_wyBt.mc && r && SafeWyBtApply(r)) InterlockedIncrement(&g_wyBtCalls);   /* (wally 381) */
+    else if (g_wrBtOn && g_wrBt.w > 0.0005f && self && self == g_wrBt.mc && r && SafeWrBtApply(r)) InterlockedIncrement(&g_wrBtCalls);
+    else if (g_wrBtOn && g_ncBt.w > 0.0005f && self && self == g_ncBt.mc && r && SafeNcBtApply(r)) InterlockedIncrement(&g_ncBtCalls);   /* (ncshove 370) the shove-it's board lowered with the body's lift */
     return r;
 }
 void WrBtInstall() {
@@ -23286,7 +24329,7 @@ MenuCreateFn g_createOrig = nullptr; MenuFunnelFn n_SelConfirm = nullptr, n_Prog
 uint64_t g_pauseKey = 0, g_rootKey = 0, g_backKey = 0;
 int g_hpage = -1;                                // -1 = the game's own pause root (with our row appended), else the page shown
 int g_hparent[MENU_PAGES];
-uint8_t g_hrows[MENU_PAGES][MENU_ROWS + 1][IT_SIZE]; uint64_t g_hkeys[MENU_PAGES][MENU_ROWS + 1]; FTextBlob g_hopts[MENU_PAGES][MENU_ROWS][2];
+uint8_t g_hrows[MENU_PAGES][MENU_ROWS + 1][IT_SIZE]; uint64_t g_hkeys[MENU_PAGES][MENU_ROWS + 1]; FTextBlob g_hopts[MENU_PAGES][MENU_ROWS][4];   /* (387) up to 4 states */
 uint8_t g_rootRow[IT_SIZE]; uint8_t g_rowBuf[96 * IT_SIZE]; bool g_hbuilt = false; int g_hmain = -1;
 uint32_t g_tplPlat = 0; uint8_t g_tplEditor = 0; float g_tplDelay = 0.0f; bool g_tplHave = false;
 bool g_selfRefresh = false, g_rebuilding = false;
@@ -23700,7 +24743,7 @@ void CkPoll() {                          // the game thread (each pose, the engi
 // back onto their spots in AW_BACK s. The hand stays on the nose (the grab's own). The press and its release are kept from the game. It
 // is all scaled by the grab's weight, as the feet on the deck are: a grab let go takes the feet back with it. 'airwalk' lines in the log.
 constexpr float AW_IN = 0.12f, AW_HOLD = 0.30f, AW_BACK = 0.18f, AW_ALONG = 8.0f, AW_POINT = 10.0f, AW_REACH = 0.95f, AW_SOLE = 50.0f, AW_FRONT = 55.0f, AW_THIGH = 15.0f, AW_SHIN = 80.0f, AW_FLEXF = 10.0f, AW_FLEXB = -20.0f, AW_FKNEE = 10.0f, AW_KNEEMAX = 140.0f;   /* (aw 330) the back foot hangs (-35 -> -20); the back knee's most */   /* (aw 329) the front knee's soft bend: thigh +10, shin -10 of the leg's line */   /* (aw 328) the front leg's swing; the back thigh's and shin's (from straight down); the feet's flex on their shins */   /* (aw 327) the hip -> foot at most 90% of the leg (a bent knee); the soles turned toward the ground up to 50 deg */   // (aw 325: the foot turns with the leg now; 25 on top was too much)
-volatile LONG g_awOn = 1, g_awHeld = 0, g_awNose = 0, g_awN = 0; volatile float g_awKick = 30.0f, g_awDrop = 10.0f;   // HJN_Set("airwalk" / "awkick" / "awdrop")
+volatile LONG g_awOn = 1, g_awHeld = 0, g_awNose = 0, g_awN = 0; volatile float g_awKick = 30.0f, g_awDrop = 10.0f; volatile LONG g_jdN = 0, g_awUpN = 0; int g_awJudo = 0, g_awMask = 0; double g_awBackAt = -1.0e9;   /* (judo 367) */   // HJN_Set("airwalk" / "awkick" / "awdrop")
 volatile double g_awAt = -1.0e9, g_awRel = -1.0e9, g_awPosed = -1.0e9;   // the press, its release, the last pose of a grab's feet
 uint64_t g_fnA = 0, g_fnX = 0, g_awBtn = 0; float g_awPk = 0.0f, g_awMiss[2] = { 0.0f, 0.0f };
 float g_awFixW = 0.0f, g_awShinMax[2] = { 0.0f, 0.0f }, g_awPitchPk = 0.0f; double g_awFixAt = -1.0e9; volatile float g_awPitch = 75.0f; float g_awInc = 0.0f, g_awAnkMax[2] = { 0.0f, 0.0f }, g_awPivPk = 0.0f, g_awSoleMax[2] = { 0.0f, 0.0f }; int g_awFront = 0; V3 g_awF = { 0, 0, 0 }; float g_awTwMax[2] = { 0.0f, 0.0f }, g_awKneeMax[2] = { 0.0f, 0.0f }; float g_awInLine = 0.0f; volatile float g_awSp = 0.8f; float AwSp() { return clampf(g_awSp, 0.2f, 1.5f); }   /* (aw 331) AirwalkSpeed: the legs' out and back times / this */   /* (aw 330) the back knee's further bend (deg) */   /* (aw 329) his toes' way, level (AwFeet); the thighs' twist put right (deg) */   /* (aw 328) the front foot */   /* (aw 327) the soles' turn (deg) */   /* (aw 326) the rocket's part of the pitch now; the ankles put back (deg); the pivot's most (cm) */   // (aw 325) the shin fix's weight, its most; the deck's most over the horizon; AirwalkRocket (HJN_Set "awpitch")
@@ -23710,11 +24753,13 @@ float AwWeight(double now) {   /* 0..1: how far out the feet are */
     if (g_awHeld) return out;
     return out * (1.0f - Sm01((float)(now - fmax(g_awAt + AW_HOLD, g_awRel)) / (AW_BACK / AwSp())));
 }
+float AwBackW(double now) { if (g_awJudo || g_awBackAt < -1.0e8) return 0.0f; return Sm01((float)(now - g_awBackAt) / (AW_IN / AwSp())); }   /* (judo 367) the back foot's share: 0 in a judo air */
 void AwEnd(const char* why) {
     if (g_awAt < -1.0e8) return;
     Log("airwalk %ld: %s -- %.2f s from the press, the feet %.0f%% of the way out at the most; at full stride the L foot stopped %.0f cm and the R %.0f cm short of its mark (a straight leg); the shin fix turned the shins up to %.0f (L) / %.0f (R) deg; the nose asked up to %.0f deg (AirwalkRocket %.0f); the ankles put back up to %.0f (L) / %.0f (R) deg; the board moved up to %.0f cm to turn about the nose (aw 326); the feet flexed on their shins %.0f (L) / %.0f (R) deg; the body moved up to that much the other way, the board only up or down (aw 328); the thighs twisted onto the hip's plane up to %.0f (L) / %.0f (R) deg (aw 329); the back knee bent a further %.0f (L) / %.0f (R) deg (aw 330); the front foot turned in line with its leg up to %.0f deg (aw 333)",
         (long)g_awN, why, NowS() - g_awAt, g_awPk * 100.0f, g_awMiss[0], g_awMiss[1], g_awShinMax[0], g_awShinMax[1], g_awPitchPk, g_awPitch, g_awAnkMax[0], g_awAnkMax[1], g_awPivPk, g_awSoleMax[0], g_awSoleMax[1], g_awTwMax[0], g_awTwMax[1], g_awKneeMax[0], g_awKneeMax[1], g_awInLine);
-    g_awAt = -1.0e9; g_awHeld = 0;
+    if (g_awJudo) { const LONG j = g_jdN; Log("airwalk %ld: it stayed a JUDO AIR (#%ld)", (long)g_awN, (long)j); }
+    g_awAt = -1.0e9; g_awHeld = 0; g_awJudo = 0; g_awMask = 0; g_awBackAt = -1.0e9;
 }
 void AwFeet(int k, V3& F, Q4& fq, int front, float wf) {   /* DeckLegs: foot k's target on the deck -> the airwalk's */
     const double now = NowS();
@@ -23725,7 +24770,7 @@ void AwFeet(int k, V3& F, Q4& fq, int front, float wf) {   /* DeckLegs: foot k's
     if (g_awAt < -1.0e8) return;
     if (!nose) { AwEnd("the grab is not a one-hand Nose grab now"); return; }
     if (!g_awHeld && now > fmax(g_awAt + AW_HOLD, g_awRel) + AW_BACK / AwSp()) { AwEnd("the feet are back on the board"); return; }
-    const float w = AwWeight(now), ww = w * clampf(wf, 0.0f, 1.0f);
+    const float w = AwWeight(now), ww = w * clampf(wf, 0.0f, 1.0f) * ((k != front) ? AwBackW(now) : 1.0f);   /* (judo 367) the back foot only in an airwalk */
     if (w > g_awPk) g_awPk = w;
     if (w > 0.95f && k >= 0 && k < 2 && g_lastPlant[k] > g_awMiss[k]) g_awMiss[k] = g_lastPlant[k];
     V3 a, lat;
@@ -23768,7 +24813,7 @@ void AwFeet(int k, V3& F, Q4& fq, int front, float wf) {   /* DeckLegs: foot k's
 float AwPitch(float base) {
     const double now = NowS();
     if (g_awAt < -1.0e8 || !g_awNose || now - g_awPosed > 0.25) { g_awInc = 0.0f; return base; }
-    const float p = base + (fmaxf(base, clampf(g_awPitch, 0.0f, 85.0f)) - base) * AwWeight(now);
+    const float p = base + (fmaxf(base, clampf(g_awPitch, 0.0f, 85.0f)) - base) * AwWeight(now) * AwBackW(now);   /* (judo 367) the rocket only in an airwalk */
     if (p > g_awPitchPk) g_awPitchPk = p;
     g_awInc = p - base;                                          // (aw 326) AwPivot's
     return p;
@@ -23824,7 +24869,7 @@ bool AwLegs(float st) {
         const int th = g_thigh[s], ca = g_calf[s], ft = g_foot[s];
         if (th < 0 || ca < 0 || ft < 0) continue;
         const bool fr = (s == g_awFront);
-        if (!fr) { if (AwBackLeg(s, st)) did = true; continue; }   // (aw 330) the back leg: the game's, its knee bent on
+        if (!fr) { const float sb = st * AwBackW(NowS()); if (sb > 0.001f && AwBackLeg(s, sb)) did = true; continue; }   /* (judo 367) */   // (aw 330) the back leg: the game's, its knee bent on
         const V3 fw = fr ? F : mul(F, -1.0f);
         const float aT = (fr ? fa + AW_FKNEE : fminf(AW_THIGH * sc, 60.0f)) * 0.01745329f;
         const float aS = (fr ? fmaxf(fa - AW_FKNEE, 0.0f) : fminf(AW_SHIN * sc, 110.0f)) * 0.01745329f;
@@ -23917,6 +24962,7 @@ bool AwShinFix() {
         const Q4 want = qnorm(qmul(qnorm(g_Ct[ca].q), qmul(qconj(qnorm(g_C[ca].q)), qnorm(g_C[ft].q))));
         const float off = qangle(qmul(qconj(qnorm(g_Ct[ft].q)), want));
         if (!std::isfinite(want.w) || !std::isfinite(off) || !(off > 0.5f)) continue;
+        if (s != g_awFront && !(AwBackW(NowS()) > 0.001f)) continue;   /* (judo 367) the back foot left as the grab has it */
         Q4 fq = qslerpTo(g_Ct[ft].q, want, st);
         SetComp(ft, fq, g_Ct[ft].p);
         // (aw 333) THE FRONT FOOT IN LINE WITH ITS LEG. "In the middle of the trick, the foot is in line with the leg, but then it like pronates
@@ -23974,27 +25020,38 @@ V3 AwPivot(int front, Q4 dq0, V3 Lc, V3 Ac, float capP, int sense, float w) {
     if (len(T) > g_awPivPk) g_awPivPk = len(T);
     return T;
 }
-bool AwKey(const void* key, int ev) {   /* hkInputKey: A / X -- true = the airwalk's (kept from the game) */
+bool AwKey(const void* key, int ev) {   /* hkInputKey: A / X -- true = the airwalk's (kept from the game). (judo 367) ONE of them in a Nose grab
+   = the JUDO AIR (the front foot kicked out, the back foot left on the board); the OTHER pressed too while it is on = the airwalk (the back
+   foot kicked back as well) */
     if (!g_awOn) return false;
     uint64_t n = 0;
     __try {
         if (!g_fnA) { MakeFName("Gamepad_FaceButton_Bottom", &g_fnA); MakeFName("Gamepad_FaceButton_Left", &g_fnX); }
         n = *(const uint64_t*)key;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    n = OfMapKey(n, g_fnA, g_fnX);   /* (374) */
     if (!n || (n != g_fnA && n != g_fnX)) return false;
+    const int bit = (n == g_fnA) ? 1 : 2;
     const double now = NowS();
-    if (ev != 0) {                                               // its release and repeats: the airwalk's if its press was
-        if (n != g_awBtn) return false;
-        if (ev == 1) { g_awBtn = 0; if (g_awHeld) { g_awHeld = 0; g_awRel = now; } }
+    if (ev != 0) {                                               // its release and repeats: the trick's if its press was
+        if (!(g_awMask & bit)) return false;
+        if (ev == 1) { g_awMask &= ~bit; if (!g_awMask && g_awHeld) { g_awHeld = 0; g_awRel = now; } }
         return true;
     }
     if (!g_awNose || now - g_awPosed > 0.12) return false;       // not in a Nose grab: the game's press
-    g_awBtn = n;
-    if (g_awAt > -1.0e8) return true;                            // one is on already: kept, nothing more
+    if (g_awAt > -1.0e8) {                                       // one is on already
+        if (!(g_awMask & bit) && g_awJudo && g_awHeld) {         // (judo 367) the other button too: the airwalk
+            g_awMask |= bit; g_awJudo = 0; g_awBackAt = now; InterlockedDecrement(&g_jdN);   /* (judo 369) not a judo after all */
+            const LONG c = InterlockedIncrement(&g_awUpN);
+            Log("airwalk %ld: %s pressed too, %.2f s into the judo air -- now an AIRWALK (#%ld): the back foot kicked back as well", (long)g_awN, bit == 1 ? "A (cross)" : "X (square)", now - g_awAt, (long)c);
+        } else g_awMask |= bit;
+        return true;
+    }
+    g_awMask = bit; g_awJudo = 1; g_awBackAt = -1.0e9; InterlockedIncrement(&g_jdN);   /* (judo 369) counted at the press: the name is decided before the grab's end */
     g_awAt = now; g_awRel = -1.0e9; g_awHeld = 1; g_awPk = 0.0f; g_awMiss[0] = g_awMiss[1] = 0.0f; g_awShinMax[0] = g_awShinMax[1] = 0.0f; g_awPitchPk = 0.0f; g_awAnkMax[0] = g_awAnkMax[1] = 0.0f; g_awPivPk = 0.0f; g_awSoleMax[0] = g_awSoleMax[1] = 0.0f; g_awTwMax[0] = g_awTwMax[1] = 0.0f; g_awKneeMax[0] = g_awKneeMax[1] = 0.0f; g_awInLine = 0.0f;   /* (aw 325; 326; 327; 329; 330) */
     const LONG c = InterlockedIncrement(&g_awN);
-    Log("airwalk %ld: %s pressed in a Nose grab -- the feet come off the board: the front leg %.0f deg out, the back shin %.0f deg back (AirwalkKick %.0f; aw 328)",
-        (long)c, n == g_fnA ? "A (cross)" : "X (square)", fminf(AW_FRONT * g_awKick / 30.0f, 85.0f), fminf(AW_SHIN * g_awKick / 30.0f, 110.0f), g_awKick);
+    Log("airwalk %ld: %s pressed in a Nose grab -- a JUDO AIR (judo 367): the front leg %.0f deg out, the back foot stays on the board (press the other button too for the airwalk) (AirwalkKick %.0f)",
+        (long)c, bit == 1 ? "A (cross)" : "X (square)", fminf(AW_FRONT * g_awKick / 30.0f, 85.0f), g_awKick);
     return true;
 }
 // hkInputKey's part: 1 = the event is dealt with (kept), 0 = it goes the usual way
@@ -24024,6 +25081,7 @@ volatile LONG g_menuUp = 0;
 // The pad's B while rolling on the ground (HsTick says so each pose: g_hsBOk) is kept from the game -- no foot brake (StartBraking) --
 // and held until its release; HsTick takes a held B as the back-foot stick all the way down (the note there).
 volatile LONG g_hsBtnOn = 1, g_hsBHeld = 0, g_hsBOk = 0, g_hsBN = 0, g_hsBGiveUp = 0, g_hsByB = 0; volatile double g_hsBOkT = -1.0e9, g_hsBWait = 0.0; uint64_t g_fnB = 0; volatile LONG g_hsManOn = 1; double g_hsLendT = 0.0; bool g_hsLendLate = false; double g_hsBActT = -1.0e9;   /* (tsname 339) the last pose B held a tail stop */   /* (mode 338) the manual's stick path; (first 338) when the stiff PID was lent, and a lend waiting for the side check */
+volatile LONG g_hsBWhy = 0, g_hsBRefN = 0, g_hsBAir = 0, g_hsBAirN = 0;   /* (395) g_hsBAir: on the board in the air (HsTick) -- B there is the tail stop's, for the landing */   /* (394) why B is not the tail stop's: 1 not rolling, 2 a pop pending, 4 the skater's flag 2, 8 a nose manual (HsTick) */
 bool HsKey(const void* key, int ev) {   /* hkInputKey: B -- true = the tail stop's (kept from the game's foot brake) */
     if (!g_hsBtnOn) { g_hsBHeld = 0; return false; }
     uint64_t n = 0;
@@ -24034,7 +25092,8 @@ bool HsKey(const void* key, int ev) {   /* hkInputKey: B -- true = the tail stop
         if (ev == 1) g_hsBHeld = 0;
         return true;
     }
-    if (!g_hsBOk || NowS() - g_hsBOkT > 0.12) return false;    // not rolling on the ground: the game's B
+    if (g_hsBAir && NowS() - g_hsBOkT <= 0.12) { g_hsBHeld = 1; InterlockedIncrement(&g_hsBN); if (InterlockedIncrement(&g_hsBAirN) <= 40) Log("heelstop: B pressed in the air (395) -- kept from the game's foot drag: held through the landing it is the tail stop"); return true; }   /* (395) */
+    if (!g_hsBOk || NowS() - g_hsBOkT > 0.12) { if (InterlockedIncrement(&g_hsBRefN) <= 60) { const LONG w = g_hsBWhy; const double age = NowS() - g_hsBOkT; Log("heelstop: B pressed -- handed to the game (its foot brake), not the tail stop: %s%s%s%s%s (394)", age > 0.12 ? "the tail stop's check has not run for a while (not riding on the board) " : "", (w & 1) ? "not rolling on the ground " : "", (w & 2) ? "a pop pending " : "", (w & 4) ? "the skater's flag 2 (a trick / grind state) " : "", (w & 8) ? "a NOSE manual" : ""); } return false; }    // not rolling on the ground: the game's B
     g_hsBHeld = 1; InterlockedIncrement(&g_hsBN);
     return true;
 }
@@ -24050,13 +25109,14 @@ bool hkInputKey(void* pc, const void* key, int ev, float amt, bool gamepad) {
             return o_InputKey(pc, key, ev, amt, gamepad);
         }
     }
+    if (key && !g_menuUp && ((g_ofKeys && AwKey(key, ev)) || SafeOfbClick(key, ev))) return true;   /* (374) OneFootKeys 1: the clicks are the airwalk's before the hippie jump's hold; (387) OneFootCatchInput 2 / 3: a click in a flip's air is the one-foot catch's (every other click goes on as before) */
     if (g_clickHold && key && !g_menuUp && CkKey(pc, key, ev)) return true;             // (v123) a stick click: kept for the Lua's answer ((263) not with a pause menu up)
     if (g_bumpMaskUntil && ev == 0 && key && !g_menuUp && GetTickCount64() < g_bumpMaskUntil) {     // (v68) RB is the boneless's: not the game's, not the Lua's ((263) not with a pause menu up)
         if (!g_fnRB) { MakeFName("Gamepad_RightShoulder", &g_fnRB); MakeFName("Gamepad_LeftShoulder", &g_fnLB); }
         if (g_fnRB && (*(const uint64_t*)key == g_fnRB || *(const uint64_t*)key == g_fnLB)) return true;   // (v69) LB too
     }
     if (key && !g_menuUp && HsKey(key, ev)) return true;                                // (bstop 335) B while rolling: the tail stop's
-    if (key && !g_menuUp && AwKey(key, ev)) return true;                                // (aw 324) A / X in a Nose grab: the airwalk's
+    if (key && !g_menuUp && AwKey(key, ev)) return true; if (key && !g_menuUp && SafeOfbKey(key, ev)) return true;   /* (ofb 368) A / X in a trick's air: land on one foot */                                // (aw 324) A / X in a Nose grab: the airwalk's
     if (ev == 0 && key && !g_menuUp) CvNoteKey(key);                                   // (v124) the time of a Y press, for the caveman ((263) not with a pause menu up)
     if (g_padOn && ev == 0 /* IE_Pressed */ && key) {
         __try { PadQueue(key); } __except (EXCEPTION_EXECUTE_HANDLER) { g_padOn = 0; Log("pad: fault reading a key's name -- the native controller read is OFF for this run"); }
@@ -24454,7 +25514,7 @@ void SafeGrindLogTick(void* mesh) {
 // game's definition), its settled / changed definition, its end and how; the game's crank in a grind (set / let go, its clock); the flip
 // the game decided and the trick it took in or just out of a grind.
 typedef const uint8_t* (*GrindPickFn)(void* gh, void* idb, uint8_t cos, uint8_t appr, const void* dir);
-constexpr uintptr_t RVA_GRIND_PICK = 0x1052ad0;   // const UGrindOrSlideDefinition* GrindsHandler::GetGrindDefinitionClosestToDirection(const UInputsDatabase&, ECatchOrientState, ESkaterApproachType, const FVector2D&)
+uintptr_t RVA_GRIND_PICK = 0x1052ad0;   /* (steam 398) by signature on another build (OwnSigScan) */   // const UGrindOrSlideDefinition* GrindsHandler::GetGrindDefinitionClosestToDirection(const UInputsDatabase&, ECatchOrientState, ESkaterApproachType, const FVector2D&)
 GrindPickFn o_GrindPick = nullptr; uint8_t* g_agTramp = nullptr;
 struct AgT {
     bool tried, hookOk;                                                                 /* the grind picker's hook (AltStall's blunt; AgInstall) */
@@ -24469,9 +25529,10 @@ bool AgHas(const char* s, const char* sub) {   // case-insensitive substring (su
     return false;
 }
 extern volatile LONG g_asBluntPick; extern volatile LONG g_asBluntGame; const uint8_t* SafeAsBluntPick(void* gh, const uint8_t* r);   /* (blunt 281) AltStall's blunt: the game's grind picker answers Blunt */
-extern volatile LONG g_asNsSlide; bool AsFgPickOn(); const uint8_t* SafeAsFgPick(void* gh, const uint8_t* r);   /* (forcegrind 287) AltNoStallSlide: the picker answers the nose slide */
+extern volatile LONG g_asNsSlide; bool AsFgPickOn(); const uint8_t* SafeAsFgPick(void* gh, const uint8_t* r);   /* (forcegrind 287) AltNoStallSlide: the picker answers the nose slide */   extern volatile LONG g_slPickOn; const uint8_t* SafeSlPick(void* gh, const uint8_t* r);   /* (slappy 363) */
 const uint8_t* hkGrindPick(void* gh, void* idb, uint8_t cos, uint8_t appr, const void* dir) {
     const uint8_t* r = ((GrindPickFn)g_agTramp)(gh, idb, cos, appr, dir);
+    if (g_slPickOn && g_hooked && !SlSigOff() && gh) { const uint8_t* b = SafeSlPick(gh, r); if (b != r) return b; }   /* (slappy 363) a slappy's grind: its 50-50 */
     if (g_asNsSlide && AsFgPickOn() && g_altStall && g_hooked && !g_sigMode && gh) { const uint8_t* b = SafeAsFgPick(gh, r); if (b != r) return b; }   /* (forcegrind 287) the no stall's nose slide */
     if (g_asBluntPick && g_altStall && g_hooked && !g_sigMode && gh) { const uint8_t* b = SafeAsBluntPick(gh, r); if (b != r) return b; }   /* (blunt 281) the blunt first; AltGrinds not asked then */
     return r;   /* (grindmirror 282) AltGrinds no longer changes the game's pick: the game picks from the sticks it is handed (the note above) */
@@ -24480,7 +25541,7 @@ void AgInstall() {   /* (grindmirror 282) put in by AltStall's blunt only (AsBlu
     AgT& G = g_ag;
     if (G.tried || !g_hooked) return;
     G.tried = true;
-    if (g_sigMode) { Log("altstall: another build of the game -- the grind picker is not hooked (its address is Epic's exe's): no blunt hand-over"); return; }
+    if (g_sigMode && !g_slSigOk) { Log("altstall: another build of the game -- the grind picker is not hooked (its signature not found, steam 398): no blunt hand-over, no slappy 50-50 from it"); return; }   /* (steam 398) was g_sigMode: on another build the picker's address by signature (the blunt's own code stays Epic-only) */
     static const uint8_t ex[15] = { 0x48, 0x8B, 0xC4, 0x44, 0x88, 0x48, 0x20, 0x44, 0x88, 0x40, 0x18, 0x48, 0x89, 0x50, 0x10 };   // mov rax,rsp / mov [rax+20],r9b / mov [rax+18],r8b / mov [rax+10],rdx
     if (!g_trampPage) g_trampPage = (uint8_t*)VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     if (!g_trampPage || g_trampUsed + 15 + 14 > 4096) { Log("altstall: no room for the grind picker's trampoline -- no blunt hand-over"); return; }
@@ -25387,7 +26448,7 @@ int SafeAltNsStep(float e) { __try { return AltNsStep(e); } __except (EXCEPTION_
 // 90 deg about the vertical through its leading wheels onto the coping (frontside: the way he faces; laid level), its speed zeroed,
 // and goes into the game's GRIND_FS_Noseslide (the side of the game's own pick when its picker is asked) by the same path.
 volatile LONG g_asNsSlide = 0;   // HJN_Set("altnostallslide", 0/1): the ini's AltNoStallSlide
-const uintptr_t RVA_SET_TGT_GRIND = 0x1006780, RVA_SET_CUR_GRIND = 0x1004820;   /* ASkaterCharacterBase::SetTargetGrindDefinition / SetCurrentGrindDefinition */
+uintptr_t RVA_SET_TGT_GRIND = 0x1006780, RVA_SET_CUR_GRIND = 0x1004820;   /* (steam 398) by signature on another build (OwnSigScan) */   /* ASkaterCharacterBase::SetTargetGrindDefinition / SetCurrentGrindDefinition */
 constexpr int FG_BM_GFLAGS = 0x7e8;   /* the board movement's grind flags: bit 1 IsOnGrind, bit 2 the grind came from a manual (a lip trick, with the skater's +0x711 bit 1) */
 typedef void (*SetGrindDefFn)(void* sk, const void* def);
 struct AsFgT { int on, kind, side, nose, n, poses; bool lent, conv, forced, entered; double t0, tIn, logT; const uint8_t* def; LONG calls, kept; uint8_t f0, f1; V3 h; float turn; int lkSt; bool pp; V3 A0; float p0, pinMax; LONG reN, pinN, rotN, lkN; double lkT, lkLogT; char nm[64]; bool hold; double tHold; V3 G; bool gOk; float pl0; bool ck; int offN; int stk; bool sHeld; V3 Tg; void* pc[7]; V3 pL[7]; Q4 pQ[7]; int pn; bool skLog; bool cgOk; };   /* (lockgrind3 290) hold: the no stall's wait for its wheels; G, pl0: the lock's goal and pitch */
@@ -25491,6 +26552,8 @@ float AsBaDot(void* mc) {   /* POD only (the caller's __try): the game's own sum
 }
 bool AsBaOwned() { return g_asfg.on && (g_asfg.lkSt == 1 || g_as.st >= 2); }   /* the lock holding, or the stall's hold (st 2..4) */
 bool hkAsBa(void* mc, float dt) {
+    if (g_wrBaUntil > 0.0 && mc && mc == (void*)BoardMC() && WrBaHeld(mc)) return false;   /* (389) a wallride's ride down touching down */
+    if (g_wyOwnBa && mc && mc == (void*)BoardMC()) { InterlockedIncrement(&g_wyBaSkips); return false; }   /* (wally 381) */
     if (mc && (g_asBluntGame || g_asNsSlide) && AsBaOwned() && mc == (void*)BoardMC()) {
         float d = 2.0f;
         __try { d = AsBaDot(mc); } __except (EXCEPTION_EXECUTE_HANDLER) { d = 2.0f; }
@@ -25510,12 +26573,17 @@ void AsBaPlace() {
 uintptr_t RVA_CHECK_GRIND = 0xfb41d0;   // bool USkateboardExMovementComponent::CheckForGrind(float, const FQuat&, bool): (grindhold 298) its failure exit (+0xf82) clears IsOnGrind (+0x7e8 bit 1)
 typedef bool (*AsCgFn)(void* mc, float dt, const void* q, bool b);
 AsCgFn o_AsCg = nullptr; int g_asCgHook = 0; volatile LONG g_asCgPut = 0, g_asCgN = -1;
+volatile LONG g_slCgBlock = 0, g_slCgBlocked = 0;   /* (slappy 368) the slappy's move: no grind until the board sits */
+volatile LONG g_slSatWait = 0, g_slSatCg = 0, g_slSatYes = 0, g_slSatPop = 0;   /* (397) the sat slappy waiting for the game's grind: its grind check's calls / yes / with a pop pending */
 bool hkAsCg(void* mc, float dt, const void* q, bool b) {   /* (grindhold 298) the grind the game drops under the lock put back */
+    if (g_wyCgBlock && mc && mc == (void*)BoardMC()) { InterlockedIncrement(&g_wyCgBlocked); return false; }   /* (wally 381) */
+    if (g_slCgBlock && mc && mc == (void*)BoardMC()) { InterlockedIncrement(&g_slCgBlocked); return false; }   /* (slappy 368) */
     uint8_t* m = (uint8_t*)mc;
     const bool own = mc && (g_asBluntGame || g_asNsSlide) && g_asfg.on && g_asfg.lkSt == 1 && g_asfg.cgOk && mc == (void*)BoardMC();
     bool was = false;
     if (own) { __try { was = (m[FG_BM_GFLAGS] & 2) != 0 && m[BM_MODE] == 2; } __except (EXCEPTION_EXECUTE_HANDLER) { was = false; } }
     const bool r = o_AsCg ? o_AsCg(mc, dt, q, b) : false;
+    if (g_slSatWait && mc && mc == (void*)BoardMC()) { InterlockedIncrement(&g_slSatCg); if (r) InterlockedIncrement(&g_slSatYes); }   /* (397) */
     if (own && was) {
         bool put = false;
         __try { if (!(m[FG_BM_GFLAGS] & 2) && m[BM_MODE] == 2) { m[FG_BM_GFLAGS] |= (uint8_t)2; put = true; } } __except (EXCEPTION_EXECUTE_HANDLER) { put = false; }
@@ -25533,7 +26601,7 @@ void AsCgPlace() {
     if (HostPlace(Exe() + RVA_CHECK_GRIND, (const void*)&hkAsCg, 15, e, sizeof(e), "USkateboardExMovementComponent::CheckForGrind", false, &nx, &og)) { o_AsCg = (AsCgFn)nx; g_asCgHook = 1; }
 }
 void AsBaInstall() {   /* once, at the first forced stall's arming (the stall code's thread, as the picker's AgInstall) */
-    if (g_asBaHook != 0 || !g_hooked || g_sigMode) return;
+    if (g_asBaHook != 0 || !g_hooked || (g_sigMode && !g_slSigOk)) return;   /* (steam 398) was g_sigMode: both addresses by signature on another build */
     g_asBaHook = -1;
     __try { AsBaPlace(); } __except (GrabFilter(GetExceptionCode())) { g_asBaHook = -1; }
     g_asCgHook = -1; __try { AsCgPlace(); } __except (GrabFilter(GetExceptionCode())) { g_asCgHook = -1; }   /* (grindhold 298) */
@@ -25577,6 +26645,1364 @@ bool AsFgTake(uint8_t* sk, double now) {   // the pose the game's grind begins: 
         F.n, now - F.t0, F.poses, (unsigned)F.f0, (unsigned)F.f1, F.conv ? "its LIP TRICK flag (bit 2) taken off: a grind" : "no lip flag: the game's own grind", tw, cw,
         F.def ? "the wanted" : "NOTHING (no such definition found:", F.def ? F.nm : "the game's own kept)", (unsigned)sk[0x711], (unsigned)sk[0x918]);
     return true;
+}
+/* (slappy 355) SLAPPIES: the crouch held along a low curb -> the game's own ground grind check opened (the skater's +0x918 bit 0 lent, as
+   forcegrind 287 does at the coping) and the grind it begins made a 50-50 of its side (the lip flag off, the definition set). Each pose
+   after NativeUpdateAnimation (the game thread): riding (movement 6/1, board mode 1), over 120 cm/s, the crouch held (skater +0x580 bit 0),
+   a curb top 5-40 cm over the ground under the skater, 28 or 45 cm to a side and 35 cm ahead, its face up (rays) -> the bit lent until the
+   curb is 0.3 s gone or the crouch let go; the pose the board's movement is 2 (the grind began) -> AsFgTake's way. Logged: every curb
+   seen (200 lines), every grind begun, its definition 0.5 s in, its end. */
+struct SlT { volatile LONG on; bool lent, inGrind; ULONGLONG seenT, lendT, inT; int side, logd; float h; long n, edges, told; char nm[64];
+    float pull, dMin; int kept, clr, pulls;
+    int hopped, hopLog; ULONGLONG hopT; float hopUp, hopAcross;
+    int trN, trF; ULONGLONG trT0; bool trOn;
+    volatile LONG popReq; ULONGLONG popT, lastPopT; long pops; int popLog, back; } g_sl = {};   /* (slappy 359) the low pop handed to the game: frames left, when, the stick held down */   /* (trace 358) */   /* (slappy 357) the board popped onto the curb this opening | its log steps */   /* (slappy 356) SlappyPull cm/s | the curb face's nearest | the lent bit found kept / cleared | poses pulled */
+float SlFace(const uint8_t* mesh, const uint8_t* mc, int side) {   /* (slappy 356) cm from the skater to the curb's face on that side (a ray across, 4 cm over the ground); -1 = none within 80 */
+    const void* world = SkaterWorld(); if (!world) return -1.0f;
+    const V3 P = *(const V3*)(mesh + SC_C2W + 0x10); V3 v = *(const V3*)(mc + 0xc4); v.z = 0.0f; const float sp = len(v);
+    if (!finite3(P) || !(sp > 1.0f)) return -1.0f;
+    const V3 fw = mul(v, 1.0f / sp), rt = v3(-fw.y, fw.x, 0.0f);
+    RayHit g; if (!Ray(world, add(P, v3(0.0f, 0.0f, 60.0f)), add(P, v3(0.0f, 0.0f, -80.0f)), g)) return -1.0f;
+    const V3 a = v3(P.x, P.y, g.p.z + 4.0f);
+    RayHit h; if (!Ray(world, a, add(a, mul(rt, (float)side * 80.0f)), h)) return -1.0f;
+    return len(sub(h.p, a));
+}
+bool SlEdge(const uint8_t* mesh, const uint8_t* mc, int* side, float* hgt, float* spd) {
+    const void* world = SkaterWorld();
+    if (!world) return false;
+    const V3 P = *(const V3*)(mesh + SC_C2W + 0x10);
+    V3 v = *(const V3*)(mc + 0xc4); v.z = 0.0f;
+    const float sp = len(v); *spd = sp;
+    if (!finite3(P) || !(sp >= 120.0f)) return false;
+    const V3 fw = mul(v, 1.0f / sp), rt = v3(-fw.y, fw.x, 0.0f);
+    RayHit g;
+    if (!Ray(world, add(P, v3(0.0f, 0.0f, 60.0f)), add(P, v3(0.0f, 0.0f, -80.0f)), g)) return false;
+    const float z0 = g.p.z;
+    for (int k = 0; k < 2; k++) for (int s = -1; s <= 1; s += 2) {
+        const float d = k ? 45.0f : 28.0f;
+        const V3 q = add(add(v3(P.x, P.y, z0), mul(fw, fmaxf(40.0f, sp * 0.3f))), mul(rt, (float)s * d));   /* (slappy 359) further ahead the faster: the pop takes ~0.2 s */
+        RayHit h;
+        if (!Ray(world, add(q, v3(0.0f, 0.0f, 60.0f)), add(q, v3(0.0f, 0.0f, -10.0f)), h)) continue;
+        const float dh = h.p.z - z0;
+        if (dh >= 5.0f && dh <= 40.0f && h.n.z > 0.7f) { *side = s; *hgt = dh; return true; }
+    }
+    return false;
+}
+/* (slappy 374) v5 -- THE BOARD WALKED ONTO THE CURB: TAIL DIPPED, NOSE UP ONTO IT, TAIL FISHTAILED IN. 363's session (5 Nov 20:33-20:43,
+   39 moves): the picker's 50-50 and the hand-over worked (21 grinds, no Over/Smith entries) but 16 moves were HANDED OVER WITH NO GRIND:
+   the game's grind began 0.12-0.28 s in with the board still 6-10 cm out on the street side and its wheels 2 cm over the top, its entry
+   let go 0.2 s later and the board rode on over the curb ("totally thrown over it", the faster ones: 600-870 cm/s along all missed). And
+   the slap never showed (the nose +7 at the most, 0.1 s), the lift read as a lift. The user: "this mod won't fly if we just do the
+   vertical Z lift ... real world manipulate the board onto the curb ... dipping the tail, having the nose ride up on the curb, and then
+   the tail kind of follows and fishtails in". Now the move is a PLAN of the board's two axles (the middles of their wheel pairs) in the
+   curb's frame (s along the edge, n out from its face, z up), the board servoed onto it every pose (its axle middle's place and its long
+   axis' turn at SL_KP / SL_KR a second, the plan's own speed fed forward, its roll held level):
+   - 0 .. SL_T1: the LEADING axle up to SL_LIFT over the curb's top, the trailing one left on the street (the tail dipped: the nose ~25-30
+     deg up); across, the leading one kept off the face until its wheels clear the top;
+   - .. SL_T2: the leading axle onto the edge (n SL_N_END, set down on the top); the trailing one still on the street, closing on the face;
+   - .. SL_T3: THE FISHTAIL: the trailing axle up over the top and swung in onto the edge line (the board turns about the leading truck);
+   - then held on the edge, along it at the speed it came with, until the game's grind takes it (SL_MAX_S at the most).
+   The game's grind picker answers NONE until both axles sit on the edge (no early grind: the entry that let go), then the 50-50 of the
+   side; the hand-over as 363's. The body is turned onto the edge's line in the air (363's). Logged: "slappy 374" and "sl mv" every pose
+   (the plan's phase, both axles against the plan, the nose's pitch, the board's turn off the edge). */
+struct SlCurbT { V3 F, N, E; float top, zg, h, gap, theta, vin, dF, sp, grade; int side; float drop; };   /* (slappy 386) drop: how much lower the top is 20 cm in from the face (99: nothing there) */   /* (381) grade: the top's rise per cm along E */
+struct SlMvT { int on, over, air, lent, poses, crk, tr; ULONGLONG t0, endT, overT, airT; SlCurbT c; float va, ride, latMin, hzMax; long n;
+    int hand, cl, lead, side, capN, pickN, pickKept, resumed, missLog; ULONGLONG handT, clT; float psi0, psiLast, wzLast, peLast, wpLast, peMax, capDeg, vt, vtIn, wcMin, psiHand;
+    const uint8_t* want; char wantNm[64];
+    int leadF, inPlace, heldN, heldLog, manClr, gameSide, holdLog, namePend; ULONGLONG postT; V3 wObs, wLast; ULONGLONG inT; V3 dObs, vLast, svLast; float dMax, tFace, tEnd; int svOk; float W, hw, ha, sL0, nL0, zL0, nT0, zT0, guard, errMax;
+    int bmode, bmodeLast, rebased, toeSide, lip; V3 vPlan; double t0S;
+    float nEnd; int pkOn, pkCls, pkHold, pkBk, pkMask, pkLogs; long pkAns; const char* pkLbl;
+    int lfEnd, fakie, fp0; float lfCm, lfW; long nsN;
+    int nLead, ckSg; float ckW; } g_slm = {};   /* (slappy 386) the front foot's truck leads (the physical lift / the crook's swing), the crook's swing (+1 the tail out over the street: crooked, -1 in over the top: overcrook) and its weight */   /* (slappy 385) the pick's lifted end (+1 the leading, -1 the trailing, 0 none), its height (cm over the top) and weight; fakie and the foot position at the move; the powerslide gate put back during the move */   /* (384) the plan's end (out from the edge, latched at the move); the grind from the sticks: on, its class, the entry hold, the back stick (0 left 1 right), the entry's held sticks, logs, answers, its name */   /* (370) */
+constexpr float SL_MIN_SP = 150.0f, SL_REACH_ALONG = 22.0f, SL_LAT_T = -1.0f, SL_CLEAR = 4.0f, SL_K = 12.0f, SL_CAP_LAT = 300.0f, SL_CAP_UP = 450.0f, SL_CAP_DN = 150.0f, SL_MAX_S = 0.9f; volatile float g_slMaxTh = 55.0f, g_slMaxH = 28.0f;   /* (374) SlappyMaxAngle / SlappyMaxHeight;   /* (372) the user: "do 55 degree" -- 371's bails were curbs met at 46-54 refused as head-on and slammed by the game */   /* (370, S4) 369 #19 at 56 deg failed */
+constexpr float SL_PULL_CAP = 600.0f, SL_CAP_STEP = 5.0f, SL_WHEEL_R = 2.7f, SL_HAND_S = 0.9f;   /* (363) the game's pull made up to (deg/s); deg the body turns a pose at the most; a wheel's radius (cm); s the picker answers after a hand-over */
+constexpr float SL_T1 = 0.07f, SL_T2A = 0.12f, SL_T2 = 0.17f, SL_T3 = 0.32f;     /* (364) the plan's phases (s): the nose up, held over the top, set on the edge; the tail's fishtail done */
+constexpr float SL_LIFT = 2.5f, SL_LIFT_T = 2.5f, SL_SET = -0.5f, SL_N_END = -1.0f; /* (364) cm the leading / trailing wheels go over the top, sit over it on the edge; the axles' middle in from the face */
+volatile LONG g_slPick = 1;        /* (slappy 384) HJN_Set("slpick", 0/1): SlappyPick -- the first grind from the sticks held at the curb (0 = the 50-50 first, as 383) */
+volatile float g_slOnCurb = 70.0f;   /* (slappy 385) HJN_Set("sloncurb", %): SlappyOnCurb -- the share of the trucks' width on the curb's top, on the way in and held in the grind (50 = their middle on the edge; 384's SlappyInset 3 cm = about 65). The user on 384: "overcompensate ... like 70% on the curb and 30% hanging off" */
+volatile float g_slCrookYaw = 30.0f;   /* (slappy 386) HJN_Set("slckyaw", deg): SlappyCrookYaw -- a crooked / overcrook slappy's board turned this far off the curb on the way in (the game's crook defs: TargetRefAngle 45, the nose's underside on the edge); 0 = straight on (385) */
+volatile LONG g_slFeet = 0, g_slSwitch = 0, g_slSwTold = 0;   /* (394) g_slFeet off: the game's own grind animation places the feet since 393; g_slSwitch: HJN_Set("slswitch") SlappySwitch, slappies in fakie / switch */   /* (slappy 386) HJN_Set("slfeet", 0/1): SlappyFeetOnTruck -- in a slappy grind on one truck the foot past that end drawn in over it */
+volatile LONG g_slCkMir = 1;   /* (slappy 387) HJN_Set("slckmir", 0/1): SlappyCrookMirror -- the game's in-grind picks on the other side (after a lip entry) are mirrored across the edge: its Overcrook is the shape of a Crooked and back; 1 = answered by the shape, 0 = the same trick's name (386) */
+volatile LONG g_slNoSlide = 1;        /* (slappy 385) HJN_Set("slnoslide", 0/1): SlappyNoSlide -- the game's powerslide held off riding at a curb a slappy can take and through the move (384 #7: the crook's tilted front stick made a powerslide, a bail) */
+constexpr float SL_LF_SHARE = 0.32f, SL_LF_T = 0.10f, SL_LF_W = 0.08f, SL_TEND_MAX = 0.30f;   /* (slappy 385) the lifted end's height (share of the wheelbase: 15 cm at 47; the game's own 5-0 / nosegrind sat at 18.6-18.8 in 384), its rise (s), the weight's ease (s); the way across at the most (s; 384: 0.40) */
+volatile float g_slInset = 3.0f;   /* (slappy 384) HJN_Set("slinset", cm): SlappyInset -- the axles' middle this far in from the curb's edge: the plan's end (383: SL_N_END 1 cm) and the in-grind centring's aim (383: 0) */
+constexpr float SL_KP = 25.0f, SL_KR = 25.0f, SL_V_CAP = 1100.0f, SL_W_CAP = 20.0f;   /* (364) the servo: 1/s on the place and the turn; cm/s, rad/s at the most */
+constexpr float SL_HOVER = 0.0f, SL_HIT_T = 0.12f, SL_REACH_HIT = 10.0f, SL_RISE = 0.045f;   /* (369) no hover: 368's lifted the board off the street before the nose (airborne, the game's air hold flattened the pitch: the steep and backside ones went up flat); the nose 0.045 s before the face */   /* (367) the plan takes the approach on 0.12 s out (the nose rises only SL_RISE before the wheels meet the face) */
+constexpr float SL_HIT_T_UNUSED = 0.065f;   /* (365) cm the board hovers over the street through the move; the move starts this many s of closing (or this many cm alongside) from the face: the nose rises as it meets the curb */
+LONG g_slSeenLogs = 0, g_slMvLogs = 0, g_slPickLogs = 0;
+volatile LONG g_slPickOn = 0;
+bool SlCurb(const uint8_t* board, V3 vel, SlCurbT& c) {
+    const void* world = SkaterWorld(); if (!world) return false;
+    Q4 dq; V3 dw; if (!WrDeckWorld(board, dq, dw)) return false;
+    V3 vd = v3(vel.x, vel.y, 0.0f); const float sp = len(vd);
+    if (!(sp > 50.0f)) return false;
+    vd = mul(vd, 1.0f / sp);
+    RayHit g; if (!Ray(world, add(dw, v3(0.0f, 0.0f, 40.0f)), sub(dw, v3(0.0f, 0.0f, 60.0f)), g) || !g.hit) return false;
+    const float zg = g.p.z; const V3 O = v3(dw.x, dw.y, zg + 4.0f);
+    const float L = clampf(sp * 0.35f, 60.0f, 180.0f);
+    static const float A[] = { 0.0f, 15.0f, -15.0f, 30.0f, -30.0f, 45.0f, -45.0f, 60.0f, -60.0f, 80.0f, -80.0f };
+    const V3 rt = v3(-vd.y, vd.x, 0.0f);
+    bool got = false; float bestT = 1.0e9f;
+    for (float a : A) {
+        const float r = a * 0.0174532925f;
+        const V3 dir = v3(vd.x * cosf(r) - vd.y * sinf(r), vd.x * sinf(r) + vd.y * cosf(r), 0.0f);
+        RayHit h; if (!Ray(world, O, add(O, mul(dir, L)), h) || !h.hit || fabsf(h.n.z) > 0.4f) continue;
+        V3 N = v3(h.n.x, h.n.y, 0.0f); if (len(N) < 0.3f) continue; N = norm(N);
+        if (dot(N, dir) > -0.05f) continue;                                                       /* it faces us */
+        const V3 in = add(h.p, mul(N, -8.0f));
+        RayHit t; if (!Ray(world, v3(in.x, in.y, zg + 60.0f), v3(in.x, in.y, zg - 5.0f), t) || !t.hit || t.n.z < 0.85f) continue;
+        float hh = t.p.z - zg;   /* (382) first the raw height (the grade's ray bound), then off the grade below */
+        V3 Fe = v3(h.p.x, h.p.y, t.p.z);                                                          /* the top edge: the face 1.5 cm under the top (a sloped face's edge is further in) */
+        { const V3 o2 = v3(h.p.x + N.x * 30.0f, h.p.y + N.y * 30.0f, t.p.z - 1.5f); RayHit e; if (Ray(world, o2, add(o2, mul(N, -70.0f)), e) && e.hit && fabsf(e.n.z) < 0.7f) Fe = v3(e.p.x, e.p.y, t.p.z); }
+        V3 E = norm(cross(v3(0.0f, 0.0f, 1.0f), N)); if (dot(E, vd) < 0.0f) E = mul(E, -1.0f);
+        float grade = 0.0f; { float gr = 0.0f; int gn = 0; const float dss[2] = { -40.0f, 60.0f }; for (int gi = 0; gi < 2; gi++) { const float ds = dss[gi]; const V3 q = add(in, mul(E, ds)); const float dzMax = fminf(0.12f * fabsf(ds) + 0.5f, 0.6f * hh); RayHit t2; if (Ray(world, v3(q.x, q.y, t.p.z + dzMax + 1.0f), v3(q.x, q.y, t.p.z - dzMax - 1.0f), t2) && t2.hit && t2.n.z > 0.85f && fabsf(t2.p.z - t.p.z) <= dzMax) { gr += (t2.p.z - t.p.z) / ds; gn++; }   /* (382) never the street past a curb's end */ } grade = gn ? clampf(gr / (float)gn, -0.12f, 0.12f) : clampf(vel.z / sp, -0.12f, 0.12f); }   /* (381) the curb's own grade along it (the 22:07 downhill: -3..-7 %) */
+        { const float sd = dot(sub(v3(dw.x, dw.y, 0.0f), v3(in.x, in.y, 0.0f)), E); hh = t.p.z - (zg - grade * sd); }   /* (382) the street at the top's sample, off the grade */
+        if (hh < 5.0f || hh > g_slMaxH) continue;   /* (370, S8) 25-38 cm curbs bailed in 369 */
+        const float sth = clampf(-dot(vd, N), -1.0f, 1.0f);
+        const float gap = WrClear(board, v3(h.p.x, h.p.y, h.p.z), N);
+        const float vin = sp * sth;
+        const float tt = (vin > 20.0f) ? gap / vin : 1.0e6f + gap;
+        if (tt < bestT) {
+            bestT = tt; got = true;
+            c.F = Fe; c.N = N; c.E = E; c.top = t.p.z; c.zg = zg; c.h = hh; c.gap = gap; c.theta = asinf(sth) * 57.29578f; c.vin = vin; c.dF = dot(sub(dw, Fe), N); c.sp = sp; c.grade = grade;
+            c.side = (dot(mul(N, -1.0f), rt) >= 0.0f) ? 1 : -1;
+            { const V3 q2 = add(h.p, mul(N, -20.0f)); RayHit t3; c.drop = (Ray(world, v3(q2.x, q2.y, t.p.z + 10.0f), v3(q2.x, q2.y, t.p.z - 30.0f), t3) && t3.hit) ? t.p.z - t3.p.z : 99.0f; }   /* (slappy 386) the top across (385 #9 sank 5 cm under it 12-20 cm in) */
+        }
+    }
+    return got;
+}
+float SlClearT(float h) {   /* s the lift needs to bring the wheels 1 cm over a curb h high (362's estimate: the trigger's reach) */
+    const float v = fminf(SL_CAP_UP, sqrtf(2.0f * 980.0f * (h + SL_CLEAR)) * 1.15f), disc = v * v - 2.0f * 980.0f * (h + 1.0f);
+    return disc > 0.0f ? (v - sqrtf(disc)) / 980.0f : 0.25f;
+}
+/* (363) the 50-50 of a side (1 frontside, 2 backside) in the skater's grind list; nm its name */
+const uint8_t* SlFind5050(const uint8_t* sk, int side, char* nm, int cap) {
+    const uint8_t* gh = AsFgHandler(sk); if (!gh) return nullptr;
+    const uint8_t* data = *(const uint8_t* const*)(gh + 0x28); const int n = *(const int32_t*)(gh + 0x30);
+    if (!data || n <= 0 || n >= 512 || !PtrOk(data, (size_t)n * 8)) return nullptr;
+    for (int i = 0; i < n; i++) { const uint8_t* d = *(const uint8_t* const*)(data + (size_t)i * 8); if (!d) continue; char s[64]; GrDefName(d, s, 64); if (AgHas(s, "50-50") && !AgHas(s, "dark") && AsBluntSide(s) == side) { snprintf(nm, cap, "%s", s); return d; } }
+    return nullptr;
+}
+/* the game's grind picker's hook (hkGrindPick, first): while a slappy's move runs and SL_HAND_S after its hand-over -- (364) NONE until
+   the board sits on the edge (the game's own target setter takes none: CheckForGrindInput +0x23c), then its 50-50 */
+/* (370) the same trick on the other side: GRIND_FS_x <-> GRIND_BS_x in the skater's grind list */
+const uint8_t* SlSwapSide(const uint8_t* r, int side) {
+    if (!r) return nullptr; char rn[64]; GrDefName(r, rn, 64); char want[64]; snprintf(want, sizeof(want), "%s", rn);
+    char* p = strstr(want, side == 1 ? "_BS_" : "_FS_"); if (!p) return nullptr; p[1] = (side == 1) ? 'F' : 'B';
+    const uint8_t* gh = AsFgHandler((const uint8_t*)g_skater); if (!gh) return nullptr;
+    const uint8_t* data = *(const uint8_t* const*)(gh + 0x28); const int n = *(const int32_t*)(gh + 0x30);
+    if (!data || n <= 0 || n >= 512 || !PtrOk(data, (size_t)n * 8)) return nullptr;
+    for (int i = 0; i < n; i++) { const uint8_t* d = *(const uint8_t* const*)(data + (size_t)i * 8); if (!d) continue; char s[64]; GrDefName(d, s, 64); if (strcmp(s, want) == 0) return d; }
+    return nullptr;
+}
+/* (slappy 384) THE GRIND FROM THE STICKS (SlappyPick 1). 383: every slappy went into the 50-50 and the game's own picker changed it 0.33-0.38 s
+   later -- its settle (an ollie 50-50's change comes as late: native 383 log, grind #18 08:24:17, the front stick let go by 0.27 s, the 5-0
+   at 0.50). Now the sticks held as the board goes onto the curb name the FIRST grind (B = the back-foot stick, F = the front's; SlBackStick):
+     B straight down (the crouch) or straight up, F in the middle ............... 5-0          (the game's own pick for the crouch)
+     F straight down (the nollie crouch) or straight up, B in the middle ........ nosegrind    (the game's own for F up alone)
+     one straight down, the other straight up .................................... 50-50        (and anything else: the fallback)
+     one straight down, the other tilted up; or one stick alone, tilted .......... a crook, by where the tilted stick's END goes:
+        F tilted toward the curb: the nose onto it, the tail out over the street = CROOKED; away = OVERCROOK
+        B tilted toward the curb: the tail in over the top = OVERCROOK; away = CROOKED
+   Straight = within 55 deg of the stick's up / down (verify 384: the game HELD its nosegrind with the front stick steady at 40-57 deg --
+   383 ollie grinds #5 48-50, #6 40-57, #7 54 for 1.4 s, #23 40, #30 41-43 -- and its crooks came at 44-75: #8 overcrook 49-54, #7 58,
+   #1 crooked after 59-75; 36 deg cut the user's own nosegrind into crooks), tilted 55-72 deg, a stick 0.7 out at least; "toward the curb" = the stick's x on the curb's side of the travel (the camera
+   behind). The side (FS/BS) is the toes' as before. The pick is set as the target at the sit and as target + current as the grind begins;
+   the picker answers it while its sticks stay (no settle, no change), and from the first stick change on it is the game's pick again. */
+int SlBackStick();
+static const char* const SL_PK_TRICK[6] = { "", "50-50", "Five0", "Nosegrind", "Crooked", "Overcrook" };
+static const char* const SL_PK_LBL[6] = { "", "", "5-0 ", "Nosegrind ", "Crooked ", "Overcrook " };
+int SlStkKind(float x, float y) {   /* 0 in the middle, 1 straight down, 2 tilted down, 3 straight up, 4 tilted up, -1 neither */
+    const float m2 = x * x + y * y;
+    if (!(m2 >= 0.0f)) return -1;
+    if (m2 < 0.12f) return 0;
+    if (m2 < 0.49f) return -1;
+    const float a = atan2f(fabsf(x), fabsf(y)) * 57.29578f;
+    if (a < 55.0f) return (y < 0.0f) ? 1 : 3;
+    if (a <= 72.0f) return (y < 0.0f) ? 2 : 4;
+    return -1;
+}
+int SlPkClass(const float* s, int bk, int curbSide, int* two) {   /* the table above: 0 none, else SL_PK_TRICK's index; *two = both sticks */
+    if (two) *two = 0;
+    if (!s || bk < 0 || bk > 1) return 0;
+    const int fk = 1 - bk;
+    const float xB = s[2 * bk], yB = s[2 * bk + 1], xF = s[2 * fk], yF = s[2 * fk + 1];
+    const int kB = SlStkKind(xB, yB), kF = SlStkKind(xF, yF);
+    const bool bTow = (xB > 0.0f) == (curbSide > 0), fTow = (xF > 0.0f) == (curbSide > 0);
+    if ((kB == 1 && kF == 3) || (kF == 1 && kB == 3)) { if (two) *two = 1; return 1; }
+    if (kB == 1 && kF == 4) { if (two) *two = 1; return fTow ? 4 : 5; }
+    if (kF == 1 && kB == 4) { if (two) *two = 1; return bTow ? 5 : 4; }
+    if (kF == 0 && (kB == 1 || kB == 3)) return 2;
+    if (kB == 0 && (kF == 1 || kF == 3)) return 3;
+    if (kF == 0 && (kB == 2 || kB == 4)) return bTow ? 5 : 4;
+    if (kB == 0 && (kF == 2 || kF == 4)) return fTow ? 4 : 5;
+    return 0;
+}
+const uint8_t* SlFindGrind(const uint8_t* sk, int side, const char* trick, char* nm, int cap) {   /* GRIND_FS_x / GRIND_BS_x by its exact name in the skater's grind list */
+    if (!sk || (side != 1 && side != 2) || !trick || !trick[0]) return nullptr;
+    const uint8_t* gh = AsFgHandler(sk); if (!gh) return nullptr;
+    const uint8_t* data = *(const uint8_t* const*)(gh + 0x28); const int n = *(const int32_t*)(gh + 0x30);
+    if (!data || n <= 0 || n >= 512 || !PtrOk(data, (size_t)n * 8)) return nullptr;
+    char want[64]; snprintf(want, sizeof(want), "GRIND_%s_%s", side == 1 ? "FS" : "BS", trick);
+    for (int i = 0; i < n; i++) { const uint8_t* d = *(const uint8_t* const*)(data + (size_t)i * 8); if (!d) continue; char s[64]; GrDefName(d, s, 64); if (strcmp(s, want) == 0) { snprintf(nm, cap, "%s", s); return d; } }
+    return nullptr;
+}
+/* the sticks now -> M.want (on the toes' side); when 0 = the move's start, 1 = a pose of the move before the sit (a change logged) */
+void SlPkPick(const uint8_t* sk, SlMvT& M, int when) {
+    if (!g_slPick || !sk || !M.toeSide) return;
+    const float* stk = (g_pc && PtrOk(g_pc, ALT_PC_STICKS + 16)) ? (const float*)((const uint8_t*)g_pc + ALT_PC_STICKS) : nullptr;
+    if (!stk) return;
+    if (when == 0) M.pkBk = SlBackStick();
+    if (M.pkBk < 0 || M.pkBk > 1) { if (when == 0 && M.pkLogs++ < 2) Log("slappy 384: #%ld the grind from the sticks: the stick mode is not front/back- or left/right-foot -- \"%s\"", M.n, M.wantNm); return; }
+    int two = 0; const int cls = SlPkClass(stk, M.pkBk, M.c.side, &two);
+    if (!cls || (M.pkOn && cls == M.pkCls)) return;   /* no class (a stick on its way, or let go): the last kept */
+    char nm[64] = ""; const uint8_t* d = (cls == 1) ? SlFind5050(sk, M.toeSide, nm, 64) : SlFindGrind(sk, M.toeSide, SL_PK_TRICK[cls], nm, 64);
+    if (!d) { if (M.pkLogs++ < 6) Log("slappy 384: #%ld the grind from the sticks: %s on the %s NOT in the skater's grind list -- \"%s\" kept", M.n, SL_PK_TRICK[cls], M.toeSide == 1 ? "frontside" : "backside", M.wantNm); return; }
+    const int was = M.pkCls;
+    M.want = d; snprintf(M.wantNm, sizeof(M.wantNm), "%s", nm); M.pkCls = cls; M.pkOn = 1; M.pkHold = 1; M.pkLbl = SL_PK_LBL[cls];
+    M.pkMask = 0; for (int k = 0; k < 2; k++) if (SlStkKind(stk[2 * k], stk[2 * k + 1]) > 0) M.pkMask |= 1 << k;
+    if (M.pkLogs++ < 10) Log("slappy 384: #%ld the grind from the sticks %s: \"%s\" (%s: L %+.2f %+.2f R %+.2f %+.2f, the back stick the %s, the curb on the %s)%s", M.n, when == 0 ? "at the move" : "changed on the way in", nm, two ? "both sticks" : "one stick", stk[0], stk[1], stk[2], stk[3], M.pkBk ? "right" : "left", M.c.side > 0 ? "right" : "left", was ? (was == cls ? "" : " -- the move's first pick replaced") : "");
+}
+/* the picker's hook: the entry's grind kept while its sticks stay (true: answer M.want); a change of grind on the sticks, or an entry stick
+   let go, hands the picker back to the game's own pick (on the toes' side, as 383) for the rest of the grind */
+volatile float g_slTurnDeg = 0.0f; volatile LONG g_slTurnFreeN = 0;   /* (398) the slappy grind's axles off the curb (deg), set each pose in the grind */
+constexpr float SL_KEEP_TURN = 20.0f;   /* (398) turned past this: the game's own picks (its slide), not the entry's grind */
+bool SlPkKeep(SlMvT& M) {
+    if (!M.pkHold || !M.want || M.pkBk < 0 || M.pkBk > 1) return false;
+    const float* stk = (g_pc && PtrOk(g_pc, ALT_PC_STICKS + 16)) ? (const float*)((const uint8_t*)g_pc + ALT_PC_STICKS) : nullptr;
+    if (!stk) { M.pkHold = 0; return false; }
+    const int cls = SlPkClass(stk, M.pkBk, M.c.side, nullptr);
+    if (cls == M.pkCls) { M.pkAns++; return true; }
+    const char* why = cls ? "the sticks made another grind" : nullptr;
+    if (!why) for (int k = 0; k < 2; k++) if ((M.pkMask >> k) & 1) { const float x = stk[2 * k], y = stk[2 * k + 1]; if (x * x + y * y < 0.16f) why = "an entry stick let go"; }
+    if (!why) { M.pkAns++; return true; }   /* between two of the table's places: kept */
+    M.pkHold = 0;
+    if (M.pkLogs++ < 14) Log("slappy 384: #%ld the entry's grind \"%s\" handed back to the game's picker (%s; it answered it %ld times): L %+.2f %+.2f R %+.2f %+.2f", M.n, M.wantNm, why, M.pkAns, stk[0], stk[1], stk[2], stk[3]);
+    return false;
+}
+/* (slappy 387) THE GAME'S CROOK PICKS ARE MIRRORED. After a slappy's lip entry the game's picker sees the grind from the other side of the
+   edge (its picks come FS for our BS and back, 369's audit). Swapping the side alone kept its trick: every in-grind change to its
+   "Overcrook" in 383-386 (10 of 10, the "sl gr" trace after each change: 383 08:21:31 #3, 08:21:36 #4, 08:27:35 #15; 384 11:27:52 #2,
+   11:28:30 #6, 11:28:54 #8, 11:36:40 #18; 385 12:56:54 #5; 386 14:29:05 #9, 14:30:44 #16) had the raised end swung OUT over the street
+   (+3..+21 cm out from the edge) with the nose truck on it -- a CROOKED (the tail out on the side you came from); the game never once
+   picked "Crooked" from the other side. Seen from the far side of the edge the street and the top change places, and so do the crook and
+   the overcrook. Now (SlappyCrookMirror 1) its other-side Crooked / Overcrook is answered with the other one on the toes' side; the rest
+   as before (the side only). The def's turn (TargetRefAngle) does not move the board (385: a Crooked set straight stayed straight). */
+const uint8_t* SlSwapMirror(const uint8_t* r, int side) {
+    if (!r) return nullptr;
+    if (g_slCkMir) {
+        char rn[64]; GrDefName(r, rn, 64);
+        const char* tk = strstr(rn, "_Overcrook") ? "Crooked" : strstr(rn, "_Crooked") ? "Overcrook" : nullptr;
+        if (tk) { char nm[64]; const uint8_t* d = SlFindGrind((const uint8_t*)g_skater, side, tk, nm, 64); if (d) return d; }
+    }
+    return SlSwapSide(r, side);
+}
+const uint8_t* SlPick(void* gh, const uint8_t* r) {
+    SlMvT& M = g_slm;
+    const uint8_t* g = (const uint8_t*)gh;
+    if (!M.want || !PtrOk(g, 0x48) || *(const uint8_t* const*)(g + 8) != (const uint8_t*)g_skater) return r;
+    { const ULONGLONG now = GetTickCount64(); if (!(M.on && now - M.t0 < 1500) && !(M.hand && now - M.handT < (ULONGLONG)(SL_HAND_S * 1000.0f)) && !(M.postT && now - M.postT < 250) && !g_sl.inGrind) return r; }   /* (370, S3) the whole slappy grind */   /* (a level change mid-move: never a stale answer) */
+    if (r) { char gn[64]; GrDefName(r, gn, 64); const int gs = AsBluntSide(gn); if (gs) M.gameSide = gs; }   /* (366) the game's own side, read off its picks (365: our toes said FS where the game's grind went BS 0.5 s in -- the feet swapped) */
+    if (M.on && !M.inPlace) { M.heldN++; return nullptr; }   /* (364) held off: the board not on the edge yet */
+    const bool turned = g_sl.inGrind && !M.on && fabsf(g_slTurnDeg) > SL_KEEP_TURN;   /* (398) */
+    if (turned && M.pkHold) { M.pkHold = 0; if (InterlockedIncrement(&g_slTurnFreeN) <= 60) Log("slappy 398: #%ld turned %.0f deg off the curb: the entry's grind \"%s\" handed back to the game's picker (it answered it %ld times) -- the game's own grind / slide for the angle, as in an ollied-on grind", g_sl.n, g_slTurnDeg, M.wantNm, M.pkAns); }
+    if (!turned && ((M.on && M.inPlace) || (g_sl.inGrind && !M.on)) && SlPkKeep(M)) return M.want;   /* (slappy 384) the entry's own grind while its sticks stay: no settle, no change */
+    if (g_sl.inGrind && !M.on && r) {   /* (slappy 380) IN THE SLAPPY GRIND: a new pick passes once it has come 4 times running (the stick passing through the middle on its way); a mirror-side one then as the same trick on the toes' side (Codex: keep the side, not the trick) */
+        const uint8_t* cur = *(const uint8_t* const*)((const uint8_t*)g_skater + 0x6d0);
+        char gn[64]; GrDefName(r, gn, 64); const int gs = AsBluntSide(gn);
+        static const uint8_t* cand = nullptr; static int candN = 0; static long logN = 0; static const uint8_t* lastLogged = nullptr;
+        const bool mirror = M.toeSide && gs && gs != M.toeSide;
+        const uint8_t* ans = r;
+        if (r != cur) { if (r == cand) candN++; else { cand = r; candN = 1; } if (mirror) { const uint8_t* sw = SlSwapMirror(r, M.toeSide); if (!sw && turned) sw = SlSwapSide(r, M.toeSide); ans = sw ? sw : (turned ? r : (cur ? cur : M.want)); }   /* (398) a turned board's slide passes, on the toes' side */   /* (slappy 387) the crook pair by its shape */ }   /* (383) no waiting: the game asks on stick changes, so 380's 4-in-a-row held a change back a second or more (the wrong end first was SessionTweaks' grind rock, not a passing pick) */
+        else { cand = nullptr; candN = 0; }
+        if (r != lastLogged && logN < 400) { lastLogged = r; logN++; char cn[64], an[64]; GrDefName(cur, cn, 64); GrDefName(ans, an, 64); Log("slappy 383: #%ld in the grind the picker chose \"%s\"%s (current \"%s\") -> answered \"%s\"", g_sl.n, gn, mirror ? " (the other side)" : "", cn, an); }
+        return ans;
+    }
+    { char gn[64]; GrDefName(r, gn, 64); const int gs = r ? AsBluntSide(gn) : 0; if (!gs) return r;   /* (370, S3) THE TOES' SIDE, locked through the grind: the 369 audit -- every air entry's side = the toes (8/8), every lip entry's = the mirror (7/7), the game's re-picks to the mirror = the wrong end lifting. A pick on the other side is answered with the same trick on the toes' side */
+      if (M.toeSide && gs != M.toeSide) { const uint8_t* sw = SlSwapMirror(r, M.toeSide); if (sw) { M.pickN++; return sw; } } }   /* (slappy 387) the crook pair by its shape */
+    if (g_sl.inGrind && !M.on && !(M.postT && GetTickCount64() - M.postT < 250)) { if (r) { char gn2[64]; GrDefName(r, gn2, 64); if (!M.toeSide || AsBluntSide(gn2) == M.toeSide) return r; } return M.want; }   /* (375) 373's again (374's same-trick swap taken out with the grind sticks) */   /* (370 review) through the grind: the SIDE locked, the trick the player's own */
+    if (r == M.want) { M.pickKept++; return r; }
+    M.pickN++;
+    if (false && M.gameSide && M.gameSide != M.side) { char nm[64]; const uint8_t* w2 = SlFind5050(g_skater ? (const uint8_t*)g_skater : nullptr, M.gameSide, nm, 64); if (w2) { M.want = w2; M.side = M.gameSide; snprintf(M.wantNm, sizeof(M.wantNm), "%s", nm); } if (r == M.want) { M.pickKept++; return r; } }
+    if (M.pickN <= 3 && InterlockedIncrement(&g_slPickLogs) <= 200) { char rn[64]; GrDefName(r, rn, 64); Log("slappy 383: #%ld the game's grind picker chose \"%s\" -> answered \"%s\" (%s)", M.n, rn, M.wantNm, M.on ? "the board on the edge" : "after its hand-over"); }
+    return M.want;
+}
+const uint8_t* SafeSlPick(void* gh, const uint8_t* r) {
+    __try { return SlPick(gh, r); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { g_slPickOn = 0; static LONG n = 0; if (InterlockedIncrement(&n) <= 3) Log("slappy 383: a fault in the picker's answer -- the game's own pick kept"); return r; }
+}
+/* (364) the board's two axles: the middles of the back (WG_PART 3/4) and front (5/6) wheel pairs; hw = half an axle's width */
+bool SlAxles(const uint8_t* board, V3& fr, V3& bk, float& hw) {
+    V3 w[4];
+    for (int k = 3; k < 7; k++) { uint8_t* p = *(uint8_t* const*)(board + WG_PART[k]); if (!p || !PtrOk(p, SC_C2W + 0x30) || !WrInExe(*(void* const*)p)) return false; w[k - 3] = *(const V3*)(p + SC_C2W + 0x10); if (!finite3(w[k - 3])) return false; }
+    bk = mul(add(w[0], w[1]), 0.5f); fr = mul(add(w[2], w[3]), 0.5f); hw = 0.25f * (len(sub(w[0], w[1])) + len(sub(w[2], w[3])));
+    const float wb = len(sub(fr, bk));
+    return wb > 15.0f && wb < 80.0f && hw > 3.0f && hw < 20.0f;
+}
+V3 SlW(const SlCurbT& c, float s, float n, float z) { V3 p = add(c.F, add(mul(c.E, s), mul(c.N, n))); p.z = z + c.grade * s; return p; }   /* (381) z on the curb's grade */
+/* (367) the leading axle's path at tau s (tau < 0: the line it came in on): n out from the face, z world. 366 lifted the nose fully a
+   foot out from the curb ("it's like a foot out still, and it's fully lifted"): its way across was eased IN from rest (a smoothstep), so
+   the board all but stopped closing on the curb while the nose went up, then crept over. Now the way across keeps the speed it came
+   with and slows only to stop on the edge (a Hermite from that speed to rest over tEnd), and the nose rises in SL_RISE s ending just as
+   the wheels reach the face (tFace): up as it meets the curb, rounding over the top, set down on the edge */
+float SlLeadN(const SlMvT& M, float u) {
+    const float v0 = fmaxf(M.vtIn, 100.0f), D = fmaxf(M.nL0 - M.nEnd, 1.0f), m0 = clampf(v0 * M.tEnd / D, 0.0f, 2.5f);   /* (384) M.nEnd = -SlappyInset */
+    u = clampf(u, 0.0f, 1.0f);
+    return M.nL0 - D * ((u * u * u - 2.0f * u * u + u) * m0 + (-2.0f * u * u * u + 3.0f * u * u));
+}
+void SlLeadPath(const SlMvT& M, float tau, float& n, float& z) {
+    const float zOn = M.c.top + M.ha;
+    if (tau <= 0.0f) { n = M.nL0 - fmaxf(M.vtIn, 100.0f) * tau; z = M.zL0; return; }
+    n = SlLeadN(M, tau / fmaxf(M.tEnd, 0.05f));
+    const float t0 = fmaxf(M.tFace - SL_RISE, 0.0f), tr = fmaxf(M.tFace - t0, 0.02f);
+    if (tau < t0) z = M.zL0;
+    else if (tau < M.tFace) { const float w = (tau - t0) / tr; z = M.zL0 + (zOn + SL_LIFT - M.zL0) * (1.0f - (1.0f - w) * (1.0f - w)); }
+    else if (tau < M.tFace + 0.04f) z = zOn + SL_LIFT;
+    else z = zOn + SL_LIFT + (SL_SET - SL_LIFT) * Sm01((tau - M.tFace - 0.04f) / 0.06f);
+    if (z < zOn - 1.0f) n = fmaxf(n, M.guard);                              /* kept off the face while its wheels are under the top */
+}
+/* (slappy 386) THE CROOK'S SWING: the trailing truck's way out from the edge at t (cm, + = the street side) -- crooked: the tail out over
+   the street, the nose over the top (it stops short of the edge by sin(SlappyCrookYaw) x the wheelbase, from the leading wheels at the face
+   on over 0.10 s); overcrook: the tail on past the edge, in over the top, by as much as it crosses the face (never into it) -- SlCkN: its end */
+float SlCkN(const SlMvT& M, float t) {
+    if (M.ckSg == 0 || !(M.ckW > 0.0f)) return 0.0f;
+    return (float)M.ckSg * M.ckW * Sm01((t - M.tFace) / 0.10f) * sinf(clampf(g_slCrookYaw, 0.0f, 45.0f) * 0.0174533f) * M.W;
+}
+float SlCkAt(const SlMvT& M, float t, float tau, float nB) {   /* the trailing truck's n with the swing: nB its own path's, tau the time the leading truck was where it is */
+    if (M.ckSg == 0 || !(M.ckW > 0.0f)) return nB;
+    const float kf = (float)M.ckSg * M.ckW * sinf(clampf(g_slCrookYaw, 0.0f, 45.0f) * 0.0174533f) * M.W;
+    if (kf > 0.0f) return fmaxf(nB, M.nEnd + kf * Sm01((t - M.tFace) / 0.10f));   /* crooked: it stops out by the swing (the board keeps the turn it came in with: no swing back and forth) */
+    return nB + kf * Sm01((tau - M.tFace) / 0.18f);   /* overcrook: on past the edge as it crosses it (over the top by then), over 0.18 s (a 60 deg turn from a 30 deg approach) */
+}
+void SlPlan(const SlMvT& M, float t, V3& Lp, V3& Tp, int& ph) {
+    const SlCurbT& c = M.c;
+    float nL, zL; SlLeadPath(M, t, nL, zL);
+    const float hov = SL_HOVER * Sm01(t / 0.05f);
+    zL = fmaxf(zL, M.zL0 + hov);
+    const float zOnP = c.top + M.ha;   /* (slappy 385) the pick's lift: the 5-0's leading end up as the trailing truck reaches the curb (one wheelbase on), the nosegrind's trailing end as soon as the nose is on */
+    const float lfL = (M.lfEnd > 0) ? M.lfW * Sm01((t - M.tFace - fminf(M.W / fmaxf(M.va, 50.0f), 0.25f) - 0.02f) / SL_LF_T) : 0.0f;
+    const float lfT = (M.lfEnd < 0) ? M.lfW * Sm01((t - M.tFace - 0.03f) / SL_LF_T) : 0.0f;
+    if (lfL > 0.0f) zL += lfL * fmaxf(zOnP + M.lfCm - zL, 0.0f);
+    const float sL = M.sL0 + M.va * t;
+    Lp = SlW(c, sL, nL, zL);
+    float lo = sL - M.W - 10.0f, hi = sL - 0.3f * M.W;                       /* the along-place of the trailing axle: one wheelbase from the leading one, on the path */
+    float nT = 0.0f, zT = 0.0f;
+    for (int i = 0; i < 22; i++) {
+        const float sm = 0.5f * (lo + hi);
+        SlLeadPath(M, (sm - M.sL0) / fmaxf(M.va, 50.0f), nT, zT); zT = fmaxf(zT, M.zT0 + hov); zT = fmaxf(zT, zL - 0.5f * M.W); if (lfT > 0.0f) zT += lfT * fmaxf(zOnP + M.lfCm - zT, 0.0f);
+        nT = SlCkAt(M, t, (sm - M.sL0) / fmaxf(M.va, 50.0f), nT);   /* (slappy 386) the crook's swing, one wheelbase from the leading truck still */
+        const V3 P = SlW(c, sm, nT, zT);
+        if (len(sub(Lp, P)) > M.W) lo = sm; else hi = sm;
+    }
+    const float sT = 0.5f * (lo + hi);
+    SlLeadPath(M, (sT - M.sL0) / fmaxf(M.va, 50.0f), nT, zT); zT = fmaxf(zT, M.zT0 + hov); zT = fmaxf(zT, zL - 0.5f * M.W); if (lfT > 0.0f) zT += lfT * fmaxf(zOnP + M.lfCm - zT, 0.0f);   /* (slappy 385) the nosegrind's tail up */   /* (370, S4) the pitch 30 deg at the most */
+    nT = SlCkAt(M, t, (sT - M.sL0) / fmaxf(M.va, 50.0f), nT);   /* (slappy 386) */
+    Tp = SlW(c, sT, nT, zT);
+    const float tT = (sT - M.sL0) / fmaxf(M.va, 50.0f);                      /* the time the leading axle was where the trailing one is now */
+    ph = (t < fmaxf(M.tFace - SL_RISE, 0.0f)) ? 0 : (t < M.tFace) ? 1 : (t < M.tEnd) ? 2 : (tT < M.tEnd) ? 3 : 4;
+}
+/* one pose of the move (364): the board servoed onto the plan -> parts written (<= 0: none); nL/zL, nT/zT = the leading / trailing axles
+   from the face (+ = the street side) and over the top (cm), err = the farthest axle off the plan (cm), psi = its turn off the edge's
+   line, pe = the leading end's pitch (deg), vCmd = the axles' middle's velocity given, ph = the plan's phase */
+int SlMoveStep(const uint8_t* board, SlMvT& M, float dt, float t, float& nL, float& zL, float& nT, float& zT, float& err, float& psi, float& pe, V3& vCmd, V3& vWas, int& ph) {
+    void* part[7]; V3 pos[7]; int n = 0;
+    Q4 dq; V3 dw; if (!WrDeckWorld(board, dq, dw)) return 0;
+    const uint8_t* deck = *(const uint8_t* const*)(board + BD_DECK);
+    for (int k = 0; k < 7; k++) {
+        uint8_t* p = *(uint8_t* const*)(board + WG_PART[k]);
+        if (!p || !PtrOk(p, SC_C2W + 0x30) || !WrInExe(*(void* const*)p)) continue;
+        const V3 q = *(const V3*)(p + SC_C2W + 0x10);
+        if (!finite3(q) || len(sub(q, dw)) > 120.0f) continue;
+        part[n] = p; pos[n] = q; n++;
+    }
+    if (n < 7 || part[0] != (const void*)deck) return -n;
+    if (!WallBodyVel(part[0], vWas)) vWas = v3(0.0f, 0.0f, 0.0f);
+    /* (370) THE OBSERVERS GATED (the 369 audit, S1): with the board in the game's air (mode 3) or on the curb top, writes do not change what
+       is read back, so 369's observer ran as a pure integrator -- the across command ramped to -141..-174 cm/s and +120 up while the board hovered
+       over the top (#1, #4), 450 at the cap (#13, #15, #16), and the skater was handed it ("his butt over the sidewalk", the slams). Now it learns
+       only riding (mode 1) before the board sits, level only, 150 at the most; elsewhere it decays; reset on a mode change and at the sit */
+    if (M.bmode != M.bmodeLast) { M.dObs = v3(0.0f, 0.0f, 0.0f); M.wObs = v3(0.0f, 0.0f, 0.0f); M.bmodeLast = M.bmode; }
+    const bool learn = M.bmode == 1 && !M.inPlace && M.poses > 0;
+    if (learn && finite3(vWas)) { M.dObs = add(mul(M.dObs, 0.6f), mul(sub(vWas, M.vLast), 0.4f)); M.dObs.z = 0.0f; if (len(M.dObs) > 150.0f) M.dObs = mul(norm(M.dObs), 150.0f); }
+    else M.dObs = mul(M.dObs, 0.7f);
+    if (len(M.dObs) > M.dMax) M.dMax = len(M.dObs);
+    V3 fr, bk; float hw; if (!SlAxles(board, fr, bk, hw)) return -1;
+    const V3 L = M.leadF ? fr : bk, T = M.leadF ? bk : fr;
+    const SlCurbT& c = M.c;
+    if (!M.rebased && t >= fmaxf(M.tFace - SL_RISE, 0.0f)) { M.zL0 = L.z - c.grade * dot(sub(L, c.F), c.E); M.zT0 = T.z - c.grade * dot(sub(T, c.F), c.E); M.rebased = 1; }   /* (381) off the grade */   /* (370, S5) the start heights where the axles really are as the nose phase begins (#16: a sloped street) */
+    V3 Lp, Tp, Lp2, Tp2; int ph2 = 0;
+    SlPlan(M, t, Lp, Tp, ph); SlPlan(M, t + dt, Lp2, Tp2, ph2);
+    nL = dot(sub(L, c.F), c.N); nT = dot(sub(T, c.F), c.N); zL = L.z - c.grade * dot(sub(L, c.F), c.E) - c.top - M.ha; zT = T.z - c.grade * dot(sub(T, c.F), c.E) - c.top - M.ha;   /* (381) over the top where each axle is (the grade) */
+    err = fmaxf(len(sub(Lp, L)), len(sub(Tp, T)));
+    const V3 mid = mul(add(L, T), 0.5f), midP = mul(add(Lp, Tp), 0.5f), midP2 = mul(add(Lp2, Tp2), 0.5f);
+    M.vPlan = mul(sub(midP2, midP), 1.0f / dt);
+    const V3 a = norm(sub(L, T));
+    pe = asinf(clampf(a.z, -1.0f, 1.0f)) * 57.29578f;
+    { V3 af = v3(a.x, a.y, 0.0f); psi = 0.0f; if (len(af) > 0.2f) { af = norm(af); const V3 sE = (dot(af, c.E) >= 0.0f) ? c.E : mul(c.E, -1.0f); psi = atan2f(af.x * sE.y - af.y * sE.x, dot(af, sE)) * 57.29578f; } }
+    M.psiLast = psi; M.peLast = pe;
+    if (ph == 0) { vCmd = vWas; M.vLast = vWas; V3 wr0; M.wLast = (WallAngVel(part[0], wr0) && finite3(wr0)) ? wr0 : v3(0.0f, 0.0f, 0.0f); return n; }   /* (370, S5) coming in: the board left as it rides (369 #16: phase 0's writes lifted it off before the nose) */
+    V3 v = add(M.vPlan, mul(sub(midP, mid), SL_KP));
+    v = sub(v, M.dObs);
+    if (len(v) > SL_V_CAP) v = mul(norm(v), SL_V_CAP);
+    const V3 aP = norm(sub(Lp, Tp)), aP2 = norm(sub(Lp2, Tp2));
+    float psiP = 0.0f; { V3 af = v3(aP.x, aP.y, 0.0f); if (len(af) > 0.2f) { af = norm(af); const V3 sE = (dot(af, c.E) >= 0.0f) ? c.E : mul(c.E, -1.0f); psiP = atan2f(af.x * sE.y - af.y * sE.x, dot(af, sE)) * 57.29578f; if (!std::isfinite(psiP)) psiP = 0.0f; } }   /* (slappy 386) the plan's own turn off the edge (a crook's) */
+    V3 om = add(mul(cross(a, aP), SL_KR), mul(cross(aP, aP2), 1.0f / dt));          /* the long axis onto the plan's, the plan's own turn fed forward */
+    const V3 up = qrot(dq, v3(0.0f, 0.0f, 1.0f)), Z = v3(0.0f, 0.0f, 1.0f);
+    { V3 upT = sub(Z, mul(a, dot(Z, a))); if (len(upT) > 0.2f) { upT = norm(upT); const float rl = atan2f(dot(cross(up, upT), a), dot(up, upT)); if (std::isfinite(rl)) om = add(om, mul(a, rl * SL_KR)); } }   /* its roll held level */
+    { V3 wr; if (learn && WallAngVel(part[0], wr) && finite3(wr)) { M.wObs = add(mul(M.wObs, 0.6f), mul(sub(wr, M.wLast), 0.4f)); if (len(M.wObs) > 6.0f) M.wObs = mul(norm(M.wObs), 6.0f); } else M.wObs = mul(M.wObs, 0.7f); om = sub(om, M.wObs); }   /* (369) the turn the game adds; (370) learnt riding only */
+    if (M.bmode == 3 && !M.inPlace) { V3 lat = cross(a, Z); if (len(lat) > 0.2f) { lat = norm(lat); om = sub(om, mul(lat, dot(om, lat))); } }   /* (370, S4) in the game's air its hold owns the pitch: no fight over it (yaw and roll kept) */
+    if (len(om) > SL_W_CAP) om = mul(norm(om), SL_W_CAP);
+    const V3 omS = om;   /* (slappy 385) the servo's turn, its pitch kept on the edge for a lifted end */
+    if (M.inPlace) { const float sa = fmaxf(dot(vWas, c.E), 0.95f * M.va); v = add(mul(c.E, sa), v3(0.0f, 0.0f, -40.0f + c.grade * sa)); om = v3(0.0f, 0.0f, clampf((psi - (M.ckW > 0.01f ? psiP : 0.0f)) * 0.0174533f * 10.0f, -1.5f, 1.5f));   /* (slappy 386) a crook held at its turn, not squared */ if (M.lfEnd && M.lfW > 0.0f) { V3 lat = cross(a, Z); if (len(lat) > 0.2f) { lat = norm(lat); const V3 omP = mul(lat, dot(omS, lat)); om = add(om, omP); v = add(v, cross(omP, sub(mid, M.lfEnd > 0 ? T : L))); } } }   /* (slappy 385) sat with a lifted end: the plan's pitch goes on about the truck on the edge (not the middle: that would press it into the top) */   /* (381) squared onto the edge (it sat 3-6 deg tail-out, the turn frozen at 0); down the grade */   /* (371) its entry speed kept: 370 fed its own speed back and the game's drag on the edge stopped it dead in 0.25 s ("it's just stopping") */   /* (370, S2) sat: set it DOWN on the edge, its speed along kept, nothing across -- the game's grind takes it (369: held over the top 0.2-0.5 s, #4 / #13 never) */
+    M.wLast = om;
+    if (!finite3(v) || !finite3(om)) return 0;
+    V3 wd0S; if (!WallAngVel(part[0], wd0S) || !finite3(wd0S)) wd0S = om; const V3 dOmS = sub(om, wd0S); for (int i = 0; i < n; i++) { const V3 vi = add(v, cross(om, sub(pos[i], mid))); V3 wi; V3 oi = om; if (i > 0 && WallAngVel(part[i], wi) && finite3(wi)) { oi = add(wi, dOmS); if (!finite3(oi)) oi = om; } WallSetVel(part[i], vi); WallSetAngVel(part[i], oi); if (i == 0) M.vLast = vi; }   /* (384b) the wheels' roll kept; (370) the deck part's own command is what its read-back is measured against */
+    vCmd = v;
+    return n;
+}
+void SlEnd(uint8_t* sk, const uint8_t* mc, const uint8_t* bm, ULONGLONG now, const char* why) {
+    SlMvT& M = g_slm;
+    if (!M.on) return;
+    if (M.lent && sk && (sk[0x918] & 1)) sk[0x918] &= (uint8_t)~0x01;
+    if (g_slSatWait) { g_slSatWait = 0; Log("slappy 397: #%ld the sat board's wait: the game's grind check ran %ld times, said yes %ld", M.n, (long)g_slSatCg, (long)g_slSatYes); }   /* (397) */
+    M.on = 0; M.endT = now;
+    Log("slappy 383: #%ld the move let go -- %s, %.2f s in (%d poses): the board %s on the edge (%s), off the plan %.0f cm at the most, the physics' push taken off up to %.0f cm/s; the nose up to %+.0f deg, %+.0f -> %+.0f deg off the edge; the picker held the grind off %d times, the game's manual taken off %d poses; the game's air %s; the ground's grind check opened on %d poses; the body turned %+.0f deg on %d poses; the board's mode %d, the skater %d/%d",
+        M.n, why, (now - M.t0) / 1000.0, M.poses, M.inPlace ? "SAT" : "never sat", M.inPlace ? "both axles" : "the plan not reached", M.errMax, M.dMax, M.peMax, M.psi0, M.psiLast, M.heldN, M.manClr, M.air ? "yes" : "never", M.lent, M.capDeg, M.capN, bm ? (int)bm[BM_MODE] : -1, mc ? (int)mc[0x168] : -1, mc ? (int)mc[0x169] : -1);
+}
+/* (363) the game's grind began: the move hands over */
+void SlHand(uint8_t* sk, const uint8_t* mc, const uint8_t* bm, const uint8_t* board, const uint8_t* tg, const uint8_t* cu, ULONGLONG now) {
+    SlMvT& M = g_slm;
+    char tw[64], cw[64]; GrDefName(tg, tw, 64); GrDefName(cu, cw, 64);
+    bool set = false;
+    if (M.want && tg != M.want && !SlSigOff()) { uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr); ((SetGrindDefFn)(exe + RVA_SET_TGT_GRIND))(sk, M.want); set = true; }
+    float a1 = 0.0f; const float a0 = board ? AsBgZero(board, M.c.N, true, &a1) : 0.0f;   /* the speed across the curb taken out: the game's grind lays the board on the edge */
+    if (mc[0x168] == 6 && mc[0x169] == 2) { V3& sv = *(V3*)((uint8_t*)mc + 0xc4); if (finite3(sv)) sv = sub(sv, mul(M.c.N, dot(sv, M.c.N))); }
+    if (M.lent && (sk[0x918] & 1)) sk[0x918] &= (uint8_t)~0x01;
+    float lat = 0.0f, hz = 0.0f; Q4 dq; V3 dw; if (board && WrDeckWorld(board, dq, dw)) { lat = dot(sub(dw, M.c.F), M.c.N); hz = dw.z - M.c.top - M.c.grade * dot(sub(dw, M.c.F), M.c.E); }
+    M.on = 0; M.hand = 1; M.handT = now; M.endT = now; M.psiHand = M.psiLast;
+    Log("slappy 383: #%ld the game's grind BEGAN %.2f s into the move (target \"%s\" current \"%s\"%s; the board's mode %d, grind flags %02x): HANDED OVER -- the move's writes stop, the speed across the curb %+.0f -> %+.0f cm/s; the deck's middle %+.1f cm from the edge's plane, %+.1f over the top, turned %+.0f deg off the edge, the nose %+.0f; the board %s (the picker held the grind off %d times, answered the 50-50 %d, kept it %d), the body turned %+.0f deg",
+        M.n, (now - M.t0) / 1000.0, tw, cw, set ? (M.want ? " -> the target made the 50-50" : "") : "", (int)bm[BM_MODE], (unsigned)bm[FG_BM_GFLAGS], -a0, -a1, lat, hz, M.psiLast, M.peLast, M.inPlace ? "SAT on the edge" : "NOT yet on the edge", M.heldN, M.pickN, M.pickKept, M.capDeg);
+}
+/* (slappy 379) THE GRIND'S MOVE DIRECTION, AT ITS SOURCE. USkateboardExMovementComponent::GetGrindMoveDirection (0xfbd4e0: lea rax,[rcx+0x4f4]; ret)
+   is an interface getter (this = the board movement + 0x138: the field is +0x62c). GrindsHandler reads it through that slot to tell the board's
+   way along the grind (GetBoardDirectionRelativeToGrind) and to pick (GetGrindDefinitionClosestToDirection). In a slappy grind it hands back a
+   level direction along the curb (its sign the game's own); anything else gets the game's field. On another build read off bm+0x138's table, slot 0x148 (steam 398); its 16 bytes are checked. */
+volatile LONG g_slGdHook = 0, g_slGdOn = 0, g_slGdCalls = 0; const void* volatile g_slGdSelf = nullptr; V3 g_slGdDir = { 1.0f, 0.0f, 0.0f };
+const V3* hkGrindDir(const void* self) {
+    if (g_slGdOn && self && self == g_slGdSelf) { InterlockedIncrement(&g_slGdCalls); return &g_slGdDir; }
+    return (const V3*)((const uint8_t*)self + 0x4f4);
+}
+void SlGdInstall(const uint8_t* bm) {
+    static bool tried = false; if (tried) return; tried = true;
+    static const uint8_t ex[16] = { 0x48, 0x8D, 0x81, 0xF4, 0x04, 0x00, 0x00, 0xC3, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC };
+    uint8_t* at = Exe() + 0xfbd4e0;
+    if (g_sigMode) {   /* (steam 398) another build (or the force-signatures test): the getter off the live board movement's interface table (bm+0x138's, slot 0x148), its bytes checked */
+        at = nullptr; const char* why = nullptr;
+        if (SlSigOff()) why = "the slappy's addresses not all found";
+        else if (!bm || !PtrOk(bm, 0x140)) why = "the board's movement not read";
+        else {
+            void* const* vt = *(void* const* const*)(bm + 0x138);
+            uint8_t* fn = (vt && WrInExe(vt) && WrInExe(vt + 0x148 / 8)) ? (uint8_t*)vt[0x148 / 8] : nullptr;
+            if (!fn || !WrInExe(fn) || !WrInExe(fn + 15)) why = "its table's slot 0x148 is not in the exe";
+            else if (memcmp(fn, ex, 8) != 0) why = "its table's slot 0x148 is not \"lea rax,[rcx+0x4f4]; ret\"";
+            else if (g_slGdSigOk && fn != Exe() + RVA_BM_GRINDDIR) why = "its table's slot and the signature disagree";
+            else at = fn;
+        }
+        if (!at) { Log("slappy 398: another build of the game -- GetGrindMoveDirection not hooked (%s): the pitch guard instead", why); return; }
+        Log("slappy 398: GetGrindMoveDirection read off the board movement's table (slot 0x148): exe+%07llx%s%s", (unsigned long long)(at - Exe()), g_slGdSigOk ? ", the signature's too" : " (its signature not found exactly once: the table's alone)", at == Exe() + 0xfbd4e0 ? " -- the Epic exe's own address (the force-signatures test)" : "");
+    }
+    g_slGdHook = DetourPatch(at, (const void*)&hkGrindDir, 14, ex, 16, "USkateboardExMovementComponent::GetGrindMoveDirection (slappy 379)") ? 1 : 0;
+    Log(g_slGdHook ? "slappy 383: GetGrindMoveDirection hooked -- a slappy grind's direction is handed over level along the curb" : "slappy 383: GetGrindMoveDirection NOT hooked (its bytes are not the ones expected)");
+}
+void SlGdUpdate(uint8_t* bm, long n, ULONGLONG inT, ULONGLONG now) {
+    SlGdInstall(bm);   /* (steam 398) the board's own table on another build */
+    if (!g_slGdHook || !bm || !PtrOk(bm, 0x700)) return;
+    const uint8_t* self = bm + 0x138; const V3 real = *(const V3*)(self + 0x4f4);
+    V3 E = g_slm.c.E; E.z = 0.0f; const float el = len(E); if (!(el > 0.5f) || !finite3(real)) return;
+    E = mul(E, 1.0f / el); const float rl = len(real), s = dot(real, E);
+    (void)s;   /* (381) no flip from the game's field: c.E is along the travel already (the review: on S1/S2 the field pointed 124-133 deg off the nose) */
+    g_slGdDir = E; g_slGdSelf = self; g_slGdOn = 1;
+    static long told = -1;
+    if (told != n && now - inT > 300) { told = n; const float off = (rl > 0.3f) ? acosf(clampf(fabsf(s) / rl, -1.0f, 1.0f)) * 57.2957795f : -1.0f; const float pit = (rl > 0.3f) ? asinf(clampf(real.z / rl, -1.0f, 1.0f)) * 57.2957795f : 0.0f; Log("slappy 383: #%ld the game's own grind direction (+0x62c) %.0f deg off the curb (pitched %+.0f, length %.2f): handed over level along it, %ld reads so far", n, off, pit, rl, (long)g_slGdCalls); }
+}
+// (383) THE HEAD, AIMED WITHOUT A HEADING. "The head does that look forward, look back thing very quickly ... looks like he's
+// breaking his neck" (6 Nov, 382: front-hand grabs off flat ground; not down a stair set). HeadUp's aim was built on the gaze's
+// own HEADING; in a Mute or a Melon off flat ground the game has him look 70-87 deg down (that night's recording: the game's
+// gaze in segments 52-57, 61, 64), where a heading swings 50-180 deg on a few deg of the game's own movement -- and the blend to
+// the way of travel (0.15-0.4 of a heading), the melon's 180 (381) and its latch (382) all switch on it, unsmoothed: the drawn
+// gaze jumped 35-57 deg in single poses where the game's moved 2-6. Down a stair set the game's look is 26-60 deg down, a heading
+// that holds. Now the gaze he is to get is the way of travel at kHeadLook (his own heading kept only where he has one, past
+// GrabHeadTurn), raised over his FRONT by GrabHeadUp at the most -- measured in the plane of that way, so it runs on through
+// straight down: a head tipped past it (the melon) is raised toward the front by the same shortest turn; the turn from the gaze
+// to it by the shortest way, by the grab's weight; and that turn eased in time (GrabHeadEase s) and never faster than
+// GrabHeadRate deg/s. The roll that levels the head (kHeadLevel of it) is eased the same way.
+bool HeadAim(V3 g, float gh, float elev, V3 way, bool haveWay, float wgt, float upMax, float turnMax) {
+    const double now = NowS();
+    const bool fresh = now - g_headQT > 0.2 && wgt < 0.1f;   /* (383r) not a hitch mid-grab */                                    // a new grab (or none for a while): from the game's own head
+    const float dt = fresh ? (1.0f / 60.0f) : clampf((float)(now - g_headQT), 0.004f, 0.05f);
+    g_headQT = now;
+    if (fresh) { g_headQ = q4(0.0f, 0.0f, 0.0f, 1.0f); g_headRollS = 0.0f; }
+    V3 hT = haveWay ? way : ((gh > 0.01f) ? v3(g.x / gh, g.y / gh, 0.0f) : v3(1.0f, 0.0f, 0.0f));   // the heading he is to look along
+    if (haveWay && gh > 0.01f) {
+        const float rel = Sm01((gh - 0.25f) / 0.35f);                         // how much heading the gaze has: none within 75 deg of straight down
+        if (rel > 0.0f) {
+            const V3 hg = v3(g.x / gh, g.y / gh, 0.0f);
+            const float a = atan2f(hg.x * way.y - hg.y * way.x, hg.x * way.x + hg.y * way.y) * 57.2957795f;   // from his heading round to the way
+            const float keep = ((a > 0.0f) ? 1.0f : -1.0f) * fmaxf(fabsf(a) - turnMax, 0.0f) * rel * Sm01((180.0f - fabsf(a)) / 30.0f);   // past GrabHeadTurn it stays his (a look straight back has no side to keep)
+            const float kr = -keep * 0.01745329f;
+            hT = v3(way.x * cosf(kr) - way.y * sinf(kr), way.x * sinf(kr) + way.y * cosf(kr), 0.0f);
+        }
+    }
+    const float x = g.x * hT.x + g.y * hT.y;
+    const float eF = (g.z < 0.0f || x > 0.0f) ? atan2f(g.z, x) * 57.2957795f : elev;   // the gaze's elevation over his front: -90 straight down, -120 a head tipped 30 past it
+    const float eT = (eF + clampf(kHeadLook - eF, 0.0f, upMax)) * 0.01745329f;
+    const V3 T = v3(hT.x * cosf(eT), hT.y * cosf(eT), sinf(eT));             // the gaze he gets at the full weight
+    const Q4 R = qfromto(g, T);
+    const float A = qangle(R), Amax = upMax + turnMax;
+    const float front = (haveWay && gh > 0.01f) ? 1.0f - Sm01((gh - 0.55f) / 0.2f) * (1.0f - Sm01(((g.x * way.x + g.y * way.y) / gh + 0.5f) / 0.5f)) : 1.0f;   // (383r; 381's hfront) a look with a heading, turned 120+ deg from the way he travels, is left as the game has it
+    const float capK = (A > Amax && A > 0.01f) ? Amax / A : 1.0f;
+    const Q4 Rw = qscale(R, wgt * front * capK);
+    const float k = 1.0f - expf(-dt / fmaxf(g_headEase, 0.01f)), most = fmaxf(g_headRate, 1.0f) * dt;
+    if (g_headAbs != 0) {                                                       // (384) GrabHeadSteady: the GAZE eased, the weight blends it in (the note at HeadTailW)
+        if (fresh || !g_headDOk || !finite3(g_headD)) { g_headD = g; g_headB = 0.0f; g_headDOk = true; }
+        const V3 Dt = qrot(qscale(R, capK), g);                                 // the gaze he gets at the full weight, in the mesh's space
+        const float da = acosf(clampf(dot(g_headD, Dt), -1.0f, 1.0f)) * 57.2957795f;
+        if (da > 0.01f) {
+            const V3 dn = qrot(qscale(qfromto(g_headD, Dt), fminf(da * k, most) / da), g_headD);   // eased, and never faster than GrabHeadRate
+            const float dl = len(dn);
+            if (finite3(dn) && dl > 0.5f) g_headD = mul(dn, 1.0f / dl);
+        }
+        g_headB += (clampf(wgt * front, 0.0f, 1.0f) - g_headB) * k;            // the blend from the game's gaze to it (381's front rule in it), eased the same
+        g_headQ = qscale(qfromto(g, g_headD), clampf(g_headB, 0.0f, 1.0f));
+    } else {                                                                    // 0 = 383's: the turn eased
+        const Q4 st = qslerpTo(g_headQ, Rw, k);
+        const float sd = qdiff(g_headQ, st);
+        g_headQ = (sd > most) ? qslerpTo(g_headQ, st, most / sd) : st;
+    }
+    bool ch = false;
+    if (qangle(g_headQ) > 0.3f) {
+        TurnComp(g_neck, qscale(g_headQ, 0.35f));
+        const V3 want = qrot(g_headQ, g);
+        V3 g2;
+        if (HeadGaze(g_Ct, g2)) TurnComp(g_head, qfromto(g2, want));          // the rest in the head, about its own joint
+        ch = true;
+    }
+    float deg = 0.0f, rw = 0.0f; Q4 q; V3 g3;
+    if (HeadRoll(deg, q) && HeadGaze(g_Ct, g3) && deg >= 1.0f) rw = (((q.x * g3.x + q.y * g3.y + q.z * g3.z) < 0.0f) ? -1.0f : 1.0f) * fminf(deg, 75.0f) * wgt * kHeadLevel;   // (75 deg at the most, as HeadLevel)
+    g_headRollS += clampf((rw - g_headRollS) * k, -most, most);
+    if (fabsf(g_headRollS) > 0.5f && HeadGaze(g_Ct, g3)) { TurnComp(g_head, qaxis(g3, g_headRollS)); ch = true; }
+    return ch;
+}
+// (383) THE GRAB, EASED. "Grabs look fast as hell ... unnaturally fast" (6 Nov, 382). A grab's weights are the game's own hand
+// alpha (HandA), which comes in as a first-order ease, FASTEST at its start: 0.08 on the grab's first pose, 0.46 at 0.1 s, 0.68 at
+// 0.2 s (the tilt lines of 23:37:39), the hand full at 0.8 of it (NativeHandFull). In that night's recording the grabbing hand left
+// at 5-16 m/s on the grab's first pose (10-26 cm in one pose; the game's own hand 1.5-5 m/s), the hips and the head with it, and the
+// release the same the other way. Now the weights rise no faster than a minimum-jerk curve over GrabEaseIn s from the grab's
+// first pose (it starts and ends at rest; the game's own ease still decides where it is the slower) and, from the release, fall
+// no faster than the same curve over GrabEaseOut s from where they were. 0 and 0 = as 382.
+volatile float g_geIn = 0.3f, g_geOut = 0.25f;   // HJN_Set("grabeasein" / "grabeaseout", s): GrabEaseIn / GrabEaseOut
+float MinJerk(float s) { s = clampf(s, 0.0f, 1.0f); return s * s * s * (10.0f + s * (-15.0f + 6.0f * s)); }
+void GrabEase(bool grab, bool held, float* w, float* wh) {
+    static bool on = false, rel = false; static double t0 = 0.0, r0 = -1.0e9;
+    static float lw[2] = { 0.0f, 0.0f }, lh[2] = { 0.0f, 0.0f }, w0[2] = { 0.0f, 0.0f }, h0[2] = { 0.0f, 0.0f };
+    static float pw[2] = { 0.0f, 0.0f }; static double tj[2] = { -1.0e9, -1.0e9 };   // (383r) a hand's own weight last pose (before the ease), and when it joined
+    const double now = NowS();
+    if (!grab) { on = rel = false; r0 = -1.0e9; lw[0] = lw[1] = lh[0] = lh[1] = 0.0f; pw[0] = pw[1] = 0.0f; return; }
+    if (!on) { on = true; rel = false; t0 = now; }
+    if (!held && !rel) { rel = true; r0 = now; for (int s = 0; s < 2; s++) { w0[s] = lw[s]; h0[s] = lh[s]; } }
+    if (held && rel) {   // (383r) a re-grab inside the release: on from where it is -- the ease's clock set back to that weight, the release's floor let down from it
+        rel = false; r0 = now; for (int s = 0; s < 2; s++) { w0[s] = lw[s]; h0[s] = lh[s]; }
+        const float m = fmaxf(lw[0], lw[1]); float lo = 0.0f, hi = 1.0f;
+        for (int i = 0; i < 14; i++) { const float mid = 0.5f * (lo + hi); if (MinJerk(mid) < m) lo = mid; else hi = mid; }
+        t0 = now - (double)hi * (double)g_geIn;
+    }
+    const float ein = (g_geIn > 0.001f) ? fmaxf(MinJerk((float)(now - t0) / g_geIn), 1e-4f) : 1.0f;   // never 0: a 0 cap ties the hands
+    const float eout = (g_geOut > 0.001f && now - r0 < g_geOut) ? 1.0f - MinJerk((float)(now - r0) / g_geOut) : 0.0f;
+    const float wmx = fmaxf(w[0], w[1]), kin = (wmx > ein) ? ein / wmx : 1.0f;   // one factor for both hands: the game's order of the hands kept
+    for (int s = 0; s < 2; s++) {
+        if (pw[s] <= 0.001f && w[s] > 0.001f) tj[s] = now; pw[s] = w[s];   // a hand that joins (a two-hand grab begun over a one-hand one): its own ease in
+        const float ej = (g_geIn > 0.001f && tj[s] > t0 + 0.001) ? fmaxf(MinJerk((float)(now - tj[s]) / g_geIn), 1e-4f) : 1.0f;
+        w[s] = fminf(w[s] * kin, ej); wh[s] = fminf(wh[s], fminf(ein, ej));
+        if (eout > 0.0f) { w[s] = fmaxf(w[s], w0[s] * eout); wh[s] = fmaxf(wh[s], h0[s] * eout); }
+        lw[s] = w[s]; lh[s] = wh[s];
+    }
+}
+// (384) THE GRAB'S HEAD, LET GO THROUGH THE LANDING. "The head movement's better, not totally fixed. He's grabbing, he's looking
+// forward. The second he lands, he kind of looks down, and then he looks forward again. A weird head movement." (7 Nov, 383.)
+// That morning's recording, 26 grab landings (segments 41-51): every grab was let go at the touchdown (the tilt lines' first
+// "released" at land 0.68-1.00), and as the wheels hit the game has him nod: its own gaze 52-86 deg down at the touchdown, back
+// to 25-35 down 0.3-0.4 s later. The head's aim rode on the HANDS' weight, which falls with the release (0.77, 0.34, 0.20 at
+// 0.1 s steps), so the drawn gaze fell with the nod and rose with it -- segment 51 pose 180: 7, 24, 44, 41, 31, 25 deg down at
+// 0.1 s steps from just before the touchdown; segment 50 pose 84: 21, 47, 57, 41, 24. And 383's ease of the aim's TURN from the
+// game's gaze let the nod through and then over-ran it the other way as the turn caught up.
+// Now the head has its own weight (HeadTailW): while the grab is held, the hands'; from the release, held at what it was for
+// GrabHeadHold s after the touchdown (or the release, if later; 0.6 s of air at the most) and handed back to the game's head by
+// a minimum-jerk curve over GrabHeadOut s -- PosePass draws it on past the grab's end (HeadTailLive), the idle learner of
+// SessionTweaks waiting as for any pose of ours. And with GrabHeadSteady (HeadAim) the ease is of the GAZE he gets at the full
+// weight, in the mesh's space, the weight (with 381's front rule) blending from the game's gaze to it: the game's nod does not
+// come through while the aim is on, and at the weight's end the game's head is back exactly. Replayed on the recorded game gaze
+// (simtail.pl, the mod's lean not in it), the fall at the touchdown 20 deg mean (36 most) -> 12 (27: GrabHeadUp's 50 deg cannot
+// lift a look 77-85 down to 12 under level), the rise after it 22 -> 15. GrabHeadHold 0 and GrabHeadOut 0 = 383's tail;
+// GrabHeadSteady 0 = 383's ease.
+float HeadTailW(float w) {
+    static float carry = 0.0f; static double carryT = -1.0;                    // a grab taken again inside the tail: the head's weight on from where it was
+    const double now = NowS();
+    if (now - g_htLastT > 0.25) { g_htRelT = g_htLandT = -1.0; g_htW0 = 0.0f; carry = 0.0f; }   // a gap (no grab drawn for a while): nothing carried over
+    g_htLastT = now;
+    if (g_headEase <= 0.0f || (g_htHold <= 0.0f && g_htOut <= 0.0f)) { g_htRelT = g_htLandT = -1.0; g_htW0 = 0.0f; carry = 0.0f; return w; }   // 383's: the hands' weight
+    float tail = 0.0f;
+    if (g_htRelT >= 0.0) {                                                      // let go: held from the touchdown (0.6 s of air at the most), then handed back
+        if (g_htLandT < 0.0 && (g_riding || now - g_htRelT > 0.6)) g_htLandT = now;
+        const float t = (g_htLandT < 0.0) ? 0.0f : (float)(now - g_htLandT);
+        tail = g_htW0 * ((t < g_htHold) ? 1.0f : (g_htOut > 0.001f) ? 1.0f - MinJerk((t - g_htHold) / g_htOut) : 0.0f);
+    }
+    if (g_holdLive) {                                                           // held: the hands' weight (and a carry from a tail, eased off over 0.3 s), kept
+        if (g_htRelT >= 0.0) { carry = tail; carryT = now; }
+        g_htRelT = g_htLandT = -1.0;
+        const float c = (carry > 0.0f && now - carryT < 0.3) ? carry * (1.0f - MinJerk((float)(now - carryT) / 0.3f)) : 0.0f;
+        g_htW0 = fmaxf(w, c);
+        return g_htW0;
+    }
+    if (g_htRelT < 0.0) { g_htRelT = now; g_htLandT = g_riding ? now : -1.0; tail = g_htW0; }   // the release: from what it had
+    return fmaxf(w, tail);
+}
+bool HeadTailLive(bool grab) {   // PosePass, every pose: the head still to be drawn after the grab's end
+    if (grab) return false;
+    const double now = NowS();
+    if (g_headEase <= 0.0f || (g_htHold <= 0.0f && g_htOut <= 0.0f) || g_bail || g_offBoard || now - g_htLastT > 0.25) return false;
+    if (g_htRelT < 0.0) {                                                       // the grab ended with no release drawn (its weight gone at once): the tail from here
+        if (g_htW0 <= 0.002f) return false;
+        g_htRelT = now; g_htLandT = g_riding ? now : -1.0;
+    }
+    const bool due = g_htW0 > 0.002f && (g_htLandT < 0.0 || now - g_htLandT < (double)(g_htHold + g_htOut));
+    return due || (qangle(g_headQ) > 0.3f && now - g_htRelT < (double)(g_htHold + g_htOut) + 1.6);   // ...and until the eased turn is all but gone
+}
+// (383) SESSIONTWEAKS' GRIND FEEL, STOOD DOWN THROUGH A SLAPPY'S GRIND. "The wrong end lifts first, then corrects": SessionTweaks'
+// log (t380, 22:10:19) "[rock] sticks L 0.00 R 1.00 -> lean -29.7 deg" the pose before the game's 5-0 -- its grind rock pitches the
+// board by the two sticks' difference while a 50-50 is on, so letting go of one stick tips the board the wrong way before the game
+// has changed the grind; once the 5-0 is on it says "not both feet, left alone" and the game's own pitch takes over. With its
+// GrindRock, GrindPitchFix and GrindPopSwing off in its menu the slappy worked (6 Nov). Its switches are four ints in its data,
+// read on every call of the code they gate (GrindRock in its PhysGrinding step, GrindLean in its banking step, GrindPitchFix and
+// GrindPopSwing in its PitchBoard hook), so a 0 written there turns the feature off from its next step, and the value written back
+// turns it on again. Found by its own code (3.19.642 and the 28 Sep build alike): its ini save writes each one by
+// `mov r9d,[flag] / lea r8,["Key"]` (once per key, the key the exact string), its menu's checkbox by `mov [flag],reg / call
+// MarkDirty`, MarkDirty = `sub rsp,28h / call [GetTickCount64] / xchg [stamp],rax / mov ecx,1 / xchg [dirty],ecx / add rsp,28h /
+// ret` (unique). ITS INI ON DISK: it saves ALL its settings, from these same ints, 2 s (`cmp rax,7D0h` after the stamp) after the
+// last MarkDirty -- so a switch is only taken while no save is pending (dirty 0, the stamp 1 s past its wait), and the moment one
+// is marked (its menu, its idle learner) every switch is given back (it has >= 2 s; the watchdog looks 4x a second as well).
+// A switch the user has at 0 is left alone; one that is not 0 when given back (its menu or its defaults set it meanwhile) stays as
+// it is. SlappyTweaksQuiet: 0 off, 1 (default) from the slappy's move through its grind and 0.25 s after, 2 = only the move, the
+// first SlappyTweaksQuietWindow ms (400) of the grind and of each grind change, and while one grind stick is let go (the split that
+// tipped it); SlappyTweaksQuietMask: 1 GrindRock, 2 GrindLean (taken only before the grind begins, never mid-grind), 4 GrindPitchFix,
+// 8 GrindPopSwing (13 = rock + pitch fix + pop swing, what the user turned off).
+volatile int* volatile g_stGhFlag[4] = { nullptr, nullptr, nullptr, nullptr };   // GrindRock, GrindLean, GrindPitchFix, GrindPopSwing
+volatile LONG* volatile g_stGhDirty = nullptr; volatile ULONGLONG* volatile g_stGhTs = nullptr; volatile LONG g_stGhState = 0; int g_stGhDelay = 2000;   // its save's pending flag, MarkDirty's stamp, 1 found / -1 not, its save's wait (ms)
+int g_stGhSaved[4] = { 0, 0, 0, 0 }; volatile LONG g_stGhHeldMask = 0, g_stGhCapped = 0; volatile ULONGLONG g_stGhLastT = 0, g_stGhT0 = 0, g_stGhTailT = 0, g_stGhChT = 0; LONG g_stGhTold = 0;
+volatile LONG g_stGhMode = 1, g_stGhMask = 13, g_stGhWinMs = 400;   // SlappyTweaksQuiet, SlappyTweaksQuietMask, SlappyTweaksQuietWindow
+SRWLOCK g_stGhLock = SRWLOCK_INIT;
+static const char* const kStGhKey[4] = { "GrindRock", "GrindLean", "GrindPitchFix", "GrindPopSwing" };
+bool StGhScan(const uint8_t* b, uint32_t size, volatile int** fl, volatile LONG** dirty, volatile ULONGLONG** ts, int* delayMs) {   // POD only (its own __try)
+    bool ok = false;
+    for (int k = 0; k < 4; k++) fl[k] = nullptr;
+    *dirty = nullptr; *ts = nullptr; *delayMs = 0;
+    __try {
+        const IMAGE_DOS_HEADER* dos = (const IMAGE_DOS_HEADER*)b;
+        if (dos->e_magic != IMAGE_DOS_SIGNATURE) __leave;
+        const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(b + dos->e_lfanew);
+        if (nt->Signature != IMAGE_NT_SIGNATURE) __leave;
+        const IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
+        const uint8_t* tx = nullptr; uint32_t txN = 0; uintptr_t dLo = 0, dHi = 0;
+        const uint8_t* ro[8]; uint32_t roN[8]; int nro = 0;
+        for (int i = 0; i < (int)nt->FileHeader.NumberOfSections; i++) {
+            const uint32_t va = sec[i].VirtualAddress, vs = sec[i].Misc.VirtualSize, ch = sec[i].Characteristics;
+            if (va == 0 || vs == 0 || (uint64_t)va + vs > size) continue;
+            if (!tx && (ch & IMAGE_SCN_MEM_EXECUTE)) { tx = b + va; txN = vs; }
+            else if (!dLo && (ch & IMAGE_SCN_MEM_WRITE) && !(ch & IMAGE_SCN_MEM_EXECUTE)) { dLo = (uintptr_t)(b + va); dHi = dLo + vs; }
+            else if (nro < 8 && (ch & IMAGE_SCN_MEM_READ) && !(ch & IMAGE_SCN_MEM_WRITE) && !(ch & IMAGE_SCN_MEM_EXECUTE)) { ro[nro] = b + va; roN[nro] = vs; nro++; }
+        }
+        if (!tx || txN < 64 || !dLo || nro == 0) __leave;
+        uintptr_t md = 0, dA = 0, tA = 0; int mdHits = 0;
+        for (uint32_t i = 0; i + 33 <= txN; i++) {   // MarkDirty
+            const uint8_t* p = tx + i;
+            if (p[0] != 0x48 || p[1] != 0x83 || p[2] != 0xEC || p[3] != 0x28 || p[4] != 0xFF || p[5] != 0x15 || p[10] != 0x48 || p[11] != 0x87 || p[12] != 0x05
+                || p[17] != 0xB9 || p[18] != 1 || p[19] != 0 || p[20] != 0 || p[21] != 0 || p[22] != 0x87 || p[23] != 0x0D
+                || p[28] != 0x48 || p[29] != 0x83 || p[30] != 0xC4 || p[31] != 0x28 || p[32] != 0xC3) continue;
+            mdHits++; md = (uintptr_t)p;
+            tA = (uintptr_t)(p + 17) + (intptr_t)*(const int32_t*)(p + 13);
+            dA = (uintptr_t)(p + 28) + (intptr_t)*(const int32_t*)(p + 24);
+        }
+        if (mdHits != 1 || dA < dLo || dA + 4 > dHi || (dA & 3) != 0 || tA < dLo || tA + 8 > dHi || (tA & 7) != 0) __leave;
+        int dly = 0;
+        for (uint32_t i = 0; i + 16 <= txN; i++) {   // its saver: mov rcx,[stamp] / sub rax,rcx / cmp rax,imm32
+            const uint8_t* p = tx + i;
+            if (p[0] == 0x48 && p[1] == 0x8B && p[2] == 0x0D && p[7] == 0x48 && p[8] == 0x2B && p[9] == 0xC1 && p[10] == 0x48 && p[11] == 0x3D
+                && (uintptr_t)(p + 7) + (intptr_t)*(const int32_t*)(p + 3) == tA) { dly = *(const int32_t*)(p + 12); break; }
+        }
+        if (dly < 500 || dly > 60000) __leave;
+        uintptr_t got[4] = { 0, 0, 0, 0 };
+        for (int k = 0; k < 4; k++) {
+            const char* key = kStGhKey[k]; const uint32_t kl = (uint32_t)strlen(key);
+            uintptr_t X = 0; int pairs = 0;
+            for (int s = 0; s < nro; s++) {
+                for (uint32_t j = 1; j + kl + 1 <= roN[s]; j++) {   // the key, the exact string
+                    const uint8_t* q = ro[s] + j;
+                    if (q[0] != (uint8_t)key[0] || q[-1] != 0 || q[kl] != 0 || memcmp(q, key, kl) != 0) continue;
+                    const uintptr_t S = (uintptr_t)q;
+                    for (uint32_t i = 0; i + 14 <= txN; i++) {   // its save: mov r9d,[flag] / lea r8,[key]
+                        const uint8_t* p = tx + i;
+                        if (p[0] != 0x44 || p[1] != 0x8B || p[2] != 0x0D || p[7] != 0x4C || p[8] != 0x8D || p[9] != 0x05) continue;
+                        if ((uintptr_t)(p + 14) + (intptr_t)*(const int32_t*)(p + 10) != S) continue;
+                        X = (uintptr_t)(p + 7) + (intptr_t)*(const int32_t*)(p + 3); pairs++;
+                    }
+                }
+            }
+            if (pairs != 1 || X < dLo || X + 4 > dHi || (X & 3) != 0) __leave;
+            const int v0 = *(const int*)X;
+            if (v0 < 0 || v0 > 9) __leave;
+            int marks = 0;
+            for (uint32_t i = 0; i + 11 <= txN; i++) {   // its menu's checkbox: mov [flag],reg / call MarkDirty
+                const uint8_t* p = tx + i;
+                if (p[0] != 0x89 || (p[1] & 0xC7) != 0x05 || p[6] != 0xE8) continue;
+                if ((uintptr_t)(p + 6) + (intptr_t)*(const int32_t*)(p + 2) != X) continue;
+                if ((uintptr_t)(p + 11) + (intptr_t)*(const int32_t*)(p + 7) == md) marks++;
+            }
+            if (marks < 1) __leave;
+            for (int m = 0; m < k; m++) if (got[m] == X) __leave;
+            got[k] = X;
+        }
+        for (int k = 0; k < 4; k++) fl[k] = (volatile int*)got[k];
+        *dirty = (volatile LONG*)dA; *ts = (volatile ULONGLONG*)tA; *delayMs = dly; ok = true;
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
+    if (!ok) { for (int k = 0; k < 4; k++) fl[k] = nullptr; *dirty = nullptr; *ts = nullptr; }
+    return ok;
+}
+bool StGhSaveClear(ULONGLONG now) {   // no save of its ini pending: none marked, and the last mark a second past its wait
+    volatile LONG* const d = g_stGhDirty; volatile ULONGLONG* const t = g_stGhTs;
+    if (!d || !t || *d != 0) return false;
+    const ULONGLONG ts = *t;
+    return ts == 0 || (now > ts && now - ts > (ULONGLONG)g_stGhDelay + 1000);
+}
+void StGhApply(LONG want, const char* why) {   // want: the switches to hold at 0 now (bits); the rest given back. Either thread.
+    if (!TryAcquireSRWLockExclusive(&g_stGhLock)) return;   // the other thread is at it: the next look does it
+    __try {
+        const LONG had = g_stGhHeldMask; LONG took = 0, gave = 0, kept = 0;
+        for (int k = 0; k < 4; k++) {
+            const LONG bit = 1L << k; volatile int* const f = g_stGhFlag[k];
+            if (!f) continue;
+            if ((want & bit) && !(had & bit)) { const int v = *f; if (v != 0) { g_stGhSaved[k] = v; *f = 0; took |= bit; } }
+            else if (!(want & bit) && (had & bit)) { if (*f == 0) { *f = g_stGhSaved[k]; gave |= bit; } else kept |= bit; }
+        }
+        const LONG cur = (had | took) & ~(gave | kept);
+        if (!had && cur) g_stGhT0 = GetTickCount64();
+        g_stGhHeldMask = cur;
+        if ((took || gave || kept) && InterlockedIncrement(&g_stGhTold) <= 60)
+            Log("SessionTweaks' grind feel (%s): held at 0 now:%s%s%s%s%s | given back:%s%s%s%s%s%s",
+                why, (cur & 1) ? " GrindRock" : "", (cur & 2) ? " GrindLean" : "", (cur & 4) ? " GrindPitchFix" : "", (cur & 8) ? " GrindPopSwing" : "", cur ? "" : " none",
+                (gave & 1) ? " GrindRock" : "", (gave & 2) ? " GrindLean" : "", (gave & 4) ? " GrindPitchFix" : "", (gave & 8) ? " GrindPopSwing" : "", gave ? "" : " none",
+                kept ? " (one or more set by its own menu meanwhile: left as it set them)" : "");
+    }
+    __finally { ReleaseSRWLockExclusive(&g_stGhLock); }
+}
+void StGhTick(bool slappy, LONG msIn, const float* stk) {   // the game thread, each anim update, after SlTick: msIn = ms since the slappy's grind began or last changed (-1 = not in it yet); stk = the player controller's sticks (L x y, R x y) or null
+    if (g_stGhState != 1) return;
+    const ULONGLONG now = GetTickCount64(); g_stGhLastT = now;
+    if (!slappy) g_stGhCapped = 0;
+    const LONG m = g_stGhMask & 15, held = g_stGhHeldMask; LONG want = 0;
+    const float split = stk ? fabsf(sqrtf(stk[0] * stk[0] + stk[1] * stk[1]) - sqrtf(stk[2] * stk[2] + stk[3] * stk[3])) : 0.0f;   // one grind stick held, the other let go: ~1
+    if (slappy && g_stGhMode != 0 && !g_stGhCapped) {
+        if (g_stGhMode == 1 || msIn < 0 || msIn < g_stGhWinMs || split > 0.5f) want = m;
+        else want = m & 2;                                   // (mode 2) between the windows only its lean stays down
+        if (msIn >= 0 && !(held & 2)) want &= ~2L;           // its lean is taken only before the game's grind begins
+    }
+    if (want) g_stGhTailT = now + 250;
+    else if (held && now < g_stGhTailT) want = held;         // 0.25 s more: the pop out of the slappy's grind is the game's own to its end
+    if (held && now - g_stGhT0 > 15000) { want = 0; g_stGhCapped = 1; }   // never more than 15 s at a time
+    if (want && !StGhSaveClear(now)) want = 0;               // its ini save is pending: everything back first
+    if (want != held) StGhApply(want, want ? (held ? "a slappy's grind changed" : msIn >= 0 ? "in a slappy's grind" : "a slappy began") : g_stGhCapped ? "held 15 s: given back" : slappy ? "between the SlappyTweaksQuietWindow windows" : "the slappy is over");
+}
+void SafeStGhGiveBack() {   // its switches as they were, at once (the mod's unload; a fault)
+    __try { for (int i = 0; i < 50 && g_stGhHeldMask != 0; i++) { StGhApply(0, "given back"); if (g_stGhHeldMask != 0) Sleep(1); } }
+    __except (EXCEPTION_EXECUTE_HANDLER) {}
+}
+void SafeStGhTick(bool slappy, LONG msIn, const float* stk) {
+    __try { StGhTick(slappy, msIn, stk); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { g_stGhState = -1; Log("fault while holding SessionTweaks' grind feel (code %08x) -- given back and left alone from here", GetExceptionCode()); SafeStGhGiveBack(); }
+}
+void SafeStGhWatch() {   // the watchdog's thread, 4x a second: given back if the anim updates stopped (a pause, a level load) or its ini save is pending
+    __try {
+        if (g_stGhState != 1 || g_stGhHeldMask == 0) return;
+        const ULONGLONG now = GetTickCount64();
+        if (now - g_stGhLastT > 600) StGhApply(0, "the game's anim updates stopped");
+        else if (!StGhSaveClear(now)) StGhApply(0, "its ini save is pending");
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) { g_stGhState = -1; SafeStGhGiveBack(); }   /* (383r) given back */
+}
+void StGhFind(const uint8_t* base, uint32_t size) {   // (383) from StFind, with its SessionTweaks module found
+    if (!base || !size) return;
+    {   // (383) its grind feel's four switches (the note at StGhScan): held at 0 through a slappy, given back after
+        volatile int* gf[4]; volatile LONG* gd = nullptr; volatile ULONGLONG* gt = nullptr; int dly = 0;
+        if (StGhScan(base, size, gf, &gd, &gt, &dly)) {
+            for (int k = 0; k < 4; k++) g_stGhFlag[k] = gf[k];
+            g_stGhDirty = gd; g_stGhTs = gt; g_stGhDelay = dly; g_stGhState = 1;
+            Log("SessionTweaks' grind feel found: GrindRock +0x%X (%d), GrindLean +0x%X (%d), GrindPitchFix +0x%X (%d), GrindPopSwing +0x%X (%d); its ini save (+0x%X) waits %d ms -- through a slappy the ones in SlappyTweaksQuietMask (%ld) are held at 0 and given back after (SlappyTweaksQuiet %ld), never while a save of its ini is pending",
+                (unsigned)((uintptr_t)gf[0] - (uintptr_t)base), *gf[0], (unsigned)((uintptr_t)gf[1] - (uintptr_t)base), *gf[1], (unsigned)((uintptr_t)gf[2] - (uintptr_t)base), *gf[2],
+                (unsigned)((uintptr_t)gf[3] - (uintptr_t)base), *gf[3], (unsigned)((uintptr_t)gd - (uintptr_t)base), dly, (long)g_stGhMask, (long)g_stGhMode);
+        } else {
+            g_stGhState = -1;
+            Log("SessionTweaks' grind feel was not found (its save of GrindRock / GrindLean / GrindPitchFix / GrindPopSwing is not coded as in 3.19.642): through a slappy they stay as its menu sets them");
+        }
+    }
+}
+/* (slappy 386) THE GRINDING FOOT OVER ITS TRUCK. 385 (SessionTweaks' grind log, "grinding truck: ... foot"): the game's own ollie-in nosegrinds
+   and crooks have the grinding foot's socket 2-3 cm past its truck (23.2-24.3 against the truck at 21.3), its 5-0s 1 cm (-22.1); every slappy
+   one stood where the crouch had put it, on the kicktail (5-0s -28.4..-29.4) or on the nose (the nollie crouch: nosegrinds / crooks 25.2-31.2)
+   -- "the feet in the wrong place" (a slappy has no air and no catch: the game never carries the feet onto the grind's spots). Now in a
+   slappy grind on one truck (the other end up 6 cm or more) the foot past that end has its socket drawn in along the deck to SL_FT_OVER past
+   the truck, eased in and out over SL_FT_EASE s; the other foot and every turn stay the game's (the anim post-hook: the IK reads it after) */
+constexpr float SL_FT_OVER = 2.0f, SL_FT_EASE = 0.15f, SL_FT_MAX = 10.0f, SL_FT_UP = 6.0f;
+volatile LONG g_slNoLip = 1, g_slNoLipN = 0;   /* (393) HJN_Set("slnolip", 0/1): the anim's IsOnGrindFromLiptrick (+0x33d) held 0 through a slappy grind; g_slNoLipN = poses it was found set */
+void SlAnimNoLip() {   /* (393) from the NUA post-hook: before the anim graph reads it this frame */
+    uint8_t* an = (uint8_t*)g_anim; if (!g_slNoLip || SlSigOff() || !an || !PtrOk(an, 0x340)) return;
+    if (an[0x33d]) { an[0x33d] = 0; InterlockedIncrement(&g_slNoLipN); }
+}
+void SlFeetOnTruck(const uint8_t* board, const char* cw, long n) {
+    static long lastN = -1; static float w = 0.0f; static double lastS = 0.0; static int on = 0, told = 0, poses = 0;
+    const double nowS = NowS();
+    if (lastN != n) { lastN = n; w = 0.0f; on = 0; told = 0; poses = 0; lastS = nowS; }
+    const float dt = clampf((float)(nowS - lastS), 0.0f, 0.05f); lastS = nowS;
+    uint8_t* a = (uint8_t*)g_anim; const uint8_t* mesh = (const uint8_t*)g_mesh;
+    if (!g_slFeet || !a || !mesh || !board || !cw || !PtrOk(a, AI_RFOOT_LOC + 12) || !PtrOk(mesh, SC_C2W + 0x30)) return;
+    const uint8_t* deck = *(const uint8_t* const*)(board + BD_DECK); if (!deck || !PtrOk(deck, SC_C2W + 0x30)) return;
+    V3 fr, bk; float hw = 0.0f; if (!SlAxles(board, fr, bk, hw)) return;
+    const bool one = AgHas(cw, "five0") || AgHas(cw, "nosegrind") || AgHas(cw, "crooked") || AgHas(cw, "overcrook");
+    const float dz = fr.z - bk.z;
+    const int nowOn = !one ? 0 : (dz < -SL_FT_UP) ? 1 : (dz > SL_FT_UP) ? -1 : 0;   /* 1 the front truck on (the back end up), -1 the back truck on */
+    if (nowOn && (on == 0 || w <= 0.001f)) on = nowOn;   /* (386r) the other end only once this one has eased out */
+    const float ftT = (nowOn && nowOn == on) ? 1.0f : 0.0f; w = (ftT > w) ? fminf(1.0f, w + dt / SL_FT_EASE) : fmaxf(0.0f, w - dt / SL_FT_EASE);
+    if (!(w > 0.0f) || !on) return;
+    const Q4 wq = *(const Q4*)(deck + SC_C2W); const V3 wp = *(const V3*)(deck + SC_C2W + 0x10);
+    const Q4 mq = *(const Q4*)(mesh + SC_C2W); const V3 mp = *(const V3*)(mesh + SC_C2W + 0x10); const V3 ms = *(const V3*)(mesh + SC_C2W + 0x20);
+    if (!finite3(wp) || !finite3(mp) || !finite3(ms) || fabsf(ms.x) < 1e-3f || fabsf(ms.y) < 1e-3f || fabsf(ms.z) < 1e-3f) return;
+    const Q4 dq = qnorm(qmul(qconj(mq), wq)); if (!std::isfinite(dq.w)) return;   /* the drawn deck in the mesh's component space (DeckXf's) */
+    const V3 d0 = qinv(mq, sub(wp, mp)), dp = v3(d0.x / ms.x, d0.y / ms.y, d0.z / ms.z);
+    const V3 ax = on > 0 ? fr : bk; const V3 a0 = qinv(mq, sub(ax, mp)), aC = v3(a0.x / ms.x, a0.y / ms.y, a0.z / ms.z);
+    const float xt = qinv(dq, sub(aC, dp)).x;   /* the truck on the curb, along the deck */
+    if (!std::isfinite(xt) || fabsf(xt) < 10.0f || fabsf(xt) > 40.0f) return;
+    const float sg = (xt > 0.0f) ? 1.0f : -1.0f;
+    float* s[2] = { (float*)(a + AI_LFOOT_LOC), (float*)(a + AI_RFOOT_LOC) };
+    int k = -1; float xk = 0.0f;
+    for (int i = 0; i < 2; i++) { const V3 sv = v3(s[i][0], s[i][1], s[i][2]); if (!finite3(sv)) continue; const float x = qinv(dq, sub(sv, dp)).x; if (std::isfinite(x) && x * sg > xk * sg) { k = i; xk = x; } }   /* the foot furthest out toward that end */
+    if (k < 0) return;
+    const float over = xk * sg - (fabsf(xt) + SL_FT_OVER);
+    if (!(over > 0.0f)) return;
+    const V3 d = qrot(dq, v3(-sg * fminf(over, SL_FT_MAX) * w, 0.0f, 0.0f));
+    if (!finite3(d)) return;
+    s[k][0] += d.x; s[k][1] += d.y; s[k][2] += d.z; poses++;
+    if (!told && w >= 1.0f) { told = 1; if (InterlockedIncrement(&g_slMvLogs) <= 4000) Log("slappy 386: #%ld \"%s\" on the board's %s truck (%+.1f along the deck): the foot over it (socket %s) stood %.1f cm past it, at %+.1f -- drawn in to %.0f cm past it (SlappyFeetOnTruck; eased in over %d poses)", n, cw, on > 0 ? "front" : "back", xt, k ? "R" : "L", over + SL_FT_OVER, xk, SL_FT_OVER, poses); }
+}
+float SlAxTurn(V3 fr, V3 bk) {   /* (slappy 387) the axles' line off the curb's, deg (+ the front axle out over the street) */
+    V3 d = sub(fr, bk); d.z = 0.0f; const float l = len(d); if (!(l > 5.0f)) return 0.0f;
+    const float s = dot(d, g_slm.c.N) / l; return std::isfinite(s) ? asinf(clampf(s, -1.0f, 1.0f)) * 57.2957795f : 0.0f;
+}
+/* (399) THE SLAPPY'S HIT ON THE CURB. ASkateboardEx::StartGrindSounds(bool impact) (board+0x280's table, slot 0xb0; Epic 0xfa12b0) plays the grind's
+   first hit -- nothing while a grind loop is left (board+0x3e0, 4 parts), its variant by GetLastFallHeight(false) (bm+0x138's table, slot 0x170) against
+   the audio's _grindDropHeights (+0x340). A slappy has no drop: the last air's height was used. In a slappy: one hit a slappy, the loops stopped first,
+   the height the middle range's (SlappyClack 1; 2 the top; 0 the game's) for that call; called from the grind's start if the game did not. */
+typedef void (*StartGsFn)(void* bi, bool impact);
+StartGsFn o_StartGs = nullptr; volatile LONG g_slClack = 1, g_slSndHook = 0, g_slSndN = 0, g_slSndOther = 0, g_slSndDoneN = -1, g_slSndOurs = 0, g_slSndBy = 0; ULONGLONG g_slSndT = 0; int g_slFhOff = 0;
+float SlClackH(const uint8_t* board, int& idx, int& cnt, char* rs, int rn) {   /* the drop height for the slappy's hit: a range of the audio's _grindDropHeights */
+    idx = -1; cnt = 0; if (rs && rn) rs[0] = 0;
+    const uint8_t* ad = PtrOk(board, BDA_AUDIO + 8) ? *(const uint8_t* const*)(board + BDA_AUDIO) : nullptr;
+    if (!ad || !PtrOk(ad, 0x350)) return NAN;
+    const float* a = *(const float* const*)(ad + 0x340); const int n = *(const int*)(ad + 0x348);
+    if (!a || n <= 0 || n > 32 || !PtrOk(a, (size_t)n * 8)) return NAN;
+    cnt = n; int ll = 0;
+    for (int i = 0; i < n && rs && ll < rn - 24; i++) ll += snprintf(rs + ll, rn - ll, "%s[%g %g]", i ? " " : "", a[2 * i], a[2 * i + 1]);
+    const int i = (g_slClack >= 2) ? n - 1 : n / 2; idx = i;
+    const float lo = a[2 * i], hi = a[2 * i + 1];
+    if (std::isfinite(lo) && std::isfinite(hi) && hi > lo && hi - lo < 1.0e5f) return 0.5f * (lo + hi);
+    return std::isfinite(lo) ? lo + 1.0f : NAN;
+}
+void hkStartGs(void* bi, bool impact) {
+    const ULONGLONG now = GetTickCount64(); g_slSndT = now;
+    uint8_t* board = bi ? (uint8_t*)bi - 0x280 : nullptr;
+    const SlMvT& M = g_slm;
+    const bool win = g_sl.on && (M.on || (g_sl.inGrind && now - g_sl.inT < 400) || (M.endT && now - M.endT < 400));
+    uint8_t* bm = (bi && PtrOk(bi, 0x20)) ? *(uint8_t* const*)((uint8_t*)bi + 0x18) : nullptr;
+    int loops = 0;
+    if (board && PtrOk(board, 0x3f0)) { void* const* la = *(void* const* const*)(board + 0x3e0); const int ln = *(const int*)(board + 0x3e8); if (la && ln > 0 && ln <= 8 && PtrOk(la, (size_t)ln * 8)) for (int i = 0; i < ln && i < 4; i++) if (la[i]) loops++; }
+    float* fh = (bm && g_slFhOff > 0 && PtrOk(bm, (size_t)g_slFhOff + 4)) ? (float*)(bm + g_slFhOff) : nullptr;
+    const float fh0 = fh ? *fh : NAN;
+    if (!win || !g_slClack || !impact || !board || !fh) {
+        if (!win) { if (InterlockedIncrement(&g_slSndOther) <= 20) Log("slappy 399: a grind's first hit (not a slappy's): impact %d, the grind loops left %d, the last drop %.1f -- the game's own (for comparison)", impact ? 1 : 0, loops, fh0); }
+        else if (InterlockedIncrement(&g_slSndN) <= 300) Log("slappy 399: #%ld the slappy's grind sound called (impact %d, the loops left %d, the last drop %.1f): left to the game (SlappyClack %ld%s)", M.n, impact ? 1 : 0, loops, fh0, (long)g_slClack, fh ? "" : ", the drop height's field not read");
+        o_StartGs(bi, impact); return;
+    }
+    if (g_slSndDoneN == M.n) { if (InterlockedIncrement(&g_slSndN) <= 300) Log("slappy 399: #%ld the grind sound called again (the loops left %d): this slappy's hit was played already -- the game's call as it is", M.n, loops); o_StartGs(bi, impact); return; }
+    g_slSndDoneN = M.n;
+    int idx = -1, cnt = 0; char rs[200]; const float h = SlClackH(board, idx, cnt, rs, sizeof(rs));
+    if (loops) { void* const* vt = *(void* const* const*)bi; if (vt && WrInExe(vt + 0xc0 / 8) && WrInExe(vt[0xc0 / 8])) ((void (*)(void*))vt[0xc0 / 8])(bi); }   /* StopGrindLoopingSound: the loops left would make the start return at once */
+    if (std::isfinite(h)) *fh = h;
+    o_StartGs(bi, true);
+    if (std::isfinite(h)) *fh = fh0;
+    if (InterlockedIncrement(&g_slSndN) <= 300) Log("slappy 399: #%ld THE SLAPPY'S HIT played (the game's grind-in sound): %s; the loops left %d%s; the drop height %.1f -> %.1f (range %d of %d: %s) for this call, put back after", M.n, g_slSndBy ? "called by us" : "the game's call", loops, loops ? " (stopped first: they would have kept it silent)" : "", fh0, std::isfinite(h) ? h : fh0, idx, cnt, rs);
+}
+void SlSndInstall(const uint8_t* board) {   /* once, from the slappy tick (the game thread): the slot read off the board's own table, its bytes checked */
+    static bool tried = false; if (tried || !board || !PtrOk(board, 0x290)) return; tried = true;
+    static const uint8_t ex[15] = { 0x40, 0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x57, 0x48, 0x81, 0xEC, 0xE8, 0x00, 0x00, 0x00 };   /* push rbx | push r12 | push r13 | push r15 | sub rsp, 0xe8 */
+    const char* why = nullptr; uint8_t* fn = nullptr;
+    void* const* vt = *(void* const* const*)(board + 0x280);
+    if (!vt || !WrInExe(vt) || !WrInExe(vt + 0xc0 / 8)) why = "the board's interface table is not in the exe";
+    else { fn = (uint8_t*)vt[0xb0 / 8]; if (!fn || !WrInExe(fn) || !WrInExe(fn + 31)) { why = "its slot 0xb0 is not in the exe"; fn = nullptr; } }
+    if (fn && memcmp(fn + 15, "\x44\x8B\x89\x68\x01\x00\x00", 7) != 0 && memcmp(fn, ex, 15) == 0) { why = "its slot 0xb0's bytes after the prologue are not the expected ones"; fn = nullptr; }
+    uint8_t* bm = BoardMC();
+    if (fn && bm && PtrOk(bm, 0x140)) {   /* GetLastFallHeight(bool) off bm+0x138's table, slot 0x170: test dl,dl | je +9 | movss xmm0,[rcx+A] | ret | movss xmm0,[rcx+B] | ret -- B the false one's */
+        void* const* mvt = *(void* const* const*)(bm + 0x138); const uint8_t* g = (mvt && WrInExe(mvt) && WrInExe(mvt + 0x170 / 8)) ? (const uint8_t*)mvt[0x170 / 8] : nullptr;
+        if (g && WrInExe(g) && WrInExe(g + 22) && memcmp(g, "\x84\xD2\x74\x09\xF3\x0F\x10\x81", 8) == 0 && memcmp(g + 13, "\xF3\x0F\x10\x81", 4) == 0) { const int d = *(const int*)(g + 17); if (d > 0 && d < 0x1000) g_slFhOff = 0x138 + d; }
+    }
+    if (fn && !g_slFhOff) why = "GetLastFallHeight's field not read off the movement's table";
+    if (why || !fn) { Log("slappy 399: the slappy's hit NOT hooked (%s) -- the game's own grind sound as before", why ? why : "?"); return; }
+    void *nx = nullptr, *og = nullptr;
+    if (HostPlace(fn, (const void*)&hkStartGs, 15, ex, sizeof(ex), "ASkateboardEx::StartGrindSounds (slappy 399)", false, &nx, &og)) { o_StartGs = (StartGsFn)nx; g_slSndHook = 1; }
+    if (g_slSndHook) Log("slappy 399: StartGrindSounds hooked (exe+%07llx%s; the last drop height at bm+0x%x) -- a slappy's hit on the curb is played, once a slappy", (unsigned long long)(fn - Exe()), fn == Exe() + 0xfa12b0 ? ", the Epic exe's own" : ", another build's", g_slFhOff);
+    else Log("slappy 399: StartGrindSounds NOT hooked (exe+%07llx) -- the game's own grind sound", (unsigned long long)(fn - Exe()));
+}
+void SlSndAtGrind(const uint8_t* board, ULONGLONG now) {   /* the slappy's grind first seen: the game's start never called since the move began = called from here */
+    if (!g_slSndHook || !g_slClack || !board || g_slSndDoneN == g_slm.n || (g_slSndT && g_slSndT >= g_slm.t0)) return;
+    InterlockedIncrement(&g_slSndOurs);
+    Log("slappy 399: #%ld the slappy's grind began without the game's grind sound (%.2f s into the move): called from here", g_slm.n, (now - g_slm.t0) / 1000.0);
+    __try { g_slSndBy = 1; hkStartGs((uint8_t*)board + 0x280, true); g_slSndBy = 0; } __except (EXCEPTION_EXECUTE_HANDLER) { g_slSndHook = 0; Log("slappy 399: fault in the slappy's hit -- off for the session"); }
+}
+float SlTrig() {
+   /* (slappy 387) the triggers off the XInput pad: the larger of LT / RT, 0..1; -1 = no pad read (a non-XInput pad) */
+    if (!g_xiGet || g_xiUser < 0) return -1.0f;
+    XiState s; memset(&s, 0, sizeof(s)); if (g_xiGet((uint32_t)g_xiUser, &s) != 0) return -1.0f;
+    return fmaxf((float)s.pad.lt, (float)s.pad.rt) / 255.0f;
+}
+void SlTick() {   /* (slappy 374) v5: the board walked onto the curb's edge (tail dipped, nose onto it, tail fishtailed in), handed to the game's grind, made a 50-50 */
+    SlT& L = g_sl; SlMvT& M = g_slm;
+    uint8_t* sk = (uint8_t*)g_skater; const uint8_t* mesh = (const uint8_t*)g_mesh;
+    if (!L.on || !sk || !mesh || !PtrOk(sk, 0x920)) { if (M.on && M.lent && sk && PtrOk(sk, 0x920) && (sk[0x918] & 1)) sk[0x918] &= (uint8_t)0xfe;   /* (383r) off on the edge: given back */ g_slPickOn = 0; g_slCgBlock = 0; L.inGrind = false; M.want = nullptr; M.on = 0; M.hand = 0; M.postT = 0; return; }
+    const uint8_t* mc = *(const uint8_t* const*)(sk + SK_MC);
+    uint8_t* bm = BoardMC();
+    if (!mc || !PtrOk(mc, 0xe28) || !bm || !PtrOk(bm, 0x8a0)) { g_slPickOn = 0; g_slCgBlock = 0; L.inGrind = false; M.want = nullptr; M.on = 0; M.hand = 0; M.postT = 0; return; }
+    const ULONGLONG now = GetTickCount64();
+    const uint8_t* board = PtrOk(sk, SK_BOARD + 8) ? *(const uint8_t* const*)(sk + SK_BOARD) : nullptr;
+    if (board && !PtrOk(board, 0x530)) board = nullptr;
+    if (board) SlSndInstall(board);   /* (399) */
+    g_slPickOn = (M.on || L.inGrind || (M.hand && now - M.handT < (ULONGLONG)(SL_HAND_S * 1000.0f)) || (M.postT && now - M.postT < 250)) ? 1 : 0;
+    g_slCgBlock = (M.on && !M.inPlace) ? 1 : 0;   /* (371) open from the sit (369's rule): 370's "and until the target is set" held the check shut -- the game clears the target, 7 of 8 sat on the edge and never grinded */   /* (370, S3) and until the target is set (369 #3 / #5: grinds begun with none, gone in 0.33 s) */   /* (368) the game's grind check held off until the board sits (367: most began 0.2-0.34 s in, the board short of the edge, with no target -- hovering, his hips over the sidewalk, then gone) */
+    g_slGdOn = 0;   /* (slappy 379) the hook's answer only through a slappy grind */
+    if (L.inGrind) {
+        SlGdUpdate(bm, L.n, L.inT, now);
+        char cw[64]; GrDefName(*(const uint8_t* const*)(sk + 0x6d0), cw, 64);
+        SlAnimNoLip();   /* (393) */
+        SlFeetOnTruck(board, cw, L.n);   /* (slappy 386) */
+        if (M.namePend) { const int sd = AsBluntSide(cw); if (sd) { M.namePend = 0; WallNews("info", "slappy name: %s Slappy", sd == 1 ? "Frontside" : "Backside");   /* (slappy 385) the user: just Frontside / Backside, the grind names take over */ } else if (now - L.inT > 600) M.namePend = 0; }
+        if (bm[BM_MODE] != 2) { Log("slappy 383: #%ld the grind over after %.2f s (the board movement mode %d, the current \"%s\")", L.n, (now - L.inT) / 1000.0, (int)bm[BM_MODE], cw); L.inGrind = false; M.pkHold = 0; }
+        else if (!L.logd && now - L.inT > 500) { L.logd = 1; Log("slappy 383: #%ld 0.5 s in: the current grind \"%s\", grind flags %02x", L.n, cw, (unsigned)bm[FG_BM_GFLAGS]); }
+        {   /* (slappy 375) THE GRIND CHANGES TRACED: "when I let go of one of the sticks it lifted the wrong foot, then self-corrected" -- each change of the current grind in a slappy grind, then 30 poses of both axles' height over the curb's top and the sticks */
+            static char last[64] = ""; static long lastN = -1; static int tr = 0; static ULONGLONG trT = 0;
+            static int rdN = 0, rdTold = 0; static float rdMax = 0.0f, rdPitch = 0.0f;
+            if (lastN != L.n) { lastN = L.n; snprintf(last, sizeof(last), "%s", cw); tr = (g_slPick && g_slm.pkOn) ? 30 : 0; trT = now;   /* (slappy 384) the sticks' entry grind traced 30 poses as a change is (its pitch guard too) */ rdN = 0; rdTold = 0; rdMax = 0.0f; }
+            else if (strcmp(last, cw) != 0) { if (InterlockedIncrement(&g_slMvLogs) <= 4000) Log("slappy 383: #%ld the grind changed %.2f s in: \"%s\" -> \"%s\"", L.n, (now - L.inT) / 1000.0, last, cw); snprintf(last, sizeof(last), "%s", cw); tr = 30; trT = now; g_stGhChT = now; }
+            {   /* (slappy 376) THE GRIND'S MOVE DIRECTION ALONG THE CURB: 375's trace -- it lay 36-40 deg off the level curb (prail +36, the deck level), so the game's 5-0 / nosegrind pitch, taken from it, began the wrong way ("the wrong foot, then it self-corrects") */
+                V3& rd = *(V3*)(bm + 0x4f4); V3 E = g_slm.c.E; E.z = 0.0f;
+                const float rl = len(rd), el = len(E);
+                if (finite3(rd) && rl > 0.5f && rl < 1.5f && el > 0.5f) {
+                    E = mul(E, 1.0f / el); if (dot(rd, E) < 0.0f) E = mul(E, -1.0f);
+                    const float off = acosf(clampf(dot(rd, E) / rl, -1.0f, 1.0f)) * 57.2957795f;
+                    if (std::isfinite(off) && off > 2.0f) { if (off > rdMax) { rdMax = off; rdPitch = asinf(clampf(rd.z / rl, -1.0f, 1.0f)) * 57.2957795f; } rdN++; }   /* (377) measured only: the game sets it again every tick */
+                    if (rdN && !rdTold && now - L.inT > 400) { rdTold = 1; if (InterlockedIncrement(&g_slMvLogs) <= 4000) Log("slappy 383: #%ld the game's grind direction was up to %.0f deg off the curb (pitched %+.0f): (377: measured, not written) on %d poses", L.n, rdMax, rdPitch, rdN); }
+                }
+            }
+            {   /* (slappy 377) THE PITCH GUARD and THE CENTRING. 376: the game's grind direction (+0x4f4) is set again every tick, 50-90 deg off the
+               curb in a slappy grind, so a 5-0 / nosegrind still began with the wrong end up. For 0.45 s after a change to one, the wrong end is kept
+               from rising (the board's turn that way taken out, a nudge the right way while it is up); and through the slappy grind the axles'
+               middle is drawn across onto the curb's edge ("it's definitely not centred"; 20 cm/s at most) */
+                static long gdL = -1; static int pgWant = 0, pgPoses = 0, ctPoses = 0, pgTold = 0; static ULONGLONG pgT = 0; static float ctMost = 0.0f, pgMost = 0.0f, nMid0 = -999.0f;
+                static int ctOff = 0; static long ctL = -1; static float ctShare = 0.0f; static int sqTrig = 0, sqPoses = 0, trArm = -1, tnPoses = 0, tnAddN = 0; static float tnMost = 0.0f, tnAl = 0.0f; if (ctL != L.n) { ctL = L.n; ctOff = 0; ctShare = 0.0f; sqTrig = 0; sqPoses = 0; trArm = -1; tnPoses = 0; tnMost = 0.0f; tnAddN = 0; tnAl = 0.0f; }   /* (398) tnAddN: poses the turned board's truck was nudged across; tnAl: the deck's speed along the curb then */   /* (slappy 389) trArm: the trigger let go since the grind began */   /* (slappy 384) poses the centring sat out off the curb's line, the most across */
+                /* (slappy 387) THE GRIND TURN LET GO. "I'm pulling hard on the trigger and it ain't moving at all ... really stodgy" (386). The
+                   squaring below (381) SET the deck's yaw rate every pose (up to 0.5 rad/s back toward square) in every slappy 50-50 / 5-0 /
+                   nosegrind: the LT / RT grind turn ran 9.5-26 deg/s in all 15 of them that had a trigger held (385 + 386 grind logs: 386
+                   #5 #8 #9 #10 #11 #13 #16 #18 #25 #36 at 9.5-17.5), against 53-59 in 384's (the squaring then never ran there: the
+                   case-sensitive name check), 61 in an ollied-on 5-0 (386 #23) and 36-43 in the slappy salad / overcrook it never squared.
+                   Now the first pull of a trigger in a slappy grind lets the squaring AND the centring go for the rest of that grind (the
+                   game's own turn, and a turned board's axles' middle is no longer the trucks on the edge); without a pad to read, the
+                   squaring is the entry's first 0.6 s only; and neither works on a board turned 12 deg or more off the curb. */
+                const float trg = SlTrig();
+                if (trArm < 0) { trArm = 1; if (trg > 0.12f && InterlockedIncrement(&g_slMvLogs) <= 4000) Log("slappy 396: #%ld a trigger already held (%.2f) as \"%s\" began: the squaring let go at once -- the game's grind turn from the first pose", L.n, trg, cw); }   /* (396) 389's wait for a fresh pull was the user's 'second delay' */ else if (!trArm && (trg < 0.08f || now - L.inT > 600)) trArm = 1;   /* (slappy 389) only a FRESH pull lets the squaring go (387 n.log 7708-8184: held at the entry, no squaring, the centring ended about 8 cm out) */
+                if (trg > 0.12f && !sqTrig && trArm == 1) { sqTrig = 1; if (tr < 29) { tr = 29; trT = now; } if (InterlockedIncrement(&g_slMvLogs) <= 4000) Log("slappy 387: #%ld a trigger pulled %.2f s into \"%s\" (%.2f): the board's squaring let go for the rest of this grind (398: a 5-0 / nosegrind's centring too, while a trigger is held) -- the game's own grind turn (it had squared on %d poses)", L.n, (now - L.inT) / 1000.0, cw, trg, sqPoses); }
+                const bool sqTime = !sqTrig && (trg >= 0.0f || now - L.inT < 600);
+                if (gdL != L.n) { gdL = L.n; pgWant = 0; pgPoses = 0; ctPoses = 0; pgTold = 0; ctMost = 0.0f; pgMost = 0.0f; nMid0 = -999.0f; }
+                if (tr == 30) { pgWant = strstr(cw, "Five0") ? 1 : strstr(cw, "Nosegrind") ? -1 : 0; pgT = now; pgTold = 0; }   /* +1: the leading end up (the 5-0), -1: the trailing end up (the nosegrind) */
+                V3 fr, bk; float hw = 0.0f;
+                if (board && !SlSigOff() && SlAxles(board, fr, bk, hw)) {
+                    { const float td = SlAxTurn(fr, bk); g_slTurnDeg = std::isfinite(td) ? td : 0.0f; }   /* (398) for the picker */
+                    V3 vs = *(const V3*)((const uint8_t*)mc + 0xc4); { uint8_t* d0 = *(uint8_t* const*)(board + WG_PART[0]); V3 vd; if (d0 && PtrOk(d0, SC_C2W + 0x30) && WrInExe(*(void* const*)d0) && WallBodyVel(d0, vd) && finite3(vd)) vs = vd; } const V3 vf = v3(vs.x, vs.y, 0.0f);   /* (slappy 385) the deck's own velocity (384: the skater's read 65-66% across the curb in the FS 50-50s #2 #6 #13 #14 and held the centring off) */
+                    const bool frLead = (len(vf) > 30.0f) ? dot(sub(fr, bk), vf) > 0.0f : true;
+                    const V3 Ld = frLead ? fr : bk, Tl = frLead ? bk : fr;
+                    V3 d = sub(Ld, Tl); d.z = 0.0f;
+                    const float nMid = dot(sub(mul(add(fr, bk), 0.5f), g_slm.c.F), g_slm.c.N);
+                    if (nMid0 < -900.0f) nMid0 = nMid;
+                    if (len(d) > 5.0f) {
+                        const float Wf = len(d); d = norm(d); const V3 A = cross(d, v3(0.0f, 0.0f, 1.0f));
+                        const float dnq = dot(sub(Ld, g_slm.c.F), g_slm.c.N) - dot(sub(Tl, g_slm.c.F), g_slm.c.N), zxq = dot(cross(v3(0.0f, 0.0f, 1.0f), d), g_slm.c.N);
+                        const bool sqG = AgHas(cw, "50-50") || AgHas(cw, "five0") || AgHas(cw, "nosegrind");   /* (slappy 385) AgHas's needle in lower case: 382-384's "Five0" / "Nosegrind" never matched -- no centring, no squaring in any 5-0 or nosegrind (384: 0 poses drawn in all 21 of them) */ const bool onLine = !(len(vf) > 30.0f) || fabsf(dot(norm(vf), g_slm.c.N)) < 0.1f;   /* (382) only the square grinds, and only along the line measured at the trigger */
+                        const bool sqSq = fabsf(dnq) < 0.2f * Wf;   /* (slappy 387) within 12 deg of square */ const float wz = (sqTime && sqSq && sqG && onLine && fabsf(dnq) > 1.0f && fabsf(zxq) > 0.5f) ? clampf(-6.0f * dnq / (Wf * zxq), -0.5f, 0.5f) : 0.0f;   /* (381) the board squared on the edge through the grind */   /* a turn about A (+) lifts the leading end */
+                        const bool pg = !g_slGdHook && pgWant && now - pgT < 450;   /* (379) not with the direction hook in */ const float up = Ld.z - Tl.z;   /* + the leading end higher */
+                        const float inset = -g_slm.nEnd, shareN = (len(vf) > 30.0f) ? fabsf(dot(norm(vf), g_slm.c.N)) : 0.0f; const bool onLineC = shareN < 0.2f; if (sqG && !onLineC) { ctOff++; if (shareN > ctShare) ctShare = shareN; }   /* (slappy 384) 11.5 deg off the line at the most (382's 5.7 kept it off nearly always); only while the board is still on the edge */
+                        const float vLat = (sqSq && sqG && onLineC && (!(trg > 0.12f) || AgHas(cw, "50-50")) && nMid < 12.0f && nMid > -15.0f && fabsf(nMid + inset) > 0.5f) ?   /* (381) back on (the review: the in-grind centring was off whenever the hook is in) */   /* (379) the physics board is within 2 cm already: off */ clampf(-6.0f * (nMid + inset), -20.0f, 20.0f) : 0.0f;   /* (384) onto SlappyInset in from the edge */
+                        const bool crG = AgHas(cw, "crook"); const int gAx = (crG || AgHas(cw, "nosegrind")) ? 1 : AgHas(cw, "five0") ? -1 : 0;   /* (slappy 389) the truck that grinds: the leading one (nosegrind, crooked, overcrook), the trailing (5-0), else the middle */
+                        const float nG = gAx > 0 ? dot(sub(Ld, g_slm.c.F), g_slm.c.N) : gAx < 0 ? dot(sub(Tl, g_slm.c.F), g_slm.c.N) : nMid;
+                        static int svOff = -1; if (svOff < 0) { wchar_t sp[1024]; const DWORD sn = GetModuleFileNameW(nullptr, sp, 1000); svOff = 0; if (sn > 0 && sn < 1000) { wchar_t* s = wcsrchr(sp, L'\\'); if (s) { wcscpy_s(s + 1, 1024 - (s + 1 - sp), L"Mods\\ExpandedTricksNative\\slappy-servo-off.txt"); svOff = (GetFileAttributesW(sp) != INVALID_FILE_ATTRIBUTES) ? 1 : 0; } } if (svOff) Log("TEST SWITCH: slappy-servo-off.txt is there -- no turned-truck servo (slappy 389 / 398) in any slappy grind (delete the file to end the test)"); }   /* (398r) the A/B */
+                        const bool tnOn = !svOff && vLat == 0.0f && gAx != 0 && (sqG || crG) && (!sqSq || crG) && onLineC && fabsf(dnq) < 0.87f * Wf && nG < 15.0f && nG > -20.0f && fabsf(nG + inset) > 1.5f;   /* (398) 1.5 cm, not 0.5: the held turn sat on the line */   /* (slappy 389) a TURNED board (the trigger's turn past 12 deg, or a crook): its grinding truck kept on the edge -- 387 #5: the turn about the middle took the front truck 19 cm in over the top, the back 12 off the edge, a bail */
+                        const float vLatT = tnOn ? clampf(-8.0f * (nG + inset), -40.0f, 40.0f) : 0.0f;
+                        {   /* (398r) MEASURED ONLY: the game's grind angle term's input (PhysGrindingMovement +0x19cb: acos of bm+0x638 in 2D, x 2/pi, into a UCurveFloat) against the speed */
+                            static long agL = -1; static int agK = 0; if (agL != L.n) { agL = L.n; agK = 0; }
+                            if ((sqTrig || tnOn || crG) && (agK++ % 15) == 0) {
+                                const V3 g8 = *(const V3*)(bm + 0x638); const float gl = sqrtf(g8.x * g8.x + g8.y * g8.y); V3 E2 = g_slm.c.E; E2.z = 0.0f; const float el = len(E2), vl = len(vf);
+                                if (std::isfinite(gl) && gl > 1e-3f && el > 0.5f && InterlockedIncrement(&g_slMvLogs) <= 4000) {
+                                    const float gx = g8.x / gl, gy = g8.y / gl, aE = acosf(clampf(fabsf(gx * E2.x + gy * E2.y) / el, 0.0f, 1.0f)) * 57.2957795f, aD = acosf(clampf(gx * d.x + gy * d.y, -1.0f, 1.0f)) * 57.2957795f;
+                                    const float aV = (vl > 1.0f) ? acosf(clampf((gx * vf.x + gy * vf.y) / vl, -1.0f, 1.0f)) * 57.2957795f : -1.0f;
+                                    Log("slappy 398: #%ld %.2f s \"%s\" (measured, not written): the deck %.0f cm/s (%.0f along the curb), turned %.0f deg off it, trigger %.2f%s; the game's bm+0x638 (%+.2f %+.2f %+.2f) %.0f deg off the curb, %.0f off the deck's heading, %.0f off its move", L.n, (now - L.inT) / 1000.0, cw, vl, fabsf(dot(vf, E2)) / el, asinf(clampf(dnq / Wf, -1.0f, 1.0f)) * 57.2957795f, trg, tnOn ? ", the truck servo on" : "", g8.x, g8.y, g8.z, aE, aD, aV);
+                                }
+                            }
+                        }
+                        if (tnOn) { tnPoses++; if (fabsf(nG + inset) > tnMost) tnMost = fabsf(nG + inset); if ((tnPoses % 60) == 1 && InterlockedIncrement(&g_slMvLogs) <= 4000) Log("slappy 389: #%ld turned %.0f deg off the curb in \"%s\": the %s kept on the edge (%+.1f cm out, aimed %+.1f; %d poses, up to %.1f off; 398: nudged across on %d, the deck %.0f cm/s along the curb)", L.n, asinf(clampf(dnq / Wf, -1.0f, 1.0f)) * 57.2957795f, cw, gAx > 0 ? "leading truck" : gAx < 0 ? "trailing truck" : "axles' middle", nG, -inset, tnPoses, tnMost, tnAddN, tnAl); }
+                        const bool pb = (gAx != 0) && fabsf(up) > 0.97f * Wf;   /* (slappy 389r: up / Wf is the tan, Wf level -- 0.70 was 35 deg) the pitch bounded at about 44 deg (387 #7: +57 against the rail; the game's own defs are 25-36) */
+                        void* pt[7]; V3 ps[7]; int np = 0;
+                        for (int k = 0; k < 7; k++) { uint8_t* p = *(uint8_t* const*)(board + WG_PART[k]); if (!p || !PtrOk(p, SC_C2W + 0x30) || !WrInExe(*(void* const*)p)) continue; const V3 q = *(const V3*)(p + SC_C2W + 0x10); if (!finite3(q)) continue; pt[np] = p; ps[np] = q; np++; }
+                        V3 w0, v0;
+                        const bool tnAdd = vLatT != 0.0f && vLat == 0.0f;   /* (398) the turned board's truck: its across speed ADDED below, after any pitch guard / bound -- no rigid re-set of the across speed about the deck's centre (389's fought the game's turn about its truck) */
+                        if (np > 0 && (pg || vLat != 0.0f || pb || wz != 0.0f) && WallAngVel(pt[0], w0) && WallBodyVel(pt[0], v0) && finite3(w0) && finite3(v0)) {
+                            V3 w = w0;
+                            if (pg) {
+                                const float s = dot(w, A);
+                                if ((float)pgWant * s < 0.0f) w = sub(w, mul(A, s));
+                                if ((float)pgWant * up < -0.5f) { const float k = fminf(3.0f, 0.25f * fabsf(up)); w = add(w, mul(A, (float)pgWant * k)); if (fabsf(up) > pgMost) pgMost = fabsf(up); }
+                                pgPoses++;
+                            }
+                            if (pb) { const float s = dot(w, A); if (s * up > 0.0f) w = sub(w, mul(A, s)); }   /* (slappy 389) no turn that raises the high end further (a turn about A (+) lifts the leading end) */
+                            if (wz != 0.0f) { w.z = wz; sqPoses++; }   /* (382) set, not added (an integrator) */
+                            const float vLa = vLat; const V3 vB = (vLa != 0.0f) ? add(sub(v0, mul(g_slm.c.N, dot(v0, g_slm.c.N))), mul(g_slm.c.N, vLa)) : v0;   /* (398) the centring's only: the turned truck's servo is added after this block, across the curb */ if (vLat != 0.0f) { ctPoses++; if (fabsf(nMid) > ctMost) ctMost = fabsf(nMid); }   /* (382) set, not added */
+                            const V3 dOmC = sub(w, w0); for (int i = 0; i < np; i++) { const V3 vi = add(vB, cross(w, sub(ps[i], ps[0]))); if (finite3(vi)) { V3 wi; V3 oi = w; if (i > 0 && WallAngVel(pt[i], wi) && finite3(wi)) { oi = add(wi, dOmC); if (!finite3(oi)) oi = w; } WallSetVel(pt[i], vi); WallSetAngVel(pt[i], oi); } }   /* (384b) the wheels' roll kept (as the wally's fix) */
+                        }
+                        if (tnAdd && np > 0) {   /* (398) after the rigid writes above (pg / pb / wz), so their turn is kept and only the across speed changes */
+                            const bool gFr = (gAx > 0) == frLead; V3 va = v3(0.0f, 0.0f, 0.0f); int nw = 0;   /* the grinding truck: its two wheels (parts 5 6 front, 3 4 back), where nG is measured */
+                            for (int k = gFr ? 5 : 3; k < (gFr ? 7 : 5); k++) { uint8_t* p = *(uint8_t* const*)(board + WG_PART[k]); V3 vk; if (p && PtrOk(p, SC_C2W + 0x30) && WrInExe(*(void* const*)p) && WallBodyVel(p, vk) && finite3(vk)) { va = add(va, vk); nw++; } }
+                            if (nw > 0) {
+                                const float aN = dot(va, g_slm.c.N) / (float)nw, dV = clampf(vLatT - aN, -40.0f, 40.0f);   /* across the curb only, 40 cm/s a pose at the most (389's vLatT bound) */
+                                const void* dk = *(void* const*)(board + WG_PART[0]);   /* the deck, for the log's along-curb speed */
+                                if (std::isfinite(dV)) { tnAddN++; for (int i = 0; i < np; i++) { V3 vi; if (WallBodyVel(pt[i], vi) && finite3(vi)) { if (pt[i] == dk) tnAl = fabsf(dot(vi, g_slm.c.E)); const V3 vn = add(vi, mul(g_slm.c.N, dV)); if (finite3(vn)) WallSetVel(pt[i], vn); } } }   /* each part's own velocity, the change added; no spin written */
+                            }
+                        }
+                        if (pgWant && !pgTold && now - pgT >= 450) { pgTold = 1; if (InterlockedIncrement(&g_slMvLogs) <= 4000) Log("slappy 383: #%ld the pitch guard on \"%s\" (%s end up): %d poses, the wrong end held from rising (up to %.1f cm up)", L.n, cw, pgWant > 0 ? "the leading" : "the trailing", pgPoses, pgMost); }
+                        if (tr == 1 || (tr == 0 && ctPoses && (ctPoses % 60) == 1)) { if (InterlockedIncrement(&g_slMvLogs) <= 4000) Log("slappy 383: #%ld centring: the axles' middle %+.1f cm out from the edge (%+.1f at the start), drawn across on %d poses (up to %.1f off); aimed %+.1f, off the curb's line on %d poses (the speed up to %.0f%% across)", L.n, nMid, nMid0, ctPoses, ctMost, -inset, ctOff, 100.0f * ctShare); }
+                    }
+                }
+            }
+            if (tr > 0 && board) {
+                tr--; V3 fr, bk; float hw = 0.0f;
+                const float* stk = (g_pc && PtrOk(g_pc, ALT_PC_STICKS + 16)) ? (const float*)((const uint8_t*)g_pc + ALT_PC_STICKS) : nullptr;
+                if (SlAxles(board, fr, bk, hw) && InterlockedIncrement(&g_slMvLogs) <= 4000)
+                    Log("sl gr #%ld +%3llu ms \"%s\" | the front axle %+.1f, the back %+.1f over the curb's top (the nose %s), out from the edge front %+.1f back %+.1f | sticks L %+.2f %+.2f R %+.2f %+.2f | trigger %.2f, the axles %+.1f deg off the curb", L.n, now - trT, cw, fr.z - g_slm.c.top - g_slm.c.grade * dot(sub(fr, g_slm.c.F), g_slm.c.E), bk.z - g_slm.c.top - g_slm.c.grade * dot(sub(bk, g_slm.c.F), g_slm.c.E), fr.z > bk.z + 1.0f ? "UP" : bk.z > fr.z + 1.0f ? "down" : "level", dot(sub(fr, g_slm.c.F), g_slm.c.N), dot(sub(bk, g_slm.c.F), g_slm.c.N), stk ? stk[0] : 0.0f, stk ? stk[1] : 0.0f, stk ? stk[2] : 0.0f, stk ? stk[3] : 0.0f, SlTrig(), SlAxTurn(fr, bk));
+            }
+        }
+        return;
+    }
+    const uint8_t* tg = *(const uint8_t* const*)(sk + 0x6c8); const uint8_t* cu = *(const uint8_t* const*)(sk + 0x6d0);
+    if (M.on && (tg || cu) && bm[BM_MODE] != 1 && bm[BM_MODE] != 2 && bm[BM_MODE] != 8 && mc[0x169] != 5) {   /* the game's grind began in the air */
+        if (M.inPlace) { char tw[64]; GrDefName(tg ? tg : cu, tw, 64); const int fpN = PtrOk(sk, SK_FOOTPOS + 1) ? (int)sk[SK_FOOTPOS] : 0; Log("slappy 397: #%ld the game's grind \"%s\" began in the air %.2f s in (%.2f s after the board sat; the foot position %d): HANDED TO IT -- the move lets go (393: held, the game's grind took it only after the let-go, 4 of 4); while it sat the game's grind check ran %ld times, said yes %ld", M.n, tw, (now - M.t0) / 1000.0, (now - M.inT) / 1000.0, fpN, (long)g_slSatCg, (long)g_slSatYes); g_slSatWait = 0; SlEnd(sk, mc, bm, now, "handed to the game's air grind (397)"); }   /* (397) */
+        else if (!M.heldLog) { M.heldLog = 1; char tw[64]; GrDefName(tg ? tg : cu, tw, 64); Log("slappy 383: #%ld the game's grind \"%s\" began %.2f s in with the board NOT yet on the edge -- the move goes on", M.n, tw, (now - M.t0) / 1000.0); }
+    }
+    if ((M.on || (M.endT && now - M.endT < (M.hand ? (ULONGLONG)(SL_HAND_S * 1000.0f) : 400))) && bm[BM_MODE] == 2) {   /* the game's grind on the curb: a grind, the 50-50 of its side */
+        const uint8_t f0 = bm[FG_BM_GFLAGS];
+        if (f0 & 4) bm[FG_BM_GFLAGS] = (uint8_t)((f0 & 0xfb) | 2);
+        { const LONG n0 = g_slNoLipN; SlAnimNoLip(); Log("slappy 393: #%ld the grind's first pose: the anim's grind-from-a-lip-trick flag %s (SlappyAnimFix %ld) -- the game's own grind animation, not its lip trick's", M.n, g_slNoLipN != n0 ? "was SET: put to 0" : "was not set", (long)g_slNoLip); }   /* (393) */
+        char tw[64], cw[64]; GrDefName(tg, tw, 64); GrDefName(cu, cw, 64);
+        M.lip = (f0 & 4) ? 1 : 0; int side = M.lip ? 0 : AsBluntSide(cw); if (!side && !M.lip) side = AsBluntSide(tw); const int gameSide0 = side; if (!side || (M.toeSide && side != M.toeSide)) side = M.toeSide;   /* (370, S3) the toes' side (a lip entry's own is the mirror) */   /* (369) the game's own side only: none known = its grind left to its own pick (the picker gives the 50-50 of its side 0.25 s more) */
+        const char* sideHow = !side ? "side unknown" : (side == gameSide0) ? "the game's own pick, the toes' side" : M.lip ? "the toes (a lip entry)" : "the toes (the game picked the other side)";
+        char wn[64] = ""; const uint8_t* want = nullptr; if (side && M.pkOn && M.want) { want = (side == M.toeSide) ? M.want : SlSwapSide(M.want, side); if (want) GrDefName(want, wn, 64); }   /* (slappy 384) the grind the sticks chose */ if (!want && side) want = SlFind5050(sk, side, wn, 64);
+        const bool own = want && tg == want && (cu == nullptr || cu == want) && !(f0 & 4);   /* (367) the game's own entry into our 50-50 already: left alone (366 set the current itself over the game's entry -- the feet the wrong way round for a moment when the sticks moved) */
+        if (want && !own && !SlSigOff()) { uint8_t* exe = (uint8_t*)GetModuleHandleW(nullptr); ((SetGrindDefFn)(exe + RVA_SET_TGT_GRIND))(sk, want); ((SetGrindDefFn)(exe + RVA_SET_CUR_GRIND))(sk, want); }
+        if (g_slSatWait) { g_slSatWait = 0; Log("slappy 397: the sat board's wait: the game's grind check ran %ld times before it took the board (yes %ld)", (long)g_slSatCg, (long)g_slSatYes); }   /* (397) */
+        L.inGrind = true; L.inT = now; L.logd = 0; L.n++; g_slTurnDeg = 0.0f;   /* (398) */
+        SlSndAtGrind(board, now);   /* (399) */
+        if (side) WallNews("info", "slappy name: %s Slappy", side == 1 ? "Frontside" : "Backside"); else M.namePend = 1;   /* (369) named once the game's side is known */
+        M.postT = now;   /* (366) the trick's name on the screen (the Lua's wallride news reader shows it) */
+        Log("slappy 383: #%ld INTO A GRIND on the curb %.2f s after the move began (%s; the board %s): grind flags %02x -> %02x | the game had target \"%s\" current \"%s\" -> %s (%s, by %s)",
+            L.n, (now - M.t0) / 1000.0, M.on ? "during it" : M.hand ? "after the hand-over" : "just after it", M.inPlace ? "sat on the edge" : "not yet on the edge", (unsigned)f0, (unsigned)bm[FG_BM_GFLAGS], tw, cw, want ? wn : "NO 50-50 FOUND (the game's own kept)", side == 1 ? "frontside" : side == 2 ? "backside" : "side unknown", sideHow);
+        if (InterlockedIncrement(&g_slMvLogs) <= 4000) { V3 fr5, bk5; float hw5 = 0.0f; const bool ax = board && SlAxles(board, fr5, bk5, hw5); Log("slappy 385: #%ld into the grind with the foot position %d (%d at the move), the lift %s (weight %.2f); the front axle %+.1f, the back %+.1f over the top; the powerslide gate put back %ld times in the move", L.n, (int)sk[SK_FOOTPOS], M.fp0, M.lfEnd > 0 ? "on the leading end" : M.lfEnd < 0 ? "on the trailing end" : "none", M.lfW, ax ? fr5.z - M.c.top - M.c.grade * dot(sub(fr5, M.c.F), M.c.E) : 0.0f, ax ? bk5.z - M.c.top - M.c.grade * dot(sub(bk5, M.c.F), M.c.E) : 0.0f, M.nsN); }
+        if (M.on) { if (M.lent && (sk[0x918] & 1)) sk[0x918] &= (uint8_t)~0x01; M.on = 0; }
+        M.endT = 0; M.hand = 0;
+        return;
+    }
+    if (M.hand && !M.on) {   /* handed over: the grind awaited */
+        const ULONGLONG since = now - M.handT;
+        const bool bail = mc[0x169] == 5 || bm[BM_MODE] == 8;
+        if (!bail && !tg && !cu && bm[BM_MODE] == 3 && since < 400 && !M.resumed && board && (now - M.t0) < (ULONGLONG)(SL_MAX_S * 1000.0f)) {
+            M.resumed = 1; M.on = 1; M.hand = 0; M.endT = 0;
+            Log("slappy 383: #%ld the game's grind let go in the air %.2f s after the hand-over -- the move RESUMED (once)", M.n, since / 1000.0);
+        }
+        else if (bail || since >= (ULONGLONG)(SL_HAND_S * 1000.0f)) {
+            if (!M.missLog) { M.missLog = 1; Log("slappy 383: #%ld handed over, NO GRIND came of it in %.2f s (%s): the board's mode %d, the skater %d/%d, target \"%s\"", M.n, since / 1000.0, bail ? "a bail" : "its time up", (int)bm[BM_MODE], (int)mc[0x168], (int)mc[0x169], tg ? "set" : "none"); }
+            M.hand = 0;
+        }
+        if (!M.on) return;
+    }
+    if (M.on) {
+        const bool bail = mc[0x169] == 5 || bm[BM_MODE] == 8;
+        const double nowS = NowS(); const float age = (float)(nowS - M.t0S);   /* (370, S7) QPC: GetTickCount64's 15.6 ms steps jumped the plan 5-8 cm */
+        if (bail) { SlEnd(sk, mc, bm, now, "a bail"); return; }
+        static double s_b3Id = -1.0; static ULONGLONG s_b3T = 0; if (s_b3Id != M.t0S) { s_b3Id = M.t0S; s_b3T = 0; } if (bm[BM_MODE] == 3) { if (!s_b3T) s_b3T = now; } else s_b3T = 0;   /* (386r) timed from the BOARD's air */
+        if (M.air && !M.inPlace && s_b3T && now - s_b3T > 300 && age > 0.65f) { SlEnd(sk, mc, bm, now, "(slappy 386) the board 0.3 s in the game's air, never on the edge: the game lands it"); return; }   /* (slappy 386) 385 #9 / #40 hovered on to 0.9 s */
+        if (age > SL_MAX_S && !(M.inPlace && now - M.inT < 350)) { SlEnd(sk, mc, bm, now, "no grind in its time"); return; }   /* (slappy 386) a late sit gets 0.35 s (385 #37: sat at 0.62, let go at 0.89) */
+        if (!board) { SlEnd(sk, mc, bm, now, "the board not read"); return; }
+        static double lastS = 0.0;
+        const float dt = (M.poses > 0 && nowS > lastS) ? clampf((float)(nowS - lastS), 0.004f, 0.05f) : 0.016f;
+        lastS = nowS;
+        M.bmode = bm[BM_MODE];
+        {   /* (slappy 385) the pick's lifted end follows the sticks on the way in: a change eases the old end down (SL_LF_W) before the other goes up */
+            const int pw = (g_slPick && M.pkOn) ? (M.pkCls == 2 ? 1 : M.pkCls == 3 ? -1 : (M.pkCls >= 4 && g_slCrookYaw > 0.5f) ? -1 : 0) : 0, en = M.nLead ? pw : -pw;   /* (slappy 386) by the physical truck (385: fakie only); a crook lifts its tail as a nosegrind does (the game's crook pitch, -25 / -36) */
+            if (en != M.lfEnd && M.lfW <= 0.001f) M.lfEnd = en;
+            const float tw = (en != 0 && en == M.lfEnd) ? 1.0f : 0.0f;
+            M.lfW = (tw > M.lfW) ? fminf(tw, M.lfW + dt / SL_LF_W) : fmaxf(tw, M.lfW - dt / SL_LF_W);
+            const int cs = (g_slCrookYaw > 0.5f && g_slPick && M.pkOn && M.nLead && !M.inPlace) ? (M.pkCls == 4 ? 1 : M.pkCls == 5 ? -1 : 0) : 0;   /* (slappy 386) the crook's swing follows the sticks; (386r) after the sit the frozen pick (no swing back) */
+            if (cs != M.ckSg && M.ckW <= 0.001f) M.ckSg = cs;
+            const float cw2 = (cs != 0 && cs == M.ckSg) ? 1.0f : 0.0f;
+            M.ckW = (cw2 > M.ckW) ? fminf(cw2, M.ckW + dt / SL_LF_W) : fmaxf(cw2, M.ckW - dt / SL_LF_W);
+        }
+        float nL = 0.0f, zL = 0.0f, nT = 0.0f, zT = 0.0f, err = 0.0f, psi = 0.0f, pe = 0.0f; V3 vc = v3(0.0f, 0.0f, 0.0f), vw = v3(0.0f, 0.0f, 0.0f); int ph = 0;
+        const int np = SlMoveStep(board, M, dt, age, nL, zL, nT, zT, err, psi, pe, vc, vw, ph);
+        if (np <= 0) { SlEnd(sk, mc, bm, now, "the board's parts not read"); return; }
+        if (M.poses == 0) M.psi0 = psi;
+        M.poses++;
+        if (err > M.errMax) M.errMax = err;
+        if (pe > M.peMax) M.peMax = pe;
+        if (!M.over && nL < 0.0f && zL > -2.0f) { M.over = 1; M.overT = now; }
+        if (!M.inPlace) SlPkPick(sk, M, 1);   /* (slappy 384) the sticks as the board goes on: the grind the sit sets */
+        const bool upL = M.lfEnd > 0 && M.lfW > 0.5f, upT = M.lfEnd < 0 && M.lfW > 0.5f;   /* (slappy 385) a lifted end sits anywhere from the top to its lift */
+        const float ckF = SlCkN(M, age);   /* (slappy 386) a crook's trailing truck sits out (in) by its swing, once swung */
+        const bool sat = fabsf(nL - M.nEnd) < 3.5f && fabsf(nT - M.nEnd - ckF) < (M.ckW > 0.01f ? 5.0f : 3.5f) && (M.ckW <= 0.01f || age > M.tFace + 0.14f) && (upL ? (zL > -1.5f && zL < M.lfCm + 4.0f) : fabsf(zL) < 3.0f) && (upT ? (zT > -1.5f && zT < M.lfCm + 4.0f) : fabsf(zT) < 3.0f);
+        if (sat && !M.inPlace) { M.inPlace = 1; M.inT = now; M.dObs = v3(0.0f, 0.0f, 0.0f); M.wObs = v3(0.0f, 0.0f, 0.0f); if (!SlSigOff() && M.want) ((SetGrindDefFn)((uint8_t*)GetModuleHandleW(nullptr) + RVA_SET_TGT_GRIND))(sk, M.want);   /* (370, S3) the toes' 50-50 as the game's target before its own checks run */ Log("slappy 383: #%ld the board SAT on the edge %.2f s in (both axles within 3.5 cm of the edge's line, 3 cm of the top; turned %+.0f deg off it): the picker now answers \"%s\", the game's grind check held off %ld times before", M.n, age, psi, M.wantNm, (long)g_slCgBlocked); }
+        const bool air = mc[0x168] == 6 && mc[0x169] == 2;
+        if (air && !M.air) { M.air = 1; M.airT = now; }
+        float capStep = 0.0f;
+        {   /* (slappy 379) riding (mode 1) too -- Codex: the follow ran only in the game's air, and every ride-on was mode 1 ("the body +0"): the body stayed on its way in while the board went onto the curb */
+            V3& sv = *(V3*)((uint8_t*)mc + 0xc4); if (finite3(sv)) { if (air) sv = M.inPlace ? add(mul(M.c.E, dot(M.vPlan, M.c.E)), v3(0.0f, 0.0f, -40.0f + M.c.grade * dot(M.vPlan, M.c.E))) : v3(M.vPlan.x, M.vPlan.y, fminf(sv.z, fmaxf(M.vPlan.z, 0.0f)));   /* (slappy 386) his own fall kept (385 #9 / #40: the plan's speed held him up 0.6-0.7 s over the curb, "the butt hover") */   /* (382) down the grade too */ else if (!M.inPlace) sv = add(sub(sv, mul(M.c.N, dot(sv, M.c.N))), mul(M.c.N, dot(M.vPlan, M.c.N))); }   /* riding: only its speed across the curb, the board's */   /* (370, S1) the plan's own speed, not the observer's */   /* the skater goes with the board -- (368) as 366 (367's eased planned speed left him hanging over the sidewalk) */   /* the skater goes with the board -- (367) its PLANNED speed (not the push made up for the board), eased: 366's body jolted ("whiplash") as the board's fix changed pose to pose */
+            const uint8_t* root = PtrOk(sk, ACTOR_ROOT + 8) ? *(const uint8_t* const*)(sk + ACTOR_ROOT) : nullptr;   /* (363) the body turned onto the edge's line */
+            if (root && PtrOk(root, SC_C2W + 0x20)) {
+                V3 kf = flat(qrot(qnorm(*(const Q4*)(root + SC_C2W)), v3(1.0f, 0.0f, 0.0f)));
+                if (len(kf) > 0.2f) {
+                    kf = norm(kf); const V3 sE = (dot(kf, M.c.E) >= 0.0f) ? M.c.E : mul(M.c.E, -1.0f);
+                    const float cp = atan2f(kf.x * sE.y - kf.y * sE.x, dot(kf, sE)) * 57.29578f;
+                    if (std::isfinite(cp) && fabsf(cp) > 0.5f) { capStep = clampf(cp, -SL_CAP_STEP, SL_CAP_STEP); if (SafeWrCapTurn((void*)mc, capStep)) { M.capN++; M.capDeg += capStep; } else capStep = 0.0f; }
+                }
+            }
+        }
+        if (!air && !M.air) { const int ck = WgCrankUse(sk); if (ck == 1) M.crk++; }
+        if (g_slNoSlide && g_slPick && !SlSigOff() && g_pc && PtrOk(g_pc, 0x788) && ((uint8_t*)g_pc)[0x780]) { ((uint8_t*)g_pc)[0x780] = 0; M.nsN++; }   /* (slappy 385) the crouch used up opens Skate_CanPowerSlide's crouch gate: its sticks-centred gate shut instead (a crook's tilted stick is the game's powerslide) */       /* the crouch used up until the air: a release is no ollie */
+        if (!M.inPlace && (sk[0x918] & 1)) { sk[0x918] &= (uint8_t)~0x01; M.manClr++; }   /* (365) no manual (the game's own, of the nose up) before the board sits: 364's ground grinds began on the front truck alone */
+        WrGraceHold(bm, true);
+        if (M.inPlace && !g_slSatWait) { g_slSatWait = 1; g_slSatCg = 0; g_slSatYes = 0; }   /* (397) the sat board's wait for the game's grind, counted */
+        if (M.inPlace && !(sk[0x918] & 1)) { sk[0x918] |= (uint8_t)1; M.lent++; }       /* on the edge: the ground's grind check opened (forcegrind 287) */
+        if (M.tr && M.tr < 50 && InterlockedIncrement(&g_slMvLogs) <= 4000) {
+            M.tr++;
+            static const char* PH[] = { "0 coming in", "1 nose up  ", "2 nose on  ", "3 tail on  ", "4 held     " };
+            Log("sl mv #%ld +%3llu ms | %s%s | board %d skater %d/%d | leading axle %+.1f out %+.1f over, trailing %+.1f out %+.1f over (off the plan %.1f cm) | the nose %+.0f deg, turned %+.0f off the edge, the body %+.0f | the deck moved %+.0f along %+.0f across %+.0f up, the middle given %+.0f %+.0f %+.0f | +918 %02x grind flags %02x",
+                M.n, now - M.t0, PH[ph < 0 || ph > 4 ? 0 : ph], M.inPlace ? "SAT" : "   ", (int)bm[BM_MODE], (int)mc[0x168], (int)mc[0x169], nL, zL, nT, zT, err, pe, psi, capStep,
+                dot(vw, M.c.E), -dot(vw, M.c.N), vw.z, dot(vc, M.c.E), -dot(vc, M.c.N), vc.z, (unsigned)sk[0x918], (unsigned)bm[FG_BM_GFLAGS]);
+        }
+        if (age > SL_T2 + 0.15f && nL > 12.0f && zL < -4.0f) { SlEnd(sk, mc, bm, now, "the board came down on the street side"); return; }
+        return;
+    }
+    if (WalyOwns()) return;   /* (wally 381) no slappy under a wally */
+    /* ---- the trigger, and every hold of its sticks said once, when it ends without a move: why not */
+    struct SlHoldT { int on, how, poses, seen, headOn, slow, away; ULONGLONG t0; float spMin, spMax, gapMin, gapTh, gapH, gapVin, gapNeed; };
+    static SlHoldT Hd = {};
+    static LONG hdLogs = 0;
+    const bool riding = mc[0x168] == 6 && mc[0x169] == 1 && bm[BM_MODE] == 1;
+    const float* stk = (g_pc && PtrOk(g_pc, ALT_PC_STICKS + 16)) ? (const float*)((const uint8_t*)g_pc + ALT_PC_STICKS) : nullptr;
+    int how = 0;
+    if (stk) {
+        const float lx = stk[0], ly = stk[1], rx = stk[2], ry = stk[3];
+        const bool lDn = ly < -0.6f && fabsf(lx) < 0.6f, rDn = ry < -0.6f && fabsf(rx) < 0.6f, lUp = ly > 0.5f && fabsf(lx) < 0.7f, rUp = ry > 0.5f && fabsf(rx) < 0.7f;
+        const bool lMid = lx * lx + ly * ly < 0.12f, rMid = rx * rx + ry * ry < 0.12f;
+        how = ((rDn && lUp) || (lDn && rUp)) ? 1 : ((rDn && lMid) || (lDn && rMid)) ? 2 : ((rUp && lMid) || (lUp && rMid)) ? 2 : 0;   /* (374) the alt crouch (a stick UP alone) too: every crouch -- the crouch, the nollie crouch, the alt and the alt nollie */
+        if (!how && g_slPick && (lx * lx + ly * ly > 0.49f || rx * rx + ry * ry > 0.49f)) { int two = 0; if (SlPkClass(stk, SlBackStick(), 1, &two) && two) how = 1; }   /* (slappy 384) the table's two-stick crooks start one too (a crouch + the other stick tilted up); one tilted stick alone does NOT (the game's left-stick steering, SessionTweaks' foot steer) -- tilt it during the move instead */
+    }
+    {   /* (slappy 385) THE GAME'S POWERSLIDE HELD OFF AT A CURB (SlappyNoSlide 1). 384 #7 (11:28:39): the crouch + the front stick tilted for a crook --
+           the board turned +33 -> +62 deg off the curb's edge in 0.1 s (SessionTweaks "[stance] powerslide" 11:28:39.675), the move let go, a bail. Skate_CanPowerSlide
+           (v85's notes, 0xf9df20) says no while the controller's +0x780 is 0 -- the game sets it on a tick with all four stick axes centred. Riding at a
+           curb a slappy can take (SlCurb, every 30 ms) it is put back to 0 every pose, so the first stick off the middle there is no powerslide */
+        static ULONGLONG nsT = 0; static int nsOn = 0; static long nsN = 0, nsLogs = 0; static float nsH = 0.0f, nsTh = 0.0f;
+        const bool nsCr = stk && ((fabsf(stk[1]) > 0.6f && fabsf(stk[0]) < 0.6f) || (fabsf(stk[3]) > 0.6f && fabsf(stk[2]) < 0.6f));   /* (385 review) only with a crouch held (a slappy's intent): a plain powerslide at a curb stays the game's */
+        const bool nsGo = g_slNoSlide && g_slPick && !SlSigOff() && riding && board && (nsCr || how != 0) && g_pc && PtrOk(g_pc, 0x788);
+        const int nsWas = nsOn;
+        if (!nsGo) nsOn = 0;
+        else if (now - nsT >= 30) { nsT = now; SlCurbT c1; const V3 v1 = *(const V3*)(mc + 0xc4); nsOn = (SlCurb(board, v1, c1) && c1.sp >= SL_MIN_SP && c1.theta >= 8.0f && c1.theta <= g_slMaxTh && c1.vin >= 60.0f) ? 1 : 0; if (nsOn) { nsH = c1.h; nsTh = c1.theta; } }
+        if (nsOn) { uint8_t* pcb = (uint8_t*)g_pc; if (pcb[0x780]) { pcb[0x780] = 0; nsN++; } }
+        if (nsWas && !nsOn) { if (nsN > 0 && nsLogs++ < 60) Log("slappy 385: the game's powerslide held off riding at a curb %.0f cm high met at %.0f deg: its sticks-centred gate put back %ld times (SlappyNoSlide)", nsH, nsTh, nsN); nsN = 0; }
+    }
+    const bool holding = how && riding && board;
+    if (Hd.on && (!holding || now - Hd.t0 > 4000)) {
+        if (Hd.poses >= 8 && InterlockedIncrement(&hdLogs) <= 80) {
+            char what[200];
+            if (!Hd.seen) snprintf(what, sizeof(what), "no curb seen (a face 5-40 cm high, level on top, within 0.35 s of travel)");
+            else if (Hd.gapMin < 1.0e8f) snprintf(what, sizeof(what), "a curb %.0f cm high seen on %d poses -- its face came to %.0f cm of the nearest wheel at the nearest (met at %.0f deg, closing %.0f cm/s: the move wanted %.0f)", Hd.gapH, Hd.seen, Hd.gapMin, Hd.gapTh, Hd.gapVin, Hd.gapNeed);
+            else snprintf(what, sizeof(what), "a curb seen on %d poses, never takeable (%d head-on over %.0f deg, %d too slow, %d riding away)", Hd.seen, Hd.headOn, g_slMaxTh, Hd.slow, Hd.away);
+            Log("slappy 383: the slappy's sticks (%s) held %.1f s riding at %.0f-%.0f cm/s, no move: %s", Hd.how == 1 ? "one down, one up" : "the crouch", (now - Hd.t0) / 1000.0, Hd.spMin, Hd.spMax, what);
+        }
+        Hd.on = 0;
+    }
+    if (!holding || now - L.lastPopT < 1200) return;
+    if (!Hd.on) { Hd = SlHoldT{}; Hd.on = 1; Hd.how = how; Hd.t0 = now; Hd.spMin = 1.0e9f; Hd.gapMin = 1.0e9f; }
+    Hd.poses++;
+    const uint8_t* deck = *(const uint8_t* const*)(board + BD_DECK);
+    V3 vel = *(const V3*)(mc + 0xc4);
+    if (deck && PtrOk(deck, SC_C2W + 0x30)) { V3 vb; if (WallBodyVel((void*)deck, vb)) vel = vb; }
+    { const float s0 = sqrtf(vel.x * vel.x + vel.y * vel.y); if (s0 < Hd.spMin) Hd.spMin = s0; if (s0 > Hd.spMax) Hd.spMax = s0; }
+    SlCurbT c;
+    if (!SlCurb(board, vel, c)) return;
+    Hd.seen++;
+    if (c.sp < SL_MIN_SP) { Hd.slow++; return; }
+    if (c.theta < 8.0f || c.vin < 60.0f) { Hd.away++; return; }   /* (370, S6) closing on it, or no move (369 #8: -9 deg, gap -12) */   /* riding away from it */
+    if (c.theta > g_slMaxTh) { Hd.headOn++; if (now - L.seenT > 1500 && InterlockedIncrement(&g_slSeenLogs) <= 60) Log("slappy 383: a curb %.0f cm high met at %.0f deg -- head-on (over %.0f): no slappy (an ollie's)", c.h, c.theta, g_slMaxTh); L.seenT = now; return; }
+    Q4 dq; V3 dw; if (!WrDeckWorld(board, dq, dw)) return;
+    const float tc = SlClearT(c.h);
+    const float need = (c.vin >= 40.0f) ? fmaxf(6.0f, c.vin * SL_HIT_T) : SL_REACH_HIT; (void)tc;   /* (365) the user on 364: the nose rose 20-24 in short of the curb -- it rises as it meets it */
+    if (c.gap < Hd.gapMin) { Hd.gapMin = c.gap; Hd.gapTh = c.theta; Hd.gapH = c.h; Hd.gapVin = c.vin; Hd.gapNeed = need; }
+    if (c.gap > need || c.gap < -2.0f) return;
+    if (SlSigOff()) return;   /* (370, S9) Epic's fixed addresses only; (steam 398) or every slappy address found by signature (OwnSigScan) and the feature group */
+    if (!g_slSwitch && PtrOk(sk, SK_FOOTPOS + 1) && (sk[SK_FOOTPOS] == 2 || sk[SK_FOOTPOS] == 4)) { if (now - L.seenT > 1500 && InterlockedIncrement(&g_slSwTold) <= 40) Log("slappy 394: a curb %.0f cm high met at %.0f deg riding %s -- no slappy in fakie / switch (SlappySwitch 0: 393's sat on the edge without the game's grind taking it)", c.h, c.theta, sk[SK_FOOTPOS] == 2 ? "fakie" : "switch"); L.seenT = now; return; }   /* (394) */
+    if (Hd.poses < 5) return;   /* held 5 poses (~80 ms) first: a bone ollie passes through one down, one up for a frame or two */
+    V3 fr, bk; float hw = 0.0f; if (!SlAxles(board, fr, bk, hw)) return;
+    Hd.on = 0;
+    M = SlMvT{}; M.on = 1; M.t0 = now; M.c = c; M.n = ++L.pops; M.tr = (M.n <= 120) ? 1 : 0;   /* (slappy 386) 40: the 385 test's 13:10 curb went untraced */
+    M.ride = clampf(dw.z - c.zg, 3.0f, 12.0f); M.va = fmaxf(dot(vel, c.E), 120.0f); M.latMin = 1.0e9f; M.hzMax = -1.0e9f; M.wcMin = 1.0e9f; M.peMax = -999.0f; M.peLast = -999.0f;
+    M.vtIn = M.vt = fmaxf(c.vin, 0.0f); M.nEnd = -clampf((clampf(g_slOnCurb, 50.0f, 90.0f) - 50.0f) * 0.02f * fmaxf(hw, 5.0f), 0.0f, 10.0f);   /* (slappy 385) SlappyOnCurb: the axles' middle (pct - 50)% of an axle's width in from the edge (70 = 4 cm on a 20 cm axle; 384: SlappyInset 3) */   /* (slappy 384) the axles' middle this far in from the edge (383: 1 cm) */
+    M.leadF = (dot(sub(fr, bk), c.E) >= 0.0f) ? 1 : 0; M.lead = M.leadF ? 1 : -1;
+    { const V3 Lx = M.leadF ? fr : bk, Tx = M.leadF ? bk : fr;
+      M.W = len(sub(fr, bk)); M.hw = hw; M.ha = clampf(0.5f * (fr.z + bk.z) - c.zg, 1.5f, 6.0f);
+      M.sL0 = dot(sub(Lx, c.F), c.E); M.nL0 = dot(sub(Lx, c.F), c.N); M.zL0 = Lx.z - c.grade * M.sL0; M.nT0 = dot(sub(Tx, c.F), c.N); M.zT0 = Tx.z - c.grade * dot(sub(Tx, c.F), c.E);   /* (381) off the grade */
+      M.guard = hw + SL_WHEEL_R + 0.8f; M.nL0 = fmaxf(M.nL0, M.guard); M.nT0 = fmaxf(M.nT0, M.guard);
+      const float v0 = fmaxf(c.vin, 100.0f), D = fmaxf(M.nL0 - M.nEnd, 1.0f); M.vtIn = fmaxf(c.vin, 0.0f); M.tEnd = clampf(2.0f * D / v0, 0.10f, SL_TEND_MAX);   /* (slappy 385) 0.30 at the most (384: 0.40 -- every move but #3 sat at 0.37-0.47 s, "a good 6 feet before I would say you're in a 5-0") */   /* (367) across at its own speed, stopped on the edge */
+      float lo = 0.0f, hi = 1.0f; for (int i = 0; i < 24; i++) { const float md = 0.5f * (lo + hi); if (SlLeadN(M, md) > M.guard) lo = md; else hi = md; }
+      M.tFace = fmaxf(hi * M.tEnd, 0.04f); }   /* (367) the wheels meet the face: the nose rises SL_RISE s before it */
+    { V3 toes; M.side = (WgToes(mesh, toes) && dot(toes, c.N) < 0.0f) ? 1 : 2; }
+    M.want = SlFind5050(sk, M.side, M.wantNm, 64); M.toeSide = M.side; M.t0S = NowS(); SlPkPick(sk, M, 0);
+    M.fp0 = sk[SK_FOOTPOS]; M.fakie = (M.fp0 == 2) ? 1 : 0; M.lfCm = SL_LF_SHARE * M.W;   /* (slappy 385) a 5-0 lifts the front foot's end, a nosegrind the back foot's: the leading / trailing one riding forward, the other way round in fakie */
+    M.nLead = (M.fp0 == 2) ? 0 : 1;   /* (386r) 385's rule: after a throwdown the deck is turned under the feet (riding stance #2) and the leading truck is the front foot's (st.log 'grinding truck: back' in those nosegrinds) */   /* (slappy 386) the front foot stands over the board's front truck (regular, nollie, fakie) or its back one (switch) */
+    { const int pw = (g_slPick && M.pkOn) ? (M.pkCls == 2 ? 1 : M.pkCls == 3 ? -1 : (M.pkCls >= 4 && g_slCrookYaw > 0.5f) ? -1 : 0) : 0; M.lfEnd = M.nLead ? pw : -pw; M.lfW = M.lfEnd ? 1.0f : 0.0f; }
+    M.ckSg = (g_slCrookYaw > 0.5f && g_slPick && M.pkOn && M.nLead) ? (M.pkCls == 4 ? 1 : M.pkCls == 5 ? -1 : 0) : 0; M.ckW = 0.0f;   /* (slappy 386) eased in per pose */
+    if (InterlockedIncrement(&g_slMvLogs) <= 4000) Log("slappy 385: #%ld the foot position %d at the move (1 regular 2 fakie 3 nollie 4 switch); %s; the trucks' middle %.1f cm in from the edge (SlappyOnCurb %.0f%%, an axle %.0f wide)", M.n, (int)M.fp0, M.lfEnd > 0 ? "the 5-0's nose (the leading end) lifted once the back truck is on" : M.lfEnd < 0 ? "the nosegrind's tail (the trailing end) lifted once the nose is on" : "both trucks set on the edge", -M.nEnd, g_slOnCurb, 2.0f * hw);   /* (slappy 384) the grind from the sticks (the 50-50 the fallback) */
+    if (InterlockedIncrement(&g_slMvLogs) <= 4000) Log("slappy 386: #%ld the board's %s truck leads, the front foot's %s (the foot position %d); the lift on the board's %s truck; %s (SlappyCrookYaw %.0f); the curb's top %s", M.n, M.leadF ? "front" : "back", M.nLead ? "leading" : "trailing", (int)M.fp0,
+        M.lfEnd == 0 ? "no" : ((M.lfEnd > 0) == (M.leadF != 0)) ? "front" : "back", (M.pkCls >= 4 && M.pkOn) ? (M.ckSg > 0 ? "a CROOKED: the tail swung out over the street" : M.ckSg < 0 ? "an OVERCROOK: the tail swung in over the top" : "a crook NOT swung (the front foot's truck trails, or SlappyCrookYaw 0)") : "no crook", g_slCrookYaw,
+        c.drop >= 98.0f ? "not found 20 cm in from its edge (a narrow top?)" : c.drop > 2.0f ? "FALLS AWAY: lower 20 cm in from its edge (cm in the next number)" : "level 20 cm in from its edge");
+    if (c.drop > 2.0f && c.drop < 98.0f && InterlockedIncrement(&g_slMvLogs) <= 4000) Log("slappy 386: #%ld the curb's top is %.1f cm lower 20 cm in from its edge than at 8 cm (%.0f cm high): a rounded or sloped top", M.n, c.drop, c.h);
+    if (!g_ag.tried) AgInstall();
+    if (g_asBaHook == 0) AsBaInstall();   /* (368) the grind check's hook (hkAsCg) */
+    g_slCgBlocked = 0;
+    g_slPickOn = M.want ? 1 : 0;
+    L.lastPopT = now; L.side = c.side; L.h = c.h;
+    NoBail(0.8);
+    const bool grace = WrGraceHold(bm, true);
+    const int crk = WgCrankUse(sk);
+    if (c.theta >= WR_SLAM_FROM) WrSlamHold(0.6, c.theta, "met by a slappy");
+    Log("slappy 383: #%ld THE MOVE (%s) -- a curb %.0f cm high on the %s, met at %.0f deg (closing %.0f cm/s, %.0f cm/s along it), its face %.0f cm from the nearest wheel; the %s axle leads (%+.0f out from the face, the trailing %+.0f; the wheelbase %.0f, an axle %.0f wide, its middle %.1f over the street): the tail dipped and the nose up %.0f cm over the top by %.2f s, onto the edge by %.2f s, the trailing truck after it along its path (onto the edge one wheelbase later); the grind held off until it sits, then the %s 50-50 (%s; the game's picker %s); the impact bail passed over 0.8 s, the falling bail's grace %s, the crouch %s",
+        M.n, how == 1 ? "the 50-50's sticks: one down, one up" : "the crouch", c.h, c.side < 0 ? "left" : "right", c.theta, c.vin, M.va, c.gap, M.leadF ? "front" : "back", M.nL0, M.nT0, M.W, 2.0f * M.hw, M.ha, SL_LIFT, SL_T1, SL_T2,
+        M.side == 1 ? "frontside" : "backside", M.want ? M.wantNm : "NOT FOUND", g_ag.hookOk ? "hooked" : "NOT hooked: the target set at the hand-over", grace ? "held" : "the game's", crk == 1 ? "used up (letting go is no ollie)" : crk == 0 ? "not cranked" : "not read");
+}
+/* (slappy 374) THE SLAPPY GRIND'S STICKS. 373: the sticks that start a slappy are still held as its grind begins, and the game reads them
+   as the grind's own input -- the crouch (one stick down) is its 5-0 (#4, #5, #6, #11: the 5-0 0.35 s in, "it still tries to lift the other
+   foot and does a little jiggle"), and letting go of one of the 50-50's two leaves the other: the wrong end up. Now, while the slappy's grind
+   lasts, each stick still held as it was at the grind's start is handed to the game as the middle (the 50-50 stays); with two held, letting
+   go of one lifts THAT foot (the back one: the game's nosegrind, its back stick up; the front: its 5-0, its front stick down); any other
+   move of a stick, or both let go, and the sticks are the game's again for the rest of the grind. */
+int SlBackStick() {   /* 0 left, 1 right, -1 not known (the stick mode not front/back- or left/right-foot) */
+    const uint8_t* pc = (const uint8_t*)g_pc; const uint8_t* sk = (const uint8_t*)g_skater; const uint8_t* an = (const uint8_t*)g_anim;
+    if (!pc || !sk || !an || !PtrOk(pc, PC_INPUT + 8) || !PtrOk(an, 0x600) || !PtrOk(sk, SK_FOOTPOS + 1) || !RVA_ALT_SWRAW || FeatSigOff()) return -1;   /* (392 steam audit) FeatSigScan leaves the Epic RVA in place when it fails */
+    const uint8_t* ih = *(const uint8_t* const*)(pc + PC_INPUT); if (!ih || !PtrOk(ih, 0x40)) return -1;
+    const int mode = ih[ALT_IH_MODE]; if (mode != 1 && mode != 2) return -1;
+    const bool goofy = an[ALT_AI_GOOFY] != 0; const uint8_t fp = sk[SK_FOOTPOS]; bool sw = fp == 2 || fp == 4;
+    if (mode == 1) sw = sw != ((AltSwRawFn)(Exe() + RVA_ALT_SWRAW))(sk);
+    return AltBackLeft(mode, sw, goofy) ? 0 : 1;
+}
+struct SlGsT { int was, on, bk, e[2]; long n, nose, five; const char* why; } g_slGs = {};
+void SlGrindSticks(float* s) {
+    SlGsT& G = g_slGs;
+    if (!g_sl.inGrind) { if (G.was) { if (InterlockedIncrement(&g_slMvLogs) <= 4000) Log("slappy 383: the grind's sticks: the entry's held sticks handed as the middle on %ld poses, the back foot lifted (the nosegrind) on %ld, the front (the 5-0) on %ld; %s", G.n, G.nose, G.five, G.why ? G.why : "to its end"); G = SlGsT{}; } return; }
+    if (!G.was) {
+        G.was = 1; G.bk = SlBackStick(); G.why = nullptr;
+        for (int k = 0; k < 2; k++) { const float y = s[2 * k + 1]; G.e[k] = (y > 0.5f) ? 1 : (y < -0.5f) ? -1 : 0; }
+        G.on = (G.bk >= 0 && (G.e[0] || G.e[1])) ? 1 : 0; if (!G.on) G.why = (G.bk < 0) ? "the stick mode not known: the game's" : "no stick held at its start";
+    }
+    if (!G.on) return;
+    int held[2], nE = 0, nH = 0;
+    for (int k = 0; k < 2; k++) {
+        const float x = s[2 * k], y = s[2 * k + 1];
+        held[k] = G.e[k] && y * (float)G.e[k] > 0.4f && fabsf(x) < 0.8f;
+        if (G.e[k]) nE++; if (held[k]) nH++;
+        if (!held[k] && x * x + y * y > 0.3f) { G.on = 0; G.why = "a stick moved elsewhere: the game's from there"; return; }
+    }
+    if (!nH) { G.on = 0; G.why = "both let go: the game's from there"; return; }
+    float o[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    if (nE == 2 && nH == 1) { if (!held[G.bk]) { o[2 * G.bk + 1] = 1.0f; G.nose++; } else { o[2 * (1 - G.bk) + 1] = -1.0f; G.five++; } }
+    for (int i = 0; i < 4; i++) s[i] = o[i];
+    G.n++;
+}
+void SlInput() {   /* (slappy 359) from the pose pass, after the engine's own stick values: the pop handed to the game */
+    SlT& L = g_sl;
+    OfbCatchInput();   /* (ofb 369) A / X: the catch */
+    /* (slappy 375) 374's SlGrindSticks NOT called: the sticks handed as the middle dropped every slappy grind in 0.33-0.37 s (the game holds a grind on its sticks) */
+    if (L.popReq <= 0 || !g_pc || !PtrOk(g_pc, ALT_PC_STICKS + 16)) return;
+    float* s = (float*)((uint8_t*)g_pc + ALT_PC_STICKS);
+    if (L.popLog == 0) L.back = (s[3] < s[1]) ? 1 : 0;   /* the stick held down is the crouch */
+    float* b = s + 2 * L.back; float* fr = s + 2 * (1 - L.back);
+    if (L.popLog == 0) Log("slappy 359: the pop's input (360): the %s stick (held %+.2f %+.2f) kept down, the %s flicked down", L.back ? "right" : "left", b[0], b[1], L.back ? "left" : "right");
+    b[0] = 0.0f; b[1] = -1.0f; fr[0] = 0.0f; fr[1] = -1.0f;   /* (slappy 360) the crouch held, the FRONT stick flicked down: the game's low pop ollie (359's crouch-up was its impossible) */
+    L.popLog++;
+    InterlockedDecrement(&L.popReq);
+}
+void SafeSlInput() { __try { SlInput(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_sl.popReq = 0; } }
+volatile LONG g_pdGrind = 0, g_pdGrindOn = 0;   /* (391) g_pdGrindOn: HJN_Set("pdgrind", 0/1) = RecordGrinds (the release: 0) */   /* (390) the board movement in a grind (mode 2), for the pose recorder: every grind a segment */
+void PdGrindTick() { __try { uint8_t* bm = BoardMC(); g_pdGrind = (g_pdGrindOn && bm && PtrOk(bm, BM_MODE + 1) && bm[BM_MODE] == 2) ? 1 : 0; } __except (EXCEPTION_EXECUTE_HANDLER) { g_pdGrind = 0; } }
+volatile LONG g_grftLines = 0;
+void GrFtTrace() {   /* (392) where the body sits on the deck through a grind's first 1.6 s (and a slappy's move): "grft" lines, every 3rd pose */
+    static int lastMode = -1, left = 0, k = 0, lastOn = 0; static char lastDef[64] = ""; static double t0 = 0.0; static long gn = 0;
+    uint8_t* sk = (uint8_t*)g_skater; const uint8_t* mesh = (const uint8_t*)g_mesh; const uint8_t* a = (const uint8_t*)g_anim; uint8_t* bm = BoardMC();
+    if (!sk || !mesh || !a || !bm || !PtrOk(sk, 0x6d8) || !PtrOk(bm, BM_MODE + 1) || !PtrOk(mesh, SC_C2W + 0x30) || !PtrOk(a, AI_RFOOT_LOC + 12)) { lastMode = -1; return; }
+    const int mode = bm[BM_MODE]; const int slOn = g_slm.on ? 1 : 0;
+    char cw[64] = ""; if (mode == 2) GrDefName(*(const uint8_t* const*)(sk + 0x6d0), cw, 64);
+    const double now = NowS();
+    if ((mode == 2 && (lastMode != 2 || strcmp(cw, lastDef) != 0)) || (slOn && !lastOn)) { left = 96; k = 0; t0 = now; if (lastMode != 2 || (slOn && !lastOn)) gn++; }
+    snprintf(lastDef, sizeof(lastDef), "%s", mode == 2 ? cw : ""); lastMode = mode; lastOn = slOn;
+    if ((mode != 2 && !slOn) || left <= 0) return;
+    left--; if ((k++ % 3) != 0 || g_grftLines > 3000) return;
+    const uint8_t* board = PtrOk(sk, SK_BOARD + 8) ? *(const uint8_t* const*)(sk + SK_BOARD) : nullptr; if (!board || !PtrOk(board, BD_DECK + 8)) return;
+    const uint8_t* deck = *(const uint8_t* const*)(board + BD_DECK); if (!deck || !PtrOk(deck, SC_C2W + 0x30)) return;
+    const Q4 wq = *(const Q4*)(deck + SC_C2W); const V3 wp = *(const V3*)(deck + SC_C2W + 0x10);
+    const Q4 mq = *(const Q4*)(mesh + SC_C2W); const V3 mp = *(const V3*)(mesh + SC_C2W + 0x10); const V3 ms = *(const V3*)(mesh + SC_C2W + 0x20);
+    if (!finite3(wp) || !finite3(mp) || !finite3(ms)) return;
+    auto dk = [&](V3 w) { return qinv(wq, sub(w, wp)); };
+    auto cw2 = [&](V3 c) { return add(mp, qrot(mq, v3(c.x * ms.x, c.y * ms.y, c.z * ms.z))); };
+    const V3 mo = dk(mp);
+    const V3 pv = (g_pelvis >= 0) ? dk(cw2(g_C[g_pelvis].p)) : v3(0.0f, 0.0f, 0.0f);
+    const V3 sL = dk(cw2(*(const V3*)(a + AI_LFOOT_LOC))), sR = dk(cw2(*(const V3*)(a + AI_RFOOT_LOC)));
+    const V3 fL = (g_foot[0] >= 0) ? dk(cw2(g_Ct[g_foot[0]].p)) : v3(0.0f, 0.0f, 0.0f), fR = (g_foot[1] >= 0) ? dk(cw2(g_Ct[g_foot[1]].p)) : v3(0.0f, 0.0f, 0.0f);
+    const V3 ax = qrot(wq, v3(1.0f, 0.0f, 0.0f)); const float pitch = asinf(clampf(ax.z, -1.0f, 1.0f)) * 57.2957795f;
+    InterlockedIncrement(&g_grftLines);
+    const uint8_t* bmx = bm; const int gty = PtrOk(bmx, 0x8aa) ? bmx[0x8a9] : -1; const int k711 = PtrOk(sk, 0x712) ? sk[0x711] : -1;
+    Log("grft #%ld +%4.0f ms \"%s\"%s | anim grind %d lip %d slot %d, the board's grind type %d, skater+711 %02x | foot position %d | mesh on the deck %+.1f %+.1f | the game's pelvis %+.1f %+.1f | sockets L %+.1f %+.1f R %+.1f %+.1f | drawn feet L %+.1f %+.1f R %+.1f %+.1f | deck pitch %+.0f (x along the deck, + its nose; z up off it)",
+        gn, (now - t0) * 1000.0, mode == 2 ? cw : "(the slappy's move)", g_sl.inGrind ? " SLAPPY" : "", PtrOk(a, 0x340) ? (int)a[0x33c] : -1, PtrOk(a, 0x340) ? (int)a[0x33d] : -1, PtrOk(a, 0x340) ? (int)a[0x33e] : -1, gty, (unsigned)(k711 & 0xff), (int)sk[SK_FOOTPOS], mo.x, mo.z, pv.x, pv.z, sL.x, sL.z, sR.x, sR.z, fL.x, fL.z, fR.x, fR.z, pitch);
+}
+void SafeGrFt() { __try { GrFtTrace(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_grftLines = 99999; } }
+void SafeSlTick() {
+    PdGrindTick(); SafeGrFt();
+    __try { SlTick(); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { g_sl.on = 0; g_sl.lent = false; g_slPickOn = 0; g_slm.on = 0; g_slCgBlock = 0; g_sl.inGrind = false; g_slm.want = nullptr; Log("slappy 355: fault -- off for this run"); } { const ULONGLONG gc = (g_stGhChT > g_sl.inT) ? g_stGhChT : g_sl.inT; SafeStGhTick(g_slPickOn != 0, g_sl.inGrind ? (LONG)(GetTickCount64() - gc) : -1L, (g_pc && PtrOk(g_pc, ALT_PC_STICKS + 16)) ? (const float*)((const uint8_t*)g_pc + ALT_PC_STICKS) : nullptr); }   /* (383) SessionTweaks' grind feel held at 0 through a slappy (the note at StGhScan) */
 }
 void AsFgBlunt(uint8_t* sk, double now, int n) {   // each pose of AltBluntGame's held blunt (the bit lent by AsBgHold)
     if (!g_asfg.on || g_asfg.n != n || g_asfg.kind != 1) AsFgStart(1, 2, 0, n, g_as.h, 0.0f);   /* BS: as the real one of 28 Oct */
@@ -26116,9 +28542,12 @@ bool HostBuild() {
             char k[64]; snprintf(k, sizeof(k), "ET_%s", w.key);
             if (!RowBase(row, k, w.label, w.desc, &g_hkeys[p][r])) return false;
             if (w.kind == MENU_TOGGLE) {
-                if (!MakeText(w.off[0] ? w.off : "Off", &g_hopts[p][r][0]) || !MakeText(w.on[0] ? w.on : "On", &g_hopts[p][r][1])) return false;
+                const int no = MenuOptN(w);   /* (387) 2, or up to 4 named states */
+                if (!MakeText(w.off[0] ? w.off : "Off", &g_hopts[p][r][0])) return false;
+                if (no <= 2) { if (!MakeText(w.on[0] ? w.on : "On", &g_hopts[p][r][1])) return false; }
+                else { char ob[sizeof(w.on)]; snprintf(ob, sizeof(ob), "%s", w.on); char* s = ob; for (int i = 1; i < no; i++) { char* bar = strchr(s, '|'); if (bar) *bar = 0; if (!MakeText(s, &g_hopts[p][r][i])) return false; s = bar ? bar + 1 : s + strlen(s); } }
                 row[IT_TYPE] = 2;                                        // MultiOption
-                *(void**)(row + IT_MULTITEXTS) = g_hopts[p][r]; *(int32_t*)(row + IT_MULTITEXTS + 8) = 2; *(int32_t*)(row + IT_MULTITEXTS + 12) = 2;
+                *(void**)(row + IT_MULTITEXTS) = g_hopts[p][r]; *(int32_t*)(row + IT_MULTITEXTS + 8) = no; *(int32_t*)(row + IT_MULTITEXTS + 12) = no;
             } else if (w.kind == MENU_SLIDER) {
                 row[IT_TYPE] = 3;                                        // ProgressBar
                 *(float*)(row + IT_PMIN) = w.lo; *(float*)(row + IT_PMAX) = (w.hi > w.lo) ? w.hi : w.lo + 1.0f; *(float*)(row + IT_PINC) = (w.step > 0.0f) ? w.step : 1.0f;
@@ -26163,7 +28592,7 @@ const TArrayHdr* HostChoose(uint8_t* page, const TArrayHdr* items, TArrayHdr* ou
             if (w.kind == MENU_TOGGLE || w.kind == MENU_SLIDER) {
                 if (MenuVal* m = MenuFind(w.key)) {
                     g_valOf[r] = m->v; g_valSet[r] = true;
-                    if (w.kind == MENU_TOGGLE) *(int32_t*)(g_rowBuf + (size_t)(n - 1) * IT_SIZE + IT_MULTISTART) = (m->v >= 0.5f) ? 1 : 0;
+                    if (w.kind == MENU_TOGGLE) { const int no = MenuOptN(w), ix = (int)floorf(m->v + 0.5f); *(int32_t*)(g_rowBuf + (size_t)(n - 1) * IT_SIZE + IT_MULTISTART) = (no > 2) ? (ix < 0 ? 0 : ix >= no ? no - 1 : ix) : (m->v >= 0.5f) ? 1 : 0; }   /* (387) the state's index */
                 }
             }
         }
@@ -26211,7 +28640,7 @@ void StampValues(uint8_t* page) {
             float pct = (mr.hi > mr.lo) ? (g_valOf[r] - mr.lo) / (mr.hi - mr.lo) : 0.0f;
             pct = clampf(pct, 0.0f, 1.0f);
             ((ItemFloatFn)(Exe() + RVA_ITEM_PROGSET))(widget, pct);
-        } else ((ItemIntFn)(Exe() + RVA_ITEM_MULTISET))(widget, (g_valOf[r] >= 0.5f) ? 1 : 0);
+        } else { const int no = MenuOptN(mr), ix = (int)floorf(g_valOf[r] + 0.5f); ((ItemIntFn)(Exe() + RVA_ITEM_MULTISET))(widget, (no > 2) ? (ix < 0 ? 0 : ix >= no ? no - 1 : ix) : (g_valOf[r] >= 0.5f) ? 1 : 0); }   /* (387) a switch of more states: its index */
     }
 }
 void PassOwned(const void* src, FTextBlob* out) {           // a copy the callee may release: bump the controller's count first
@@ -26710,8 +29139,7 @@ void WallBodyHitNote(const void* sk, const float* imp, const uint8_t* hit) {
     const bool post = A.watch2 != 0 && !(A.tdSeen && now - A.tdT > 2.0);
     const bool gnd = !post && !A.armed && g_wgHitUntil > GetTickCount64();     /* (wallin) a from-ground approach: a standing crash's bone named */
     if (!post && !A.armed && !gnd) return;
-    if (gnd) { if (g_wgHitN >= 4) return; g_wgHitN++; }
-    else { if (A.hitN >= 4) return; A.hitN++; }
+    if ((gnd ? g_wgHitN : A.hitN) >= 8) return;   /* (389) the budget is taken below: arm hits 2, others 4, the hit that bails 8 */
     wchar_t wn[64]; char bone[64]; int m = 0;
     const uint32_t nn = ((FNameToStrFn)(Exe() + RVA_FNAME_TOSTR_BUF))(hit + 0x80, wn, 64);       // FHitResult::MyBoneName
     for (uint32_t i = 0; i < nn && i < 63; i++) bone[m++] = (char)((wn[i] > 31 && wn[i] < 127) ? wn[i] : '?');
@@ -26724,6 +29152,11 @@ void WallBodyHitNote(const void* sk, const float* imp, const uint8_t* hit) {
     const float im = sqrtf(imp[0] * imp[0] + imp[1] * imp[1] + imp[2] * imp[2]);
     const char* thr = armB ? "never (an arm)" : falling ? "0 (the board counts as falling)" : "10000 (riding)";
     const char* verdict = armB ? "passes" : (im > (falling ? 0.0f : 10000.0f)) ? "it bails" : "passes";
+    {   /* (389) 387's arm hits used up the 4 lines and the hit that bailed went unnamed */
+        const int hn = gnd ? g_wgHitN : A.hitN; const bool bails = !armB && im > (falling ? 0.0f : 10000.0f);
+        if (bails ? hn >= 8 : armB ? hn >= 2 : hn >= 4) return;
+        if (gnd) g_wgHitN++; else A.hitN++;
+    }
     const V3 Pw = post ? A.wPw : gnd ? g_wgHitP : A.armP, Nw = post ? A.wNw : gnd ? g_wgHitNw : A.armN3;
     V3 Aw = A.wAw;
     if (!post) { const V3 t = A.vFdOk ? A.vFd : v3(1, 0, 0); Aw = norm(flat(sub(t, mul(Nw, dot(t, Nw))))); }
@@ -26862,11 +29295,12 @@ uintptr_t RVA_BANK_LEFT = 0x1007d00, RVA_BANK_RIGHT = 0x1007d30;
 // by signature, has its own: refused, and the Lua keeps the bumpers from the game by the key hook instead). -> 1 done, 0 refused
 uintptr_t RVA_LEAN_LEFT = 0xf9fe10, RVA_LEAN_RIGHT = 0xf9fe50;
 int g_leanPatched = 0; uint8_t g_leanSaved[2] = { 0x40, 0x40 };
+volatile int g_leanSigOk = 0;   // (385 leanout) 1 = on another build the lean-out's five were found by signature (LeanSigScan): GrindLean / GrindExit run there too
 int GrindLean(bool off) {
     const int wantPatched = off ? 1 : 0;
     if (g_leanPatched == wantPatched) return 1;
-    if (!g_hooked || g_sigMode) {
-        Log("grind grabs: the game's bumper lean-out of a grind cannot be switched %s here (%s)", off ? "off" : "back on", g_sigMode ? "another build of the game: its addresses are not known" : "the hook is not in");
+    if (!g_hooked || (g_sigMode && !g_leanSigOk)) {   /* (385 leanout) another build: only with its own addresses found */
+        Log("grind grabs: the game's bumper lean-out of a grind cannot be switched %s here (%s)", off ? "off" : "back on", g_sigMode ? "another build of the game: its lean-out was not found by signature (the 'grind lean-out' line at start-up)" : "the hook is not in");
         return 0;
     }
     uint8_t* exe = Exe();
@@ -26905,7 +29339,7 @@ uintptr_t RVA_CAN_LEAN = 0xf9de50, RVA_MC_LEAN_LEFT = 0xfc3df0, RVA_MC_LEAN_RIGH
 typedef bool (*GrindCanLeanFn)(void* pc);
 typedef void (*GrindLeanFn)(void* mc);
 int GrindExit(int side) {
-    if (!g_hooked || g_sigMode) return -1;
+    if (!g_hooked || (g_sigMode && !g_leanSigOk)) return -1;   /* (385 leanout) */
     uint8_t* pc = (uint8_t*)g_pc;
     if (!pc || !PtrOk(pc, PC_SKATER + 8)) return -2;
     uint8_t* exe = Exe();
@@ -26925,6 +29359,84 @@ int GrindExit(int side) {
     }
     __except (EXCEPTION_EXECUTE_HANDLER) { return -4; }
     return 1;
+}
+// (385 leanout) THE LEAN-OUT ON ANOTHER BUILD (a Steam tester, exe 6a9ad60e, GrindGrabs=2: every L3 / R3 in a grind answered -1 and
+// was swallowed; the bumpers were masked instead, so his grinds had no exit). The five addresses above are Epic's; on another build
+// (OwnSigScan's signature mode, force-signatures.txt too) they are found here, all or none:
+//   LEAN_CAN  ASessionPlayerController::Skate_CanLean: its first 86 bytes (12 wild: the jcc rel32s, the call), exactly once --
+//             the controller's +0x698 / +0x690, the skater's +0x711 / +0x710 / +0x8e8 fixed in it, so a match says they are where they were.
+//   LEAN_TWIN Skate_LeanLeft / Skate_LeanRight: BYTE TWINS (53 bytes, 12 wild: the call to Skate_CanLean, the call to GetSkateboard,
+//             the jmp to the movement component's LeanLeft / LeanRight; controller +0x698 and board +0x298 fixed), twice in Epic's exe.
+// Each twin hit is told apart by what it calls, not by its order: its call at +0x09 must reach Skate_CanLean (LEAN_CAN's; with
+// LEAN_CAN missing, both twins must call one function that starts as Skate_CanLean does), its call at +0x19 GetSkateboard
+// ("mov rax,[rcx+0x568] / ret": SK_BOARD where GrindExit reads it), and its jmp at +0x2a a function that starts as GrindExit's
+// check has it (cmp [rcx+0x684],0 / jne / movss xmm1,[rip+d] / jmp CalculateLeanOutInfo) -- whose float is -1 (LeanLeft, LB's)
+// or +1 (LeanRight, RB's). One of each, or nothing is set and both stay Epic-only (GrindLean / GrindExit refuse, as before).
+// Read off the loaded image (the .text is the file's); a fault = not found. GrindLean's and GrindExit's own byte checks still run.
+static const uint8_t kLeanSigB0[] = { 0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0xd9,0x48,0x8b,0x89,0x98,0x06,0x00,0x00,0x48,0x85,0xc9,0x0f,0x84,0x00,0x00,0x00,0x00,0x48,0x8b,0x83,0x90,0x06,0x00,0x00,0x48,0x85,0xc0,0x0f,0x84,0x00,0x00,0x00,0x00,0x8b,0x40,0x38,0xc1,0xe8,0x08,0xa8,0x01,0x0f,0x84,0x00,0x00,0x00,0x00,0xf6,0x81,0x11,0x07,0x00,0x00,0x02,0x74,0x7c,0xf6,0x81,0x10,0x07,0x00,0x00,0x02,0x75,0x73,0x0f,0x57,0xc0,0x0f,0x2f,0x81,0xe8,0x08,0x00,0x00,0x72,0x67,0xe8 };
+static const uint8_t kLeanSigM0[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 };
+static const uint8_t kLeanSigB1[] = { 0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0xd9,0xe8,0x00,0x00,0x00,0x00,0x84,0xc0,0x74,0x1d,0x48,0x8b,0x8b,0x98,0x06,0x00,0x00,0xe8,0x00,0x00,0x00,0x00,0x48,0x8b,0x88,0x98,0x02,0x00,0x00,0x48,0x83,0xc4,0x20,0x5b,0xe9,0x00,0x00,0x00,0x00,0x48,0x83,0xc4,0x20,0x5b,0xc3 };
+static const uint8_t kLeanSigM1[] = { 1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1 };
+static_assert(sizeof(kLeanSigB0) == 86 && sizeof(kLeanSigM0) == 86 && sizeof(kLeanSigB1) == 53 && sizeof(kLeanSigM1) == 53, "the lean-out signatures' lengths");
+uintptr_t g_leanTwinRva = 0;   // the scanner's slot for LEAN_TWIN (its hits are read off HnSigFound::at)
+static const HnSig kLeanSigs[] = {
+    { "LEAN_CAN", &RVA_CAN_LEAN, kLeanSigB0, kLeanSigM0, 86, -1, 0, 0, -1, -1, -1, 0 },      // ASessionPlayerController::Skate_CanLean
+    { "LEAN_TWIN", &g_leanTwinRva, kLeanSigB1, kLeanSigM1, 53, -1, 0, 0, -1, -1, 0, 2 },     // Skate_LeanLeft / Skate_LeanRight (byte twins)
+};
+static int LeanTwinRead(uint8_t* exe, uintptr_t image, uintptr_t a, uintptr_t* can, uintptr_t* mc, int* side) {   // 1 = a twin as read (its three targets), 0 = not
+    static const uint8_t gsbB[8] = { 0x48, 0x8b, 0x81, 0x68, 0x05, 0x00, 0x00, 0xc3 };
+    static const uint8_t leanB[13] = { 0x80, 0xb9, 0x84, 0x06, 0x00, 0x00, 0x00, 0x75, 0x0d, 0xf3, 0x0f, 0x10, 0x0d };
+    __try {
+        if (a < 0x1000 || a + 0x40 > image) return 0;
+        const uintptr_t c = a + 0x0e + (intptr_t)*(const int32_t*)(exe + a + 0x0a);
+        const uintptr_t g = a + 0x1e + (intptr_t)*(const int32_t*)(exe + a + 0x1a);
+        const uintptr_t m = a + 0x2f + (intptr_t)*(const int32_t*)(exe + a + 0x2b);
+        if (c < 0x1000 || c + 0x20 > image || g < 0x1000 || g + 8 > image || m < 0x1000 || m + 0x17 > image) return 0;
+        if (memcmp(exe + g, gsbB, 8) != 0 || memcmp(exe + m, leanB, 13) != 0 || exe[m + 0x11] != 0xe9 || exe[m + 0x16] != 0xc3) return 0;
+        const uintptr_t k = m + 0x11 + (intptr_t)*(const int32_t*)(exe + m + 0x0d);
+        if (k < 0x1000 || k + 4 > image) return 0;
+        float v; memcpy(&v, exe + k, 4);
+        if (v < -0.99f && v > -1.01f) *side = 0; else if (v > 0.99f && v < 1.01f) *side = 1; else return 0;
+        *can = c; *mc = m; return 1;
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+void LeanSigScan(const wchar_t* path) {
+    g_leanSigOk = 0;
+    static const uint8_t canB[16] = { 0x40, 0x53, 0x48, 0x83, 0xec, 0x20, 0x48, 0x8b, 0xd9, 0x48, 0x8b, 0x89, 0x98, 0x06, 0x00, 0x00 };
+    static HnSigFound lf[2];
+    bool read = true;
+    __try { HnSigScanTabPath(path, kLeanSigs, 2, lf, &Log); } __except (EXCEPTION_EXECUTE_HANDLER) { read = false; lf[0].ok = lf[1].ok = false; lf[0].hits = lf[1].hits = 0; }
+    uint8_t* exe = Exe();
+    uintptr_t image = 0;
+    __try { image = ((const IMAGE_NT_HEADERS64*)(exe + ((const IMAGE_DOS_HEADER*)exe)->e_lfanew))->OptionalHeader.SizeOfImage; } __except (EXCEPTION_EXECUTE_HANDLER) { image = 0; }
+    uintptr_t can = lf[0].ok ? lf[0].rva : 0, sk[2] = { 0, 0 }, mc[2] = { 0, 0 }, can1 = 0;
+    int seen = 0, twins = 0; const char* why = nullptr;
+    for (int h = 0; h < lf[1].hits && h < 8 && read && image; h++) {
+        uintptr_t c = 0, m = 0; int s = -1;
+        if (!LeanTwinRead(exe, image, lf[1].at[h], &c, &m, &s)) continue;
+        seen++;
+        if (can ? (c != can) : (can1 && c != can1)) continue;   // another function of the same shape (not the lean-out's gate)
+        if (sk[s]) { why = "two candidates for one side"; break; }
+        can1 = c; sk[s] = lf[1].at[h]; mc[s] = m; twins++;
+    }
+    if (!why && !can && can1) {   // LEAN_CAN missing: the twins' own gate, if it starts as Skate_CanLean does
+        bool same = false; __try { same = memcmp(exe + can1, canB, 16) == 0; } __except (EXCEPTION_EXECUTE_HANDLER) { same = false; }
+        if (same) can = can1; else why = "the twins' gate does not start as Skate_CanLean";
+    }
+    if (!read) why = "fault while reading the exe";
+    else if (!why && !(sk[0] && sk[1])) why = lf[1].hits == 0 ? "Skate_LeanLeft / Right not found" : "Skate_LeanLeft / Right not told apart";
+    else if (!why && !can) why = "Skate_CanLean not found";
+    if (!why) {
+        RVA_LEAN_LEFT = sk[0]; RVA_LEAN_RIGHT = sk[1]; RVA_CAN_LEAN = can; RVA_MC_LEAN_LEFT = mc[0]; RVA_MC_LEAN_RIGHT = mc[1];
+        g_leanSigOk = 1;
+        const bool epic = sk[0] == 0xf9fe10 && sk[1] == 0xf9fe50 && can == 0xf9de50 && mc[0] == 0xfc3df0 && mc[1] == 0xfc3e10;
+        Log("grind lean-out: found on this build (385) -- Skate_LeanLeft exe+%07llx, Skate_LeanRight exe+%07llx, Skate_CanLean exe+%07llx%s, the movement's LeanLeft exe+%07llx / LeanRight exe+%07llx (told apart by their -1 / +1)%s: GrindGrabs can switch the bumpers' lean-out off and L3 / R3 can lean you off",
+            (unsigned long long)sk[0], (unsigned long long)sk[1], (unsigned long long)can, lf[0].ok ? "" : " (from the twins' call)", (unsigned long long)mc[0], (unsigned long long)mc[1],
+            epic ? " -- the Epic exe's own addresses (the force-signatures test)" : "");
+    } else {
+        Log("grind lean-out: NOT found on this build (%s; LEAN_CAN %s, LEAN_TWIN %d hits, %d read as twins, %d kept) -- GrindGrabs leaves the game's LB / RB lean-out on and the stick clicks go on to the game", why, lf[0].ok ? "found" : "not found", lf[1].hits, seen, twins);
+    }
 }
 // ==== (heelstop 299) THE HEEL STOP: the manual's "all the way down" drags the tail instead of crouching (the note in mk_heelstop_native.pl)
 constexpr int HS_PC_MANDB = 0x6b8, HS_MDB_MIN = 0x30, HS_MDB_MAX = 0x34, HS_PC_EXIT = 0x758;   /* the controller's UManualsDatabase* | its Min/MaxManualInputThreshold | the controller's manual exit clock (s) */
@@ -27243,6 +29755,7 @@ void HsTick(void* mesh) {
     uint8_t* bm = BoardMC();
     const bool ok = pc && PtrOk(pc, 0x7c8) && sk && PtrOk(sk, 0xa40) && anim && PtrOk(anim, 0x600) && bm && PtrOk(bm, 0x8a0) && mesh == g_mesh;
     if (!ok) { if (H.on) HsEnd("the controller, the skater or the board changed"); H.wasMan = false; return; }
+    if (WalyHoldsTail()) { if (H.on) HsEnd("a wally took the board (wally 381)"); H.wasMan = false; return; }
     const uint8_t* ih = *(const uint8_t* const*)(pc + PC_INPUT);
     const uint8_t* mdb = *(const uint8_t* const*)(pc + HS_PC_MANDB);
     if (!ih || !PtrOk(ih, 0x40) || !mdb || !PtrOk(mdb, HS_MDB_MAX + 4)) { if (H.on) HsEnd("no input handler or manuals database"); return; }
@@ -27275,7 +29788,7 @@ void HsTick(void* mesh) {
     const float exitClk = *(const float*)(pc + HS_PC_EXIT);
     const bool past = H.on ? mag > fminf(mx, H.engMag) - 0.03f : (mag > mx || (exitClk > 0.0f && mag > 0.5f * (mn + mx)));   /* past the manual's max (where the game would crouch), or the game's own exit clock running with the stick well in (its length another scale); once on, held down to 0.03 under where it began */
     const bool want = man && riding && !pop && down && past && (bHeld || g_hsManOn);   /* (mode 338) HeelStopMode 2: B only */
-    g_hsBOk = (riding && !pop && !(sk[ALT_SK_FLAGS] & 2) && !(mf & 4)) ? 1 : 0; g_hsBOkT = now;   /* (bstop 335) HsKey takes B only while this holds */
+    g_hsBOk = (riding && !pop && !(sk[ALT_SK_FLAGS] & 2) && !(mf & 4)) ? 1 : 0; g_hsBOkT = now; g_hsBWhy = (riding ? 0 : 1) | (pop ? 2 : 0) | ((sk[ALT_SK_FLAGS] & 2) ? 4 : 0) | ((mf & 4) ? 8 : 0);   /* (394) */ { const uint8_t* smc = *(const uint8_t* const*)(sk + SK_MC); g_hsBAir = (bm[BM_MODE] == 3 && smc && PtrOk(smc, 0x170) && smc[0x168] == 6 && smc[0x169] == 2) ? 1 : 0; }   /* (395) on the board in the air */   /* (bstop 335) HsKey takes B only while this holds */
     if (bHeld && !H.on && !man && riding && !pop && !(mf & 4)) {   /* (bstop 335) B before the game's manual: the back stick written into the manual's range */
         if (g_hsBWait <= 0.0) { g_hsBWait = now; g_hsBGiveUp = 0; Log("heelstop: B pressed (bstop 335, #%ld): the back-foot stick written straight down at %.3f (the manual's range %.2f .. %.2f) for the game to take a manual; the tail stop begins in it", (long)g_hsBN, 0.985f * mx, mn, mx); }
         else if (!g_hsBGiveUp && now - g_hsBWait > 0.5) { g_hsBGiveUp = 1; Log("heelstop: B (bstop 335): the game took NO manual in 0.5 s -- nothing more until B is let go (board mode %d, manual bits %d)", (int)bm[BM_MODE], (int)mf); }
@@ -27358,9 +29871,9 @@ void HsTick(void* mesh) {
         const bool fast = fastRun >= 3 && dr > 1.5f;   /* (guard 340) a throw rolls the deck: a speed reading alone (368 -> 916 cm/s at 0.013 s, roll 0) is noise */
         float gs = 0.0f;   /* (touch 319) the travel's slip off the deck (as slip 317) */
         if ((now - g_spDirT < 0.25) && finite3(g_spDir) && len(g_spDir) > 0.2f) { gs = atan2f(g_spDir.y, g_spDir.x) * 57.2957795f - hd; while (gs > 180.0f) gs -= 360.0f; while (gs < -180.0f) gs += 360.0f; if (gs > 90.0f) gs -= 180.0f; else if (gs < -90.0f) gs += 180.0f; }
-        slipRun = fabsf(gs) > 3.5f ? slipRun + 1 : 0; rollRun = dr > 3.0f ? rollRun + 1 : 0; const bool slips = slipRun >= 2;   /* (first 339) 3.5 deg / 3 deg, two poses (338: 2.5 / 1.5 at once tripped most stops: spongy) */   /* (guard 320) 2.5 deg (319: 4 -- caught at 10) */
+        slipRun = fabsf(gs) > 3.5f ? slipRun + 1 : 0; rollRun = dr > 3.0f ? rollRun + 1 : 0; const bool slipRoll = fabsf(gs) > 1.8f && dr > 1.0f; const bool slips = slipRun >= 2 || slipRoll;   /* (guard 344) slip WITH roll at once: 339's two poses at 3.5 deg were 1-2 poses late at 120 fps (a Steam log: 5-12 deg when caught, 15-20 at the peak) */   /* (first 339) 3.5 deg / 3 deg, two poses (338: 2.5 / 1.5 at once tripped most stops: spongy) */   /* (guard 320) 2.5 deg (319: 4 -- caught at 10) */
         if (rollRun >= 2 || fast || slips) {   /* (guard 320) a roll of 1.5 deg (316: 8): the roll comes first, the wander after it */
-            if (g_hsTd.gTold++ < 40) Log("heelstop: #%d (guard 316) at %.3f s the board %s (the deck's roll %+.1f -> %+.1f deg, speed %.0f -> %.0f cm/s; the PID %s x%.2f): the game's own PID back at once", H.n, now - H.t0, slips ? "slipped sideways (touch 319)" : fast ? "sped up" : "rolled (guard 320)", g_hsTd.r0, rl, H.v0, v, g_hsTd.tf > 0.0 ? "easing" : "stiff", g_hsKNow);
+            if (g_hsTd.gTold++ < 40) Log("heelstop: #%d (guard 316) at %.3f s the board %s (the deck's roll %+.1f -> %+.1f deg, speed %.0f -> %.0f cm/s; the PID %s x%.2f): the game's own PID back at once", H.n, now - H.t0, slipRoll ? "slipped as it rolled (guard 344)" : slips ? "slipped sideways (touch 319)" : fast ? "sped up" : "rolled (guard 320)", g_hsTd.r0, rl, H.v0, v, g_hsTd.tf > 0.0 ? "easing" : "stiff", g_hsKNow);
             HsPidBack();
         }
     }
@@ -27427,6 +29940,963 @@ void HsSet(int which, double v) {   /* HJN_Set("heelstop" 0, "heeldecel" 1, "hee
     else if (which == 5) { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_hsManOn, o) != o) Log("heel stop: the manual's way (back-foot stick all the way down in a manual) %s (HeelStopMode; mode 338)", o ? "ON" : "off"); }
     else if (which == 4) { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_hsBtnOn, o) != o) Log("heel stop: B %s (HeelStopButton=%ld; bstop 335, experimental)", o ? "ON: hold B while rolling to drag the tail (the game's manual taken for you); B is not the game's foot brake then" : "off: B is the game's own foot brake", (long)o); if (!o) g_hsBHeld = 0; }
     else { const float s = std::isfinite(v) ? clampf((float)v, 0.0f, 2.0f) : 1.0f; if (s != g_heelSound) Log("heel stop: the tail-slide sound x %.2f (HeelStopSound; heelanim 300)", s); g_heelSound = s; }
+}
+/* ---- (wally 381) settings (the Lua sends them: HJN_Set keys in WalySet) */
+volatile LONG g_wyOn = 0, g_wyTrig = 0, g_wyTail = 1, g_wyTrace = 1;
+volatile float g_wyMinH = 30.0f, g_wyMaxH = 120.0f, g_wyMinSp = 250.0f, g_wyMaxSp = 1100.0f, g_wyMaxAng = 55.0f, g_wyLead = 0.20f,
+               g_wyTailPitch = 30.0f, g_wyClimb = 0.0f, g_wyCrouch = 1.0f, g_wyLean = 15.0f, g_wyOverMax = 60.0f;
+volatile float g_wyMaxUnder = 20.0f;   /* (wally 385) WallyMaxUndercut: cm the face under a top's edge may go in (a ledge's lip kept, a bench refused) */
+volatile LONG g_wyCorners = 1;   /* (corner 388) WallyCorners: a face that ends beside where the board meets it, the corner's other face met closer to head-on */
+volatile float g_wyRock = 1.0f;   /* (wallie 386) WallyFootRock: the feet rocked toward level on their uphill sole edges (0 = flat on the deck) */
+volatile float g_wyBodyUp = 1.0f;   /* (wallie 388) WallyBodyUp: the body kept up over the board (0 = 387's body) */
+volatile float g_wyHipsBack = 1.0f;   /* (wallie 389) WallyHipsBack: the hips eased back off the higher foot on the climb (0 = 388's) */
+/* ---- the hooks' flags (SECTION 1 declares them for hkAsBa / hkAsCg) */
+volatile LONG g_wyOwnBa = 0, g_wyBaSkips = 0, g_wyCgBlock = 0, g_wyCgBlocked = 0;
+/* ---- the plan's constants */
+constexpr float WY_WHEEL_R = 2.7f, WY_CLR = 3.0f, WY_PHI_CLIMB = 75.0f, WY_PHI_TOP = -8.0f, WY_PHI_DOWN = -25.0f;   /* cm a wheel's radius; cm the lead wheels go over the top; deg the climb's pitch, the top's, the nose-down's */
+constexpr float WY_TL = 0.18f, WY_TT_OVER = 0.05f, WY_TT_ONTO = 0.15f, WY_TD = 0.12f, WY_TAU_MIN = 0.10f, WY_MAX_S = 2.4f, WY_WATCH_S = 1.6f;   /* s: the lip, the top, the nose-down; the latest trigger; the whole move; the landing's watch */
+constexpr float WY_KP = 20.0f, WY_KR = 20.0f, WY_V_CAP = 1100.0f, WY_W_CAP = 20.0f, WY_KTAIL = 35.0f;   /* the servo (1/s), its caps (cm/s, rad/s); the tail's pitch assist (1/s on the pitch error) */
+constexpr float WY_CAP_CLR = 12.0f, WY_CAP_K = 10.0f, WY_CAP_VMAX = 900.0f, WY_CAP_OUT = 3.0f, WY_HIP_OUT = 28.0f;   /* cm the capsule's bottom over the top (12: its floor sweep must not land it on a thin top); 1/s; cm/s; cm off the face; cm the hips off the face under the top */
+constexpr float WY_ONTO_T = 60.0f;   /* cm: a top this deep is ridden onto (385: 72 -- a 60-72 cm top was refused by both ways) */
+constexpr float WY_LIFT_S0 = 0.12f, WY_LIFT_D0 = 25.0f, WY_LIFT_D1 = 55.0f, WY_LIFT_S1 = 0.04f, WY_LIFT_E0 = 8.0f, WY_LIFT_E1 = 20.0f;   /* (386r) the board's pitch lags the plan 0.04-0.05 s: 0.08 s left it at 15-22 deg at the face */   /* (wallie 386) the nose up by DISTANCE: from 0.08 s x the closing speed (20-40 cm) to 0.025 s x it (5-14 cm) from the face (385: 0.15 -> 0.03 s: 92 cm out at 731 cm/s) */
+constexpr float WY_ROCK_HI = 0.65f, WY_ROCK_HI_MAX = 50.0f, WY_ROCK_LO = 0.5f, WY_ROCK_LO_MAX = 40.0f, WY_ROCK_EDGE = 4.5f;   /* (wallie 386) the foot rock: share of the deck's tilt (deg at most) for the uphill foot, the other; cm the sole's edge off its middle (LegSearch's) */
+constexpr float WY_HIP_HI = 0.48f, WY_HIP_UPMAX = 30.0f, WY_UPRIGHT = 0.8f, WY_UPRIGHT_MAX = 35.0f;   /* (wallie 386) the hips no closer over the higher foot than this share of its leg (cm raised at most); the chest's share toward upright (deg at most) */
+constexpr float WY_BU_SEATMAX = 60.0f, WY_BU_CRREF = 0.85f, WY_BU_REFSTEP = 1.0f, WY_BU_BACK_D = 0.72f, WY_BU_BACK_MAX = 22.0f;   /* (wallie 389) the wallie's own seat: joints up to this far out of the pelvis put back (OfbSeat: 30); hips riding under this share of the learnt standing height = a crouched start, the reference eased up this many cm a pose; the hips back off the higher foot till it is this share of its leg from the hip joint, cm at most */
+constexpr float WY_BU_CROUCH = 0.7f, WY_BU_HI = 0.12f, WY_BU_RAMP = 15.0f, WY_BU_TOL = 8.0f, WY_BU_PEL = 0.7f, WY_BU_PELMAX = 40.0f;   /* (wallie 388) WallyBodyUp 1: the crouch's depth cut by this share; the hips' share of the higher leg + this, their raise from 15 deg of tilt (not 30); the trunk's lean (pelvis to neck) past this many deg turned this share toward upright from the pelvis, deg at most */
+constexpr float WY_NOSE = 16.0f, WY_BELLY = 6.0f, WY_TAIL_T0 = 0.15f, WY_TAIL_T1 = 0.03f, WY_CAP_VZ = 650.0f;   /* (wallie 387) 650: the shorter climb's rise (386: 500) */
+/* (wallie 387) ONE MOTION. 386 (n.log 19513-19560, #2; 19717-19760, #4): the leading axle came to the top and STAYED there -- 6 cm of rise in the
+   climb's last 0.17-0.25 s, the deck stood at 66-74 deg (the climb's Hermite ended at 0.4 of its mean rise; its time 0.35-0.41 s for a 30-35 cm
+   rise), the lip then started its lift from a standstill, and over the top the board was eased to 0.35 x the approach (596 cm/s in, 227 cm/s
+   at the landing): "he gets stuck on the wall and then it releases". Now the climb's time is set by its own rise at the board's rise speed
+   (WY_CLIMB_K x the rise / vUp0: 0.20 s for a 55 cm wall at 600 cm/s), it ends still rising (WY_CLIMB_M1 of its mean), the lip carries that rise
+   on and lands the trailing truck on the top at the top's speed, and the top, the nose down and the release keep WY_KEEP of the approach,
+   along the face too (the board's own line: at an angle its heading is kept, not squared) */
+constexpr float WY_CLIMB_M1 = 1.0f, WY_CLIMB_K = 2.0f, WY_TC_MIN = 0.20f, WY_TC_MAX = 0.45f, WY_KEEP = 0.8f, WY_CPS_MIN = 0.34f;   /* (387r) cos 70: the setter's limit */   /* the climb's end rise (of its mean); its time per rise / rise speed, s at the least / most; the approach's share kept; the board's line against the face's normal at the least (63 deg) */   /* (wally 385) cm the nose's end past the leading axle; cm the lip may sit into the board's belly between the trucks; s before the face the tail starts down / is down; cm/s the body's vertical asked at the most */
+/* the hips' height over the feet's middle, as a share of the riding height, by the plan's progress (0 the trigger, 1 the contact,
+   2 the lip, 3 the top, 4 the nose-down, 5 the release) -- the reference's table (hips minus the ankles' mean, over its 0.0 s value):
+   0.0 s 1.00 | 0.3 s 0.81 (nose onto the face) | 0.7 s 0.52 (the deck near vertical, knees to the chest) | 0.9 s 0.28 (level on top,
+   the deep crouch) | 1.1 s 0.40 (the nose over the back) | 1.3 s 0.58 (down the back); the deepest taken as 0.32 (the rig's fold) */
+static const float WY_FRAC[6] = { 1.00f, 0.86f, 0.68f, 0.60f, 0.62f, 0.72f };   /* (wally 385) no deeper than 0.6: 384's 0.32 on the top was "his waist at the board line, his feet crumpled" */
+
+struct WyWallT { V3 F, N, E, P0; float zg, top, H, T, zb, n0, z0, theta, vin, sp, gap, lean, ceil, nW, zW, U; int mode; float cEnd, cIn, cTh0, cEndSg; int ck; };   /* (corner 388) ck 1: the face ends beside the hit (cEnd cm off it, cEndSg its side along E, the leading axle's middle cIn cm inside it), 2: the corner's other face taken (cTh0 the first face's angle) */   /* (wally 385) U: the undercut under the top's edge */   /* mode 1 OVER, 2 ONTO */   /* (383) nW: the face's n at the wheels' height zW (a barrier's flared or leaning foot) */
+struct WyMvT {
+    int on, ph, poses, tr, airSeen, capAir, ownP, sP, lead, errN, capErrN, nuaSet, slamOwn, told[8]; long n;
+    double t0, tC, tAirS, tRel, lastS, tauFace;
+    WyWallT w; float W, hw, ha, haD, hh, rc, va, s0, vin, vUp0, Tc, Tl, Tt, Td, tTail;
+    float nL0, zL0, phi0, zRair, tauAir, nRLast; int leadF;
+    float p0, pF, peLast, peMax, phiLast, errMax, capErrMax, capClrMin, frac, prog, vOut;
+    V3 dObs, vLast, rootOff, RpLast; int bmode, bmodeLast, rpOk;
+    float hip0, footOk; V3 footL[2]; Q4 footQL[2]; int capN; float legMiss[2]; int shinN; float shinMax;
+    long baSkips0, cgBlk0, nbSkips0; char why[160]; int crSeen;   /* (wally 384) a crouch seen from the start on */
+    float rockMax[2], hipUpMax, uprMax, tiltMax; double tLift;   /* (wallie 386) the foot rock's, the hips' raise's, the chest's most; when the nose started up */
+    float capOff, pe0, pK; int bodyN, bodyChk, tipHit;
+    int stk, whyTold, retryN, rodeOn, pbN, early; long stkN; float hipRef, cps, sps, wOff, vAl, sL0, lenE; V3 Hw;   /* (wallie 387) the sticks kept from the game; the crouched start's standing hips; the board's line against the face (cos, sin), the outer wheel's lead on it, the slide along the face, the leading axle's place along it at the contact, the face's length that way; the heading (world, level) */   /* (wally 385) the capsule over the axles riding; the air target's pitch at its probe and its pitch per offset; the flying body's steered poses; the nose's end met the face first */
+};
+WyMvT g_wy = {};
+bool g_wySeen = false; LONG g_wyLogs = 0, g_wyRefLogs = 0, g_wyMvLogs = 0; long g_wyN = 0; double g_wyCoolT = 0.0, g_wyFadeT = -1.0; V3 g_wyRefP = { 0, 0, 0 }, g_wyRefN = { 0, 0, 0 }; bool g_wyQuiet = false;   /* (383) the wall still far: its refusal waits until it is near */
+struct WySlamT { int on; uint8_t* cfg; float orig; } g_wySlam = {};
+
+bool WalyOwns() { return g_wy.on && g_wy.ph >= 1 && g_wy.ph <= 5; }
+bool WalyHoldsTail() { return g_wy.on && g_wy.ph >= 2 && g_wy.ph <= 5; }   /* from the contact on the heel stop's brake and PID are not wanted */
+bool WalyDrawWanted() { return (g_wy.on && g_wy.ph >= 1 && (g_wy.ph <= 5 || NowS() - g_wy.tRel < 0.25)) || (!g_wy.on && g_wyFadeT > 0.0 && NowS() - g_wyFadeT < 0.25); }   /* (382) and the fade after a failure exit */
+
+/* ---- the wall's own frame: n out from the face (0 at the top edge F), z world, s along it */
+V3 WyW(const WyWallT& w, float s, float n, float z) { V3 p = add(w.F, add(mul(w.E, s), mul(w.N, n))); p.z = z; return p; }
+float WyFaceN(const WyWallT& w, float z) { if (z < w.z0 && w.z0 - w.zW > 2.0f) return w.n0 + (w.nW - w.n0) * clampf((w.z0 - z) / (w.z0 - w.zW), 0.0f, 1.0f); const float den = fmaxf(w.top - w.z0, 1.0f); return w.n0 * clampf((w.top - z) / den, 0.0f, 1.0f); }   /* the face's n at a height (a bank leans back: n0 > 0) (383: under the fan ray's height, toward the face measured at the wheels') */
+
+void WyRefuse(const V3& P, const V3& N, const char* fmt, ...) {   /* once a wall, 80 a run */
+    { static double tSame = 0.0; const double tn = NowS(); const bool same = len(g_wyRefN) > 0.5f && dot(N, g_wyRefN) >= 0.985f && fabsf(dot(sub(P, g_wyRefP), g_wyRefN)) <= 15.0f, again = same && tn - tSame < 2.0; if (g_wyQuiet) return; tSame = tn; if (again) return; }   /* (383) once a wall an approach (told again after 2 s without it); a far wall not yet */
+    g_wyRefP = P; g_wyRefN = N;
+    if (InterlockedIncrement(&g_wyRefLogs) > 80) return;
+    char b[640]; va_list a; va_start(a, fmt); vsnprintf(b, sizeof(b), fmt, a); va_end(a);   /* (corner 389) 300 cut the corner lines */
+    Log("wally 381: no wally -- %s", b);
+}
+
+/* (corner 388) A CORNER'S OTHER FACE: among the fan's wall hits a face not tried yet (its normal 20+ deg off each tried one), met no more
+   than maxTh off head-on, its hit within nearCm of ref's, the two an OUTSIDE corner (each hit behind or on the other's plane: a block's
+   edge, not a wall meeting a wall); the one closest to head-on */
+bool WyPickFace(const RayHit* cH, int nC, const RayHit& ref, V3 vd, const V3* tried, int nT, float maxTh, float nearCm, RayHit& out, float& thOut) {
+    const V3 Nr = norm(flat(ref.n)); bool got = false; float bestTh = 1.0e9f;
+    for (int i = 0; i < nC; i++) {
+        const V3 Nq = norm(flat(cH[i].n)); bool seen = false;
+        for (int k = 0; k < nT; k++) if (dot(Nq, tried[k]) > 0.94f) seen = true;
+        if (seen) continue;
+        const float th = acosf(clampf(-dot(vd, Nq), -1.0f, 1.0f)) * 57.2957795f;
+        if (!(th <= maxTh) || len(sub(cH[i].p, ref.p)) > nearCm) continue;
+        if (dot(sub(cH[i].p, ref.p), Nr) > 3.0f || dot(sub(ref.p, cH[i].p), Nq) > 3.0f) continue;
+        if (th < bestTh) { bestTh = th; out = cH[i]; got = true; }
+    }
+    thOut = bestTh; return got;
+}
+/* (corner 388) THE FACE'S END beside the hit P (the width test found no face 15 cm to side s): 1 = the face ends eEnd cm that way and goes
+   on 25 cm the other way, and the leading axle's middle, carried along the travel, meets its plane cIn cm inside the end; 2 = so, but the
+   end within 6 cm of P (the probes are made again 6 cm in); 0 = a post (short the other way too); -1 = the board meets the plane past the
+   end (it rides by the corner) -- the axle's middle may be past the end by half its wheels' line on the plane (at the corner itself: a wheel on each face) */
+int WyCornerEnd(const void* world, const uint8_t* board, V3 P, V3 N, V3 E0, V3 vd, float s, float& eEnd, float& cIn, char* why, size_t n) {
+    auto at = [&](float off) -> bool { const V3 o = add(add(P, mul(E0, off)), mul(N, 30.0f)); RayHit h; return Ray(world, o, add(o, mul(N, -70.0f)), h) && h.hit && fabsf(h.n.z) < 0.6f && fabsf(dot(sub(h.p, P), N)) <= 10.0f; };
+    eEnd = 0.0f; cIn = 0.0f; why[0] = 0;
+    { const bool a15 = at(-15.0f * s), a25 = a15 && at(-25.0f * s); if (!a25) { snprintf(why, n, "the face is not 25 cm wide the other way either (a post: no face %s cm the other way; the hit at %.0f %.0f %.0f, its normal %+.2f %+.2f)", a15 ? "25" : "15", P.x, P.y, P.z, N.x, N.y); return 0; } }   /* (corner 389) which probe failed, and where */
+    float lo = 0.0f, hi = 15.0f; for (int i = 0; i < 5; i++) { const float m = 0.5f * (lo + hi); if (at(m * s)) lo = m; else hi = m; }
+    eEnd = lo;
+    V3 fr, bk; float hw = 0.0f; if (!SlAxles(board, fr, bk, hw)) { snprintf(why, n, "its face ends %.0f cm to the %s and the board's axles were not read", eEnd, s < 0.0f ? "left" : "right"); return -1; }
+    const V3 L = (dot(sub(fr, bk), vd) >= 0.0f) ? fr : bk; const float dn = dot(vd, N);
+    if (!(dn < -0.2f)) { snprintf(why, n, "its face ends %.0f cm to the %s and the board rides along it", eEnd, s < 0.0f ? "left" : "right"); return -1; }
+    const V3 X = add(L, mul(vd, dot(sub(P, L), N) / dn));
+    cIn = eEnd - dot(sub(X, P), E0) * s;
+    const float tAl = dot(vd, E0) * s;   /* (corner 389) the travel's share along the face toward its end (+), or away from it (-: the slide carries the board onto the face over the climb) */
+    const float tol = (tAl < -0.1f ? 1.0f : 0.5f) * clampf(hw, 4.0f, 15.0f) / fmaxf(-dn, 0.5f);   /* half the wheels' line on the plane (389: travelling away from the end, the near wheel at the end at the most -- 8 Nov 00:14:07's was refused 9 cm past at 5) */
+    if (!(cIn >= -tol)) { snprintf(why, n, "its face ends %.0f cm to the %s of the hit and the leading axle's middle meets its plane %.0f cm past that end (%.0f at the most: the board rides by the corner; met %.0f deg off head-on, the travel %s the end, %.2f of it along the face)", eEnd, s < 0.0f ? "left" : "right", -cIn, tol, acosf(clampf(-dn, -1.0f, 1.0f)) * 57.2957795f, tAl >= 0.0f ? "toward" : "away from", fabsf(tAl)); return -1; }
+    return eEnd < 6.0f ? 2 : 1;
+}
+/* ---- THE WALL AHEAD. 1 = wally-able (w filled), 0 = none seen, -1 = a wall, refused (told once) */
+int WyScan(const uint8_t* board, V3 vel, WyWallT& w) {
+    const void* world = SkaterWorld(); if (!world) return 0;
+    Q4 dq; V3 dw; if (!WrDeckWorld(board, dq, dw)) return 0;
+    V3 vd = flat(vel); const float sp = len(vd); if (!(sp > 50.0f)) return 0; vd = mul(vd, 1.0f / sp);
+    RayHit g; if (!Ray(world, add(dw, v3(0.0f, 0.0f, 40.0f)), sub(dw, v3(0.0f, 0.0f, 80.0f)), g) || !g.hit) return 0;
+    const float zg = g.p.z, L = clampf(sp * (g_wyLead + 0.35f), 150.0f, 650.0f);
+    static const float A[] = { 0.0f, 8.0f, -8.0f, 16.0f, -16.0f, 24.0f, -24.0f };
+    bool got = false; float best = 1.0e9f; RayHit hb = {}; float leanBest = 1.0e9f; RayHit hl = {};   /* (383) hl: the nearest head-on face refused for its lean */ RayHit cH[14]; int nC = 0;   /* (corner 388) every wall hit of the fan, for a corner's other face */
+    for (float a : A) {
+        if (fabsf(a) > g_wyMaxAng + 1.0f) continue;
+        const float r = a * 0.0174532925f; const V3 dir = v3(vd.x * cosf(r) - vd.y * sinf(r), vd.x * sinf(r) + vd.y * cosf(r), 0.0f);
+        for (int k = 0; k < 2; k++) {
+            const V3 O = v3(dw.x, dw.y, zg + (k ? 45.0f : 25.0f));
+            RayHit h; if (!Ray(world, O, add(O, mul(dir, L)), h) || !h.hit) continue; if (fabsf(h.n.z) > 0.45f) { if (fabsf(h.n.z) < 0.6f && len(flat(h.n)) > 0.3f && dot(norm(flat(h.n)), vd) < -0.9f && len(sub(h.p, O)) < leanBest) { leanBest = len(sub(h.p, O)); hl = h; } continue; }   /* the ground, a ramp: not a wall (a bank within ~27 deg of plumb passes) (383: a 27-37 deg face met head-on is kept, to be said) */
+            V3 Nf = flat(h.n); if (len(Nf) < 0.3f) continue; Nf = norm(Nf);
+            if (dot(Nf, vd) > -0.3f) continue;
+            const float d = len(sub(h.p, O)); if (nC < 14) cH[nC++] = h; if (d < best) { best = d; hb = h; got = true; }
+        }
+    }
+    if (!got) { g_wyQuiet = !(leanBest < sp * (g_wyLead + 0.1f) + 45.0f); if (!g_wyQuiet) WyRefuse(hl.p, norm(flat(hl.n)), "a face ahead leaning %.0f deg off plumb %.0f cm up (a ramp's, a bank's or a barrier's flared foot: the wally's rays take 27 at the most)", asinf(fminf(fabsf(hl.n.z), 1.0f)) * 57.2957795f, hl.p.z - zg); return 0; } g_wyQuiet = best > sp * (g_wyLead + 0.1f) + 45.0f;   /* (383) */
+    V3 cTried[4]; int cNT = 0, cK = 0, cShift = 0, cGo = 0;   /* (corner 389) cGo: the scan made again 4 times at the most (each pass up to about 25 rays) */ float cTh0 = 0.0f, cEnd = 0.0f, cIn = 0.0f, cEndS = 0.0f;   /* (corner 388) the faces tried; the corner's kind (1 the face ends beside the hit, 2 the other face taken); the first face's angle; the end's cm, the axle's cm inside it, its side (+-E0) */
+    if (g_wyCorners && nC > 1) {   /* (corner 388) both faces of an outside corner in the rays: the one met 10+ deg closer to head-on */
+        const V3 N1 = norm(flat(hb.n)); const float th1 = acosf(clampf(-dot(vd, N1), -1.0f, 1.0f)) * 57.2957795f; RayHit q = {}; float thq = 0.0f;
+        if (WyPickFace(cH, nC, hb, vd, &N1, 1, fminf(th1 - 10.0f, g_wyMaxAng), 80.0f, q, thq)) { cTh0 = th1; cK = 2; cTried[cNT++] = N1; hb = q; }
+    }
+wy_face:   /* (corner 388) made again on another face, or 6 cm in from a face's end */
+    const V3 N = norm(flat(hb.n)), Z = v3(0.0f, 0.0f, 1.0f), E0 = norm(cross(Z, N));
+    const float theta = acosf(clampf(-dot(vd, N), -1.0f, 1.0f)) * 57.2957795f;
+    if (g_wyCorners && cNT < 4) { bool seen = false; for (int i = 0; i < cNT; i++) if (dot(cTried[i], N) > 0.94f) seen = true; if (!seen) cTried[cNT++] = N; }
+    if (theta > g_wyMaxAng && g_wyCorners && cNT < 4 && cGo < 4) { RayHit q = {}; float thq = 0.0f; if (WyPickFace(cH, nC, hb, vd, cTried, cNT, g_wyMaxAng, 120.0f, q, thq)) { if (!(cK & 2)) cTh0 = theta; cK = 2; cShift = 0; hb = q; cGo++; goto wy_face; } }   /* (corner 388) the corner's other face, met within WallyApproach */
+    if (theta > g_wyMaxAng) { if (theta <= g_wyMaxAng + 20.0f) WyRefuse(hb.p, N, "a wall met %.0f deg off head-on (WallyApproach %.0f)", theta, g_wyMaxAng); return -1; }   /* (383) a wall ridden by at a wide angle: not said */
+    float zgF = zg; { const V3 o = add(hb.p, mul(N, 15.0f)); RayHit gf; if (Ray(world, v3(o.x, o.y, zg + 40.0f), v3(o.x, o.y, zg - 60.0f), gf) && gf.hit && gf.n.z > 0.8f) zgF = gf.p.z; }
+    {   /* taller than WallyMaxHeight: its face still there over it */
+        const V3 o = add(v3(hb.p.x, hb.p.y, zgF + g_wyMaxH + 10.0f), mul(N, 30.0f)); RayHit hi;
+        if (Ray(world, o, add(o, mul(N, -60.0f)), hi) && hi.hit && fabsf(hi.n.z) < 0.45f) { WyRefuse(hb.p, N, "a wall over %.0f cm high (WallyMaxHeight)", g_wyMaxH); return -1; }
+    }
+    RayHit t = {}; bool tOk = false;   /* (382) the top: step in past a bank's lean until the column lands on it */
+    for (float d = 6.0f; d <= 46.0f; d += 4.0f) { const V3 in6 = add(hb.p, mul(N, -d)); RayHit q; if (!Ray(world, v3(in6.x, in6.y, zgF + g_wyMaxH + 60.0f), v3(in6.x, in6.y, zgF - 5.0f), q) || !q.hit) break; t = q; tOk = true; if (q.n.z >= 0.85f) break; }
+    if (!tOk) { WyRefuse(hb.p, N, "a face with no top found over it"); return -1; }
+    const float H = t.p.z - zgF;
+    if (t.n.z < 0.85f) { WyRefuse(hb.p, N, "a wall %.0f cm high whose top is not level (%.2f)", H, t.n.z); return -1; }
+    if (H < g_wyMinH || H > g_wyMaxH) { WyRefuse(hb.p, N, "a wall %.0f cm high (WallyMinHeight %.0f .. WallyMaxHeight %.0f)", H, g_wyMinH, g_wyMaxH); return -1; }
+    RayHit hu;   /* the face up to its top (not a rail on posts, not a step) */
+    { const V3 o = add(v3(hb.p.x, hb.p.y, t.p.z - 12.0f), mul(N, 40.0f)); if (!Ray(world, o, add(o, mul(N, -90.0f)), hu) || !hu.hit || fabsf(hu.n.z) > 0.6f || fabsf(dot(sub(hu.p, hb.p), N)) > 30.0f) { WyRefuse(hb.p, N, "a %.0f cm top whose face does not reach it (a rail, a step)", H); return -1; } }
+    for (int s = -1; s <= 1; s += 2) {   /* (wally 385) the face as wide as the board itself: 15 cm a side (384: 25, 8 cm of give -- 13 of its refusals), at the hit's height or near the top */
+        float dev[2] = { 999.0f, 999.0f };
+        for (int j = 0; j < 2; j++) {
+            const V3 ref = j ? v3(hu.p.x, hu.p.y, t.p.z - 8.0f) : hb.p; const float refN = j ? dot(sub(hu.p, hb.p), N) : 0.0f;
+            const V3 o = add(add(ref, mul(E0, 15.0f * (float)s)), mul(N, 30.0f)); RayHit hw;
+            if (Ray(world, o, add(o, mul(N, -70.0f)), hw) && hw.hit && fabsf(hw.n.z) < 0.6f) dev[j] = fabsf(dot(sub(hw.p, hb.p), N) - refN);
+        }
+        if (fminf(dev[0], dev[1]) > 10.0f && g_wyCorners) {   /* (corner 388) a face that ends beside the hit: taken where the board meets it inside the end */
+            char cw[400]; float eE = 0.0f, eI = 0.0f; const int r = WyCornerEnd(world, board, hb.p, N, E0, vd, (float)s, eE, eI, cw, sizeof(cw));
+            if (r == 2 && !cShift && cGo < 4) { cShift = 1; cGo++; hb.p = sub(hb.p, mul(E0, (float)s * (6.0f - eE))); goto wy_face; }   /* the probes again 6 cm in from the end */
+            if (r >= 1) { cK |= 1; cEnd = eE; cIn = eI; cEndS = (float)s; continue; }
+            if (r == 0 && cNT < 4 && cGo < 4) { RayHit q = {}; float thq = 0.0f; if (WyPickFace(cH, nC, hb, vd, cTried, cNT, g_wyMaxAng, 120.0f, q, thq)) { if (!(cK & 2)) cTh0 = theta; cK = 2; cShift = 0; hb = q; cGo++; goto wy_face; } }
+            WyRefuse(hb.p, N, "a %.0f cm wall at a corner (WallyCorners): %s -- 15 cm to its %s side the face is %.0f cm off its plane at the hit's height (%.0f cm up), %.0f near the top (999: none there)", H, cw, s < 0 ? "left" : "right", dev[0], hb.p.z - zgF, dev[1]); return -1;
+        }
+        if (fminf(dev[0], dev[1]) > 10.0f) { WyRefuse(hb.p, N, "a %.0f cm wall narrower than the board (a post, a corner): 15 cm to its %s side the face is %.0f cm off its plane at the hit's height (%.0f cm up), %.0f near the top (999: none there)", H, s < 0 ? "left" : "right", dev[0], hb.p.z - zgF, dev[1]); return -1; }
+    }
+    V3 F = v3(hu.p.x, hu.p.y, t.p.z);
+    { const V3 o = add(v3(hu.p.x, hu.p.y, t.p.z - 1.5f), mul(N, 30.0f)); RayHit e; if (Ray(world, o, add(o, mul(N, -70.0f)), e) && e.hit && fabsf(e.n.z) < 0.7f) F = v3(e.p.x, e.p.y, t.p.z); }
+    float U = 0.0f;   /* (wally 385) THE UNDERCUT: how far in from the top's edge the face goes at the wheels' height and halfway up (a ledge's lip: a few cm; a bench: open) */
+    for (int j = 0; j < 2; j++) {
+        const float z = j ? zgF + 0.5f * H : zgF + 8.0f; if (z > t.p.z - 6.0f) continue;
+        const V3 o = add(v3(F.x, F.y, z), mul(N, 40.0f)); RayHit q;
+        if (Ray(world, o, add(o, mul(N, -160.0f)), q) && q.hit && fabsf(q.n.z) < 0.7f) U = fmaxf(U, -dot(sub(q.p, F), N)); else U = fmaxf(U, 120.0f);
+    }
+    if (U > g_wyMaxUnder) { WyRefuse(hb.p, N, U >= 120.0f ? "a %.0f cm top open underneath (a bench, a table: nothing under its edge within 120 cm)" : "a %.0f cm top undercut %.0f cm under its edge (a bench: WallyMaxUndercut %.0f)", H, U, g_wyMaxUnder); return -1; }
+    float T = -1.0f;   /* the top's depth, in along -N from the edge */
+    for (float d = 10.0f; d <= 260.0f; d += 10.0f) {
+        const V3 P = add(F, mul(N, -d)); RayHit h;
+        const bool on = Ray(world, v3(P.x, P.y, t.p.z + 40.0f), v3(P.x, P.y, t.p.z - 30.0f), h) && h.hit && h.p.z > t.p.z - 15.0f && h.n.z > 0.7f;
+        if (!on) { float lo = d - 10.0f, hi = d; for (int i = 0; i < 3; i++) { const float md = 0.5f * (lo + hi); const V3 Q = add(F, mul(N, -md)); RayHit q; if (Ray(world, v3(Q.x, Q.y, t.p.z + 40.0f), v3(Q.x, Q.y, t.p.z - 30.0f), q) && q.hit && q.p.z > t.p.z - 15.0f) lo = md; else hi = md; } T = 0.5f * (lo + hi); break; }
+    }
+    if (T < 0.0f) T = 300.0f;
+    float zb = -1.0e9f;
+    if (T < 260.0f) for (float e = 25.0f; e <= 25.0f + 0.6f * H + 1.0f && zb < -1.0e8f; e += 10.0f) { const V3 P = add(F, mul(N, -(T + e))); RayHit h; if (Ray(world, v3(P.x, P.y, t.p.z + 20.0f), v3(P.x, P.y, t.p.z - H - 200.0f), h) && h.hit && h.n.z > 0.7f) zb = h.p.z; }   /* (383) stepped out past a back face that leans or flares (a barrier's): the first level ground behind it */
+    float ceil = 999.0f;
+    { const V3 P = add(F, mul(N, -fminf(T * 0.5f, 40.0f))); RayHit h; if (Ray(world, v3(P.x, P.y, t.p.z + 3.0f), v3(P.x, P.y, t.p.z + 190.0f), h) && h.hit) ceil = h.p.z - t.p.z; }
+    if (ceil < 160.0f) { WyRefuse(hb.p, N, "a %.0f cm wall with %.0f cm to a ceiling over it (the body needs 160)", H, ceil); return -1; }
+    int mode = 0;
+    if (T >= WY_ONTO_T) mode = 2;
+    else if (T <= g_wyOverMax && zb > -1.0e8f && t.p.z - zb >= 15.0f && t.p.z - zb <= H + 80.0f) mode = 1;
+    if (!mode) { WyRefuse(hb.p, N, "a %.0f cm wall %.0f cm deep: %s", H, T, T > g_wyOverMax ? "too deep to go over (WallyOverMax), too shallow to ride onto" : zb < -1.0e8f ? "no ground found behind it" : "the drop behind it is out of range"); return -1; }
+    V3 E = E0; if (dot(E, vd) < 0.0f) E = mul(E, -1.0f);
+    w.F = F; w.N = N; w.E = E; w.P0 = hb.p; w.zg = zgF; w.top = t.p.z; w.H = H; w.T = T; w.zb = zb; w.n0 = dot(sub(hb.p, F), N); w.z0 = hb.p.z; w.nW = w.n0; w.zW = w.z0; { const V3 o = add(v3(hb.p.x, hb.p.y, zgF + 6.0f), mul(N, 40.0f)); RayHit q; if (w.z0 - zgF > 10.0f && Ray(world, o, add(o, mul(N, -80.0f)), q) && q.hit && fabsf(q.n.z) < 0.8f) { const float nq = dot(sub(q.p, F), N); if (nq > w.n0 - 5.0f && nq < w.n0 + 40.0f) { w.nW = nq; w.zW = zgF + 6.0f; } } }   /* (383) the face at the wheels' height: a flared foot meets the wheels first */
+    w.theta = theta; w.sp = sp; w.vin = sp * cosf(theta * 0.0174532925f); w.gap = WrClear(board, hb.p, N); w.lean = dot(sub(hu.p, hb.p), N); w.ceil = ceil; w.mode = mode; w.U = U;
+    w.ck = cK; w.cEnd = cEnd; w.cIn = cIn; w.cTh0 = cTh0; w.cEndSg = (cK & 1) ? (dot(mul(E0, cEndS), E) > 0.0f ? 1.0f : -1.0f) : 0.0f;   /* (corner 388) */
+    return 1;
+}
+
+/* ---- the plan: the axles' middle (n, z), the long axis' pitch (deg, + = the leading end up), the phase, at tau s from the contact */
+void WyLead(const WyMvT& M, float tau, float& nL, float& zL) {   /* the climb's leading axle */
+    const float u = clampf(tau / fmaxf(M.Tc, 0.1f), 0.0f, 1.0f), zTop = M.w.top + WY_WHEEL_R + WY_CLR;
+    const float D = fmaxf(zTop - M.zL0, 1.0f), m0 = clampf(M.vUp0 * M.Tc / D, 0.0f, 3.0f), m1 = WY_CLIMB_M1;   /* (wallie 387) still rising at the lip at its mean rise (386: 0.4 -- the stand at the top) */
+    const float h = (u * u * u - 2.0f * u * u + u) * m0 + (-2.0f * u * u * u + 3.0f * u * u) + (u * u * u - u * u) * m1;   /* a Hermite: its own rise speed at the contact, still rising at the lip */
+    zL = M.zL0 + D * h;
+    nL = M.nL0 + (WyFaceN(M.w, fminf(zL, M.w.top)) + WY_WHEEL_R + 1.0f + M.wOff - M.nL0) * Sm01(tau / 0.05f);   /* the wheels on the face's line (a bank's lean followed) (wallie 387: at an angle the outer wheel leads the axle's middle by wOff) */
+}
+float WyClimbT(const WyMvT& M, float D) { return clampf(WY_CLIMB_K * fmaxf(D, 10.0f) / fmaxf(M.vUp0, 100.0f), WY_TC_MIN, WY_TC_MAX); }   /* (wallie 387) the climb's time by its rise */
+/* (wallie 387) every n of the board's own length is its share along the face's normal (cps: the board's line against it); the belly over
+   the lip is taken in the board's own vertical plane (n / cps) */
+void WyPlanNZ(const WyMvT& M, float tau, float& nC, float& zC, float& phi, int& ph) {
+    const float W2 = 0.5f * M.W, d2r = 0.0174532925f, DH = M.haD + 2.0f, cs = M.cps;
+    const float nTf = WY_WHEEL_R + 1.0f + M.wOff + WyFaceN(M.w, M.w.top), nE = nTf - W2 * cs, zE = M.w.top + M.ha;   /* (wally 385) where the lever over the lip leaves the board: level on the top, its trailing wheels on the lip */
+    const float vTop = M.vOut;   /* (wallie 387) the approach's momentum kept over the top (386: 0.35 x it, 220 at most) */
+    if (tau <= M.Tc) {   /* P2 THE CLIMB */
+        float nL, zL; WyLead(M, tau, nL, zL);
+        const float u = clampf(tau / fmaxf(M.Tc, 0.1f), 0.0f, 1.0f);
+        const float want = M.phi0 + (WY_PHI_CLIMB - M.phi0) * Sm01(fminf(1.0f, u / 0.45f));   /* (wally 385) steep by 0.45 of the climb (0.7: the board slid up the face at 40-50 deg, the trailing truck late to the wall) */
+        const float onGround = asinf(clampf((zL - M.w.zg - M.ha) / M.W, -1.0f, 1.0f)) / d2r;   /* the trailing truck never under the ground */
+        phi = clampf(fminf(want, onGround), M.phi0 - 5.0f, 89.0f);
+        {   /* (wally 385) the nose's end kept off the face (under about 65 deg it is ahead of the wheels) */
+            const float r = phi * d2r, zTip = zL + WY_NOSE * sinf(r) + DH * cosf(r);
+            const float need = WyFaceN(M.w, fminf(zTip, M.w.top)) + 1.0f + M.wOff + (WY_NOSE * cosf(r) - DH * sinf(r)) * cs;
+            if (need > nL) nL += (need - nL) * clampf((M.w.top + 3.0f - zTip) / 6.0f, 0.0f, 1.0f);   /* (wallie 387) let go of over the last 6 cm to the top (386 at once: a 3 cm step in one pose) */
+        }
+        nC = nL + W2 * cosf(phi * d2r) * cs; zC = zL - W2 * sinf(phi * d2r); ph = 2; return;
+    }
+    float nB, zB, phB; int phX; WyPlanNZ(M, M.Tc, nB, zB, phB, phX);
+    const float v = tau - M.Tc;
+    if (v <= M.Tl) {     /* P3 (wally 385) THE LEVER OVER THE LIP: the trailing wheels onto the face's line and up it while the board levels, the leading
+                            wheels rolling in over the top, lifted only as far as the lip needs (it may sit WY_BELLY into the board's belly between the
+                            trucks). (wallie 387) the leading axle carries the climb's rise on before it sets down on the top, and the trailing axle
+                            arrives on the face's line at the top's own speed: no stand at the lip, no shove on top */
+        const float s = Sm01(v / M.Tl), sl = clampf(v / M.Tl, 0.0f, 1.0f);
+        phi = phB * (1.0f - s);
+        const float r = phi * d2r, cp = cosf(r), sp = sinf(r), rB = phB * d2r;
+        const float nTB = nB + W2 * cosf(rB) * cs;
+        const float h01 = sl * sl * (3.0f - 2.0f * sl), h11 = sl * sl * (sl - 1.0f);
+        const float nT = nTB + (nTf - nTB) * h01 - vTop * M.Tl * h11;   /* the trailing axle: from the climb's end onto the face's line, there at the top's speed */
+        const float eB = zB + W2 * sinf(rB) - M.w.top - M.ha;   /* the leading axle's lift over the top at the climb's end */
+        const float vEnd = WY_CLIMB_M1 * fmaxf(M.w.top + WY_WHEEL_R + WY_CLR - M.zL0, 1.0f) / fmaxf(M.Tc, 0.1f);   /* ...and its rise there */
+        const float eUp = eB * (2.0f * sl * sl * sl - 3.0f * sl * sl + 1.0f) + vEnd * M.Tl * (sl * sl * sl - 2.0f * sl * sl + sl);
+        const float uT = nT / fmaxf(cs, 0.3f);
+        const float eBelly = fmaxf(0.0f, ((M.W * sp - M.ha) * cp - uT * sp - WY_BELLY) / fmaxf(cp, 0.2f));
+        const float zL = M.w.top + M.ha + 0.5f * (eUp + eBelly + sqrtf((eUp - eBelly) * (eUp - eBelly) + 144.0f * sl * sl * (1.0f - sl) * (1.0f - sl)));   /* (wallie 387) the higher of the two, softly, exact at both ends (a kink took z 110 -> 290 cm/s in one pose: t/plan.cpp) */
+        nC = nT - W2 * cp * cs; zC = zL - W2 * sp; ph = 3; return;
+    }
+    const float v2 = v - M.Tl;
+    if (v2 <= M.Tt || M.w.mode == 2) {   /* P4 ON TOP (ONTO: set down, ridden in at vTop) */
+        nC = nE - vTop * v2; zC = (M.w.mode == 2) ? M.w.top + M.ha - 0.5f : zE; phi = (M.w.mode == 1) ? WY_PHI_TOP * Sm01(v2 / M.Tt) : 0.0f; ph = 4; return;
+    }
+    const float v3_ = v2 - M.Tt, u = clampf(v3_ / M.Td, 0.0f, 1.0f);   /* P5 THE NOSE DOWN: about the trailing truck, over the top */
+    const float nT5 = nE - vTop * M.Tt + W2 * cosf(WY_PHI_TOP * d2r) * cs, zT5 = zE - W2 * sinf(WY_PHI_TOP * d2r);
+    phi = WY_PHI_TOP + (WY_PHI_DOWN - WY_PHI_TOP) * Sm01(u);
+    const float nT = nT5 - vTop * v3_;
+    nC = nT - W2 * cosf(phi * d2r) * cs; zC = zT5 + W2 * sinf(phi * d2r); ph = 5;
+}
+float WyEndTau(const WyMvT& M) { return M.Tc + M.Tl + M.Tt + (M.w.mode == 1 ? M.Td : 0.0f); }
+void WyPlan(const WyMvT& M, float tau, V3& Lp, V3& Tp, V3& Cp, float& phi, int& ph) {
+    float nC, zC; WyPlanNZ(M, tau, nC, zC, phi, ph);
+    const float r = phi * 0.0174532925f;
+    Cp = WyW(M.w, M.sL0 + M.vAl * tau - 0.5f * M.W * cosf(r) * M.sps, nC, zC);   /* (wallie 387) the leading axle slides along the face at the travel's own share; the middle behind it on the board's line (386: the middle at half the slide, the board squared to the face) */
+    const V3 a = add(mul(M.Hw, cosf(r)), v3(0.0f, 0.0f, sinf(r)));   /* trailing -> leading: along the board's heading into the wall, and up */
+    Lp = add(Cp, mul(a, 0.5f * M.W)); Tp = sub(Cp, mul(a, 0.5f * M.W));
+}
+/* (wallie 387) the board's line against the face, from its axles: cos / sin of its heading off the face's normal (E: along the travel), the
+   outer wheel's lead toward the face (the axle's half track x sin) */
+void WyHeading(WyMvT& M, V3 L, V3 T) {
+    V3 hb = flat(sub(L, T)); float c = 1.0f, s = 0.0f;
+    if (len(hb) > 5.0f) { hb = norm(hb); c = -dot(hb, M.w.N); s = dot(hb, M.w.E); }
+    if (!std::isfinite(c) || !std::isfinite(s)) { c = 1.0f; s = 0.0f; }
+    if (c < WY_CPS_MIN) { c = WY_CPS_MIN; s = (s < 0.0f ? -1.0f : 1.0f) * sqrtf(1.0f - c * c); }
+    M.cps = c; M.sps = s; M.Hw = add(mul(M.w.N, -c), mul(M.w.E, s)); M.wOff = clampf(M.hw, 0.0f, 20.0f) * fabsf(s);
+}
+
+/* ---- one pose of the servo (SlMoveStep's, on this plan): -> parts written (<= 0: none); err the farthest axle off the plan, pe the real pitch */
+int WyStep(const uint8_t* board, WyMvT& M, float dt, V3 Lp, V3 Tp, V3 Lp2, V3 Tp2, float& err, float& pe, V3& vCmd, V3& vWas) {
+    void* part[7]; V3 pos[7]; int n = 0;
+    Q4 dq; V3 dw; if (!WrDeckWorld(board, dq, dw)) return 0;
+    const uint8_t* deck = *(const uint8_t* const*)(board + BD_DECK);
+    for (int k = 0; k < 7; k++) {
+        uint8_t* p = *(uint8_t* const*)(board + WG_PART[k]);
+        if (!p || !PtrOk(p, SC_C2W + 0x30) || !WrInExe(*(void* const*)p)) continue;
+        const V3 q = *(const V3*)(p + SC_C2W + 0x10);
+        if (!finite3(q) || len(sub(q, dw)) > 120.0f) continue;
+        part[n] = p; pos[n] = q; n++;
+    }
+    if (n < 7 || part[0] != (const void*)deck) return -n;
+    if (!WallBodyVel(part[0], vWas)) vWas = v3(0.0f, 0.0f, 0.0f);
+    if (M.bmode != M.bmodeLast) { M.dObs = v3(0.0f, 0.0f, 0.0f); M.bmodeLast = M.bmode; }
+    const bool learn = M.bmode == 1 && M.poses > 0;   /* (slappy 370's rule) the game's own push learnt riding only, level, 150 at most */
+    if (learn && finite3(vWas)) { M.dObs = add(mul(M.dObs, 0.6f), mul(sub(vWas, M.vLast), 0.4f)); M.dObs.z = 0.0f; if (len(M.dObs) > 150.0f) M.dObs = mul(norm(M.dObs), 150.0f); }
+    else M.dObs = mul(M.dObs, 0.7f);
+    V3 fr, bk; float hw; if (!SlAxles(board, fr, bk, hw)) return -1;
+    const V3 L = M.leadF ? fr : bk, T = M.leadF ? bk : fr;
+    err = fmaxf(len(sub(Lp, L)), len(sub(Tp, T)));
+    const V3 mid = mul(add(L, T), 0.5f), midP = mul(add(Lp, Tp), 0.5f), midP2 = mul(add(Lp2, Tp2), 0.5f);
+    const V3 a = norm(sub(L, T)); pe = asinf(clampf(a.z, -1.0f, 1.0f)) * 57.29578f;
+    V3 v = add(mul(sub(midP2, midP), 1.0f / dt), mul(sub(midP, mid), WY_KP));
+    v = sub(v, M.dObs); v.z += 0.5f * 980.0f * dt;   /* a frame's gravity fed forward */
+    if (len(v) > WY_V_CAP) v = mul(norm(v), WY_V_CAP);
+    const V3 aP = norm(sub(Lp, Tp)), aP2 = norm(sub(Lp2, Tp2)), Z = v3(0.0f, 0.0f, 1.0f);
+    V3 om = add(mul(cross(a, aP), WY_KR), mul(cross(aP, aP2), 1.0f / dt));
+    { const V3 up = qrot(dq, Z); V3 upT = sub(Z, mul(a, dot(Z, a))); if (len(upT) > 0.2f) { upT = norm(upT); const float rl = atan2f(dot(cross(up, upT), a), dot(up, upT)); if (std::isfinite(rl) && fabsf(a.z) < 0.97f) om = add(om, mul(a, rl * WY_KR)); } }   /* its roll held level (not near vertical: no roll to read) */
+    if (pe > WY_PHI_CLIMB + 3.0f) M.pbN++;   /* (wallie 389r) the pitch past the climb's + 3 COUNTED only: 388 / 387 had it past the plan + 3 in every landed wallie's lip (9-18 poses) and past 78 in 13 of the 20 landed, so a bound would change the wallies that work */
+    if (len(om) > WY_W_CAP) om = mul(norm(om), WY_W_CAP);
+    if (!finite3(v) || !finite3(om)) return 0;
+    V3 wd0; if (!WallAngVel(part[0], wd0) || !finite3(wd0)) wd0 = om;   /* (wally 384) the deck's own turn: each part's spin kept relative to it (the wheels' roll) */
+    const V3 dOm = sub(om, wd0);
+    for (int i = 0; i < n; i++) { const V3 vi = add(v, cross(om, sub(pos[i], mid))); V3 wi; V3 oi = om; if (i > 0 && WallAngVel(part[i], wi) && finite3(wi)) { oi = add(wi, dOm); if (!finite3(oi)) oi = om; } WallSetVel(part[i], vi); WallSetAngVel(part[i], oi); if (i == 0) M.vLast = vi; }
+    vCmd = v;
+    return n;
+}
+/* ---- P1: the nose lifted about the trailing truck while the board's pitch is short of the plan's (assist only) */
+int WyTailAssist(const uint8_t* board, WyMvT& M, float phiPlan, float& pe) {
+    void* part[7]; V3 pos[7]; int n = 0;
+    Q4 dq; V3 dw; if (!WrDeckWorld(board, dq, dw)) return 0;
+    const uint8_t* deck = *(const uint8_t* const*)(board + BD_DECK);
+    for (int k = 0; k < 7; k++) { uint8_t* p = *(uint8_t* const*)(board + WG_PART[k]); if (!p || !PtrOk(p, SC_C2W + 0x30) || !WrInExe(*(void* const*)p)) continue; const V3 q = *(const V3*)(p + SC_C2W + 0x10); if (!finite3(q) || len(sub(q, dw)) > 120.0f) continue; part[n] = p; pos[n] = q; n++; }
+    if (n < 7 || part[0] != (const void*)deck) return -n;
+    V3 fr, bk; float hw; if (!SlAxles(board, fr, bk, hw)) return -1;
+    const V3 L = M.leadF ? fr : bk, T = M.leadF ? bk : fr, a = norm(sub(L, T));
+    pe = asinf(clampf(a.z, -1.0f, 1.0f)) * 57.29578f;
+    if (pe >= phiPlan - 2.0f) return 0;
+    V3 lat = cross(a, v3(0.0f, 0.0f, 1.0f)); if (len(lat) < 0.2f) return 0; lat = norm(lat);   /* a turn about a x Z lifts the leading end */
+    const float k = clampf(WY_KTAIL * (phiPlan - pe) * 0.0174532925f, 0.0f, 10.0f);   /* rad/s (the slappy's nose rose 22 deg in 50 ms on the ground) */
+    V3 vd, wd; if (!WallBodyVel(part[0], vd)) return 0; if (!WallAngVel(part[0], wd)) wd = v3(0.0f, 0.0f, 0.0f);
+    const V3 om = add(sub(wd, mul(lat, dot(wd, lat))), mul(lat, k));
+    const V3 vT = sub(vd, cross(wd, sub(dw, T)));   /* the trailing axle's own velocity, kept: the pivot */
+    const V3 dOm = sub(om, wd);   /* (wally 384) the turn added to each part's own spin -- the wheels' roll kept (383 gave every wheel the deck's turn as its spin: the roll wiped each lifted pose, the board braked 604 -> about 190 cm/s before the face) */
+    for (int i = 0; i < n; i++) { const V3 vi = add(vT, cross(om, sub(pos[i], T))); if (finite3(vi)) { V3 wi; V3 oi = om; if (i > 0 && WallAngVel(part[i], wi) && finite3(wi)) { oi = add(wi, dOm); if (!finite3(oi)) oi = om; } WallSetVel(part[i], vi); WallSetAngVel(part[i], oi); } }
+    return n;
+}
+
+/* ---- the lends and their give-backs */
+float WySlamNow() { uint8_t* cfg = WrSlamCfg(); return cfg ? *(const float*)(cfg + CFGA_SLAM) : -1.0f; }   /* (wallie 389) the board's own slam's SpeedMin as it reads now (WR_SLAM_OFF: held off) */
+void WySlamGive();
+void WySlamHold() {
+    if (g_wySlam.on) { uint8_t* c0 = WrSlamCfg(); if (c0 && c0 == g_wySlam.cfg && *(const float*)(c0 + CFGA_SLAM) == WR_SLAM_OFF) return; if (c0 != g_wySlam.cfg) WySlamGive(); else g_wySlam.on = 0; }   /* (wallie 389) held still: else taken again (387/388: once a start, never checked) */
+    uint8_t* cfg = WrSlamCfg(); if (!cfg) return;
+    float* f = (float*)(cfg + CFGA_SLAM);
+    if (*f == WR_SLAM_OFF) return;   /* the wallride holds it already: left to it */
+    if (!(*f >= 50.0f && *f <= 5000.0f)) return;
+    g_wySlam.cfg = cfg; g_wySlam.orig = *f; *f = WR_SLAM_OFF; g_wySlam.on = 1;
+}
+void WySlamGive() {
+    if (!g_wySlam.on) return; g_wySlam.on = 0;
+    uint8_t* cfg = g_wySlam.cfg; if (!cfg || !PtrOk(cfg, CFGA_SLAM + 0x10) || g_wrSlam.on) return;
+    float* f = (float*)(cfg + CFGA_SLAM); if (*f == WR_SLAM_OFF) *f = g_wySlam.orig;
+}
+void WyGrace(uint8_t* bm) { if (!bm || !PtrOk(bm, WR_BM_FLOORS + 0x10)) return; const uint8_t m = bm[BM_MODE]; if (m != 1 && m != 3) return; float* g = (float*)(bm + WR_BM_GRACE); if (!(*g <= WR_GRACE)) *g = WR_GRACE; }
+void WyGraceGive(uint8_t* bm) { if (!bm || bm != BoardMC() || !PtrOk(bm, WR_BM_FLOORS + 0x10) || bm[BM_MODE] != 3) return; float* g = (float*)(bm + WR_BM_GRACE); if (*g < WR_GRACE_BACK) *g = WR_GRACE_BACK; }
+void WyPitchBack(uint8_t* bm) { WyMvT& M = g_wy; if (M.ownP && bm && bm == BoardMC() && PtrOk(bm, 0x8a0) && bm[BM_MODE] == 3) *(float*)(bm + WR_BM_PITCH) = M.p0; M.ownP = 0; }
+/* the game's in-air pitch target: its offset's sense probed (WallStart's way: +10 written, the target read, put back); -> 1 ours */
+int WyPitchProbe(uint8_t* bm, const uint8_t* sk) {
+    WyMvT& M = g_wy;
+    if (sk[SK_CATCH_STATE] != 0 || bm[WR_BM_RECOVER] != 0 || (sk[WR_SK_A0E] & 3)) return 0;   /* the game steers the pitch itself in those */
+    float* fp = (float*)(bm + WR_BM_PITCH); const float p0 = *fp; if (!std::isfinite(p0)) return 0;
+    Q4 Q0, Qa; if (!WallLabq(bm, Q0)) return 0;
+    M.lead = (dot(flat(qrot(Q0, v3(1, 0, 0))), mul(M.w.N, -1.0f)) >= 0.0f) ? 1 : -1;
+    *fp = p0 + 10.0f; const bool ok = WallLabq(bm, Qa); *fp = p0;
+    if (!ok) return 0;
+    const float e0 = asinf(clampf(qrot(Q0, v3(1, 0, 0)).z * (float)M.lead, -1.0f, 1.0f)), e1 = asinf(clampf(qrot(Qa, v3(1, 0, 0)).z * (float)M.lead, -1.0f, 1.0f));
+    const float dpe = (e1 - e0) * 57.2957795f; if (fabsf(dpe) < 2.0f) return 0;
+    M.p0 = p0; M.pF = p0; M.sP = dpe >= 0.0f ? 1 : -1; M.pe0 = e0 * 57.2957795f; M.pK = fabsf(dpe) / 10.0f; return 1;   /* (wally 385) its pitch now, its pitch per offset */
+}
+void WyPitchLoop(uint8_t* bm, float phiPlan, float dt, float& peT) {   /* the target's pitch steered onto the plan's (as WallDeck's pF loop) */
+    WyMvT& M = g_wy; Q4 Q; peT = -999.0f;
+    if (!M.ownP || !WallLabq(bm, Q)) return;
+    peT = asinf(clampf(qrot(Q, v3(1, 0, 0)).z * (float)M.lead, -1.0f, 1.0f)) * 57.2957795f;
+    if (!std::isfinite(peT)) return;
+    M.pF += (float)M.sP * clampf(0.9f * (phiPlan - peT) / fmaxf(M.pK, 0.3f), -1500.0f * dt, 1500.0f * dt);   /* (wally 385) 0.6, 500 deg/s */
+    M.pF = clampf(M.pF, M.p0 - 120.0f, M.p0 + 120.0f);
+    *(float*)(bm + WR_BM_PITCH) = M.pF;
+}
+void WyLendsOff(uint8_t* bm) {   /* everything lent, given back (each only if still ours) */
+    WyMvT& M = g_wy;
+    WyPitchBack(bm);
+    g_wyBt.w = 0.0f; g_wyOwnBa = 0; g_wyCgBlock = 0;
+    WySlamGive(); WyGraceGive(bm);
+    if (M.nuaSet) { if (!g_hs.on) g_hsNua = 0; M.nuaSet = 0; }
+}
+/* (wally 385) THE SPEEDS HANDED BACK at an end or the release. 384's #3 (n.log 2963-2986): the body rose 8-10 cm a pose with -576 asked -- the
+   +900 asked (a stale feed-forward) on the pose its air began again was taken whole: "it launches him in the air about 10 feet". The flying
+   body, the capsule and the board's parts: upMax up at the most, the approach's speed (+50) along the ground, 700 down */
+V3 WyCalmV(V3 v, float upMax, float hMax, bool& ch) {
+    ch = false; if (!finite3(v)) return v;
+    if (v.z > upMax) { v.z = upMax; ch = true; } else if (v.z < -700.0f) { v.z = -700.0f; ch = true; }
+    const float fl = sqrtf(v.x * v.x + v.y * v.y); if (fl > hMax && fl > 1.0f) { const float k = hMax / fl; v.x *= k; v.y *= k; ch = true; }
+    return v;
+}
+bool WyBodyFlies(uint8_t* sk, const uint8_t* mc, void*& body) {   /* the skater's body (skater+0x4d0) is the one that flies: in the air the capsule is put at it */
+    body = *(void**)(sk + WR_SK_BODY);
+    return mc[0x168] == 6 && mc[0x169] == 2 && (mc[WR_SMC_MASTER] & 1) && body && PtrOk(body, SC_C2W + 0x30) && WrInExe(*(void* const*)body);
+}
+void WyCalm(float upMax, const char* how) {
+    WyMvT& M = g_wy;
+    uint8_t* sk = (uint8_t*)g_skater; if (!sk || !PtrOk(sk, 0xa40)) return;
+    uint8_t* mc = *(uint8_t* const*)(sk + SK_MC); if (!mc || !PtrOk(mc, 0xe28)) return;
+    const float hMax = fmaxf(M.w.sp, 300.0f) + 50.0f;   /* (wallie 387) the approach's whole speed (at an angle the closing speed is its share) */ bool ch = false; int parts = 0;
+    float bz0 = -9999.0f, bz1 = -9999.0f, cz0 = -9999.0f, cz1 = -9999.0f, dz0 = -9999.0f, dz1 = -9999.0f;
+    { void* body = nullptr; V3 vb; if (WyBodyFlies(sk, mc, body) && WallBodyVel(body, vb)) { const V3 nv = WyCalmV(vb, upMax, hMax, ch); bz0 = vb.z; bz1 = nv.z; if (ch) WallSetVel(body, nv); } }
+    { V3& sv = *(V3*)(mc + 0xc4); if (finite3(sv)) { cz0 = sv.z; sv = WyCalmV(sv, upMax, hMax, ch); cz1 = sv.z; } }
+    const uint8_t* board = PtrOk(sk, SK_BOARD + 8) ? *(const uint8_t* const*)(sk + SK_BOARD) : nullptr;
+    if (board && PtrOk(board, 0x530)) for (int k = 0; k < 7; k++) {
+        uint8_t* p = *(uint8_t* const*)(board + WG_PART[k]);
+        if (!p || !PtrOk(p, SC_C2W + 0x30) || !WrInExe(*(void* const*)p)) continue;
+        V3 v; if (!WallBodyVel(p, v)) continue;
+        const V3 nv = WyCalmV(v, upMax, hMax + 100.0f, ch); if (k == 0) { dz0 = v.z; dz1 = nv.z; }
+        if (ch) { WallSetVel(p, nv); parts++; }
+    }
+    char b[64]; if (bz0 > -9000.0f) snprintf(b, sizeof(b), "%+.0f -> %+.0f up", bz0, bz1); else snprintf(b, sizeof(b), "not flying");
+    Log("wally 385: #%ld %s: the speeds handed back (%.0f up at the most, %.0f along): the flying body %s (steered %d poses), the capsule %+.0f -> %+.0f up, the deck %+.0f -> %+.0f up (%d of the board's parts calmed)", M.n, how, upMax, hMax, b, M.bodyN, cz0, cz1, dz0, dz1, parts);
+}
+void WyBodySteer(uint8_t* sk, const uint8_t* mc, V3 v, float tau) {   /* (wally 385) the flying body given the capsule's plan (384 wrote only the capsule's velocity, which the air does not read: #1 asked +718, its bottom sank) */
+    WyMvT& M = g_wy; void* body = nullptr;
+    if (!WyBodyFlies(sk, mc, body)) return;
+    WallSetVel(body, v); M.bodyN++;
+    if (!M.bodyChk) { M.bodyChk = 1; V3 rb; const bool ok = WallBodyVel(body, rb) && len(sub(rb, v)) <= 5.0f; Log("wally 385: #%ld the skater's flying body steered onto the capsule's plan from %.2f s after the contact (%+.0f up asked)%s", M.n, tau, v.z, ok ? "" : " -- it did NOT read the speed back (not a lever here?)"); }
+}
+void WyBodySum(const char* when) {   /* (wallie 386) the foot rock, the hips' raise, the chest */
+    const WyMvT& M = g_wy; if (!M.capN) return;
+    Log("wallie 386: #%ld the body %s: the deck up to %.0f deg off level; the feet rocked toward level up to L %.0f R %.0f deg on their uphill sole edges (WallyFootRock %.2f), the hips raised up to %.0f cm for the higher foot, the chest turned up to %.0f deg toward upright; the legs short of the feet L %.1f R %.1f cm at most, the shins turned up to %.0f deg",
+        M.n, when, M.tiltMax, M.rockMax[0], M.rockMax[1], (double)g_wyRock, M.hipUpMax, M.uprMax, M.legMiss[0], M.legMiss[1], M.shinMax);
+}
+void WyEnd(const char* why, bool keepNoBail) {
+    WyMvT& M = g_wy;
+    if (!M.on) return;
+    uint8_t* bm = BoardMC();
+    { const float sf = WySlamNow(); Log("wallie 389: #%ld at the end (%s): the board's own slam %s (SpeedMin %.0f, ours %d); the pitch past 78 on %d poses (counted only)", M.n, why, sf == WR_SLAM_OFF ? "HELD OFF" : "NOT held", sf == WR_SLAM_OFF ? -1.0f : sf, g_wySlam.on, M.pbN); }   /* (wallie 389) whose the bail was (388 #1 #2 #5: mode 8, the game's source unknown) */
+    WyLendsOff(bm);
+    WyBodySum("at the end");   /* (wallie 386) */
+    if (!keepNoBail) WyCalm(50.0f, "the end");   /* (wally 385) not on a bail (the game's) */
+    if (!keepNoBail) NoBail(0.3);
+    Log("wally 381: #%ld ENDED %s -- %.2f s in (%d poses), phase %d; off the plan %.0f cm at the most, the capsule %.0f; the capsule's bottom %.0f cm over the top at the least; the pitch up to %+.0f; the board-angle bail passed over %ld times, the grind check held %ld, impacts passed %ld; the board's mode %d",
+        M.n, why, NowS() - M.t0, M.poses, M.ph, M.errMax, M.capErrMax, M.capClrMin > 900.0f ? -1.0f : M.capClrMin, M.peMax, (long)(g_wyBaSkips - M.baSkips0), (long)(g_wyCgBlocked - M.cgBlk0), (long)(g_noBailSkips - M.nbSkips0), bm ? (int)bm[BM_MODE] : -1);
+    if (M.ph >= 1 && M.ph <= 5 && !keepNoBail && !ReplayNow()) g_wyFadeT = NowS();   /* (382) the body faded out after a failure exit */
+    if (M.stk) Log("wallie 387: #%ld the sticks handed back to the game (kept in the middle %ld poses)", M.n, M.stkN);
+    M.on = 0; M.ph = 0; g_wyCoolT = NowS() + 1.0;
+}
+void WyRelease(uint8_t* sk, uint8_t* mc, uint8_t* bm) {   /* the servo lets go: the game's air and landing (OVER), or the top ridden (ONTO) */
+    WyMvT& M = g_wy;
+    WyLendsOff(bm);   /* (the board's own in-air target back first: the game levels it for the landing) */
+    WySlamHold();   /* (wallie 389) the board's own slam held on to the landing (given back when the watch ends): 388 #17 bailed 0.25 s after its release */
+    V3& sv = *(V3*)(mc + 0xc4);
+    if (finite3(sv)) { sv = add(add(mul(M.w.N, -M.vOut), mul(M.w.E, M.vAl)), v3(0.0f, 0.0f, M.w.mode == 1 ? 60.0f : -50.0f)); }
+    if (finite3(sv)) { void* body = nullptr; if (WyBodyFlies(sk, mc, body)) WallSetVel(body, sv); }   /* (wally 385) the flying body too (the air reads it, not the capsule) */
+    WyCalm(M.w.mode == 1 ? 60.0f : 20.0f, "released");
+    NoBail(0.9);
+    M.ph = 6; M.tRel = NowS(); WyBodySum("at the release");   /* (wallie 386) */
+    WallNews("info", "wally name: %s", M.w.mode == 1 ? "Wallie" : "Wallie Up");   /* (wallie 386) spelt Wallie (the user) */
+    Log("wally 381: #%ld RELEASED %.2f s in (%s): the board's pitch %+.0f, its mode %d, the skater %d/%d; the capsule given %.0f cm/s off the top%s; the board-angle bail passed over %ld times, the grind check held %ld",
+        M.n, M.tRel - M.t0, M.w.mode == 1 ? "over: the game's air lands it" : "onto the top: ridden away", M.peLast, (int)bm[BM_MODE], (int)mc[0x168], (int)mc[0x169], M.vOut, M.w.mode == 1 ? " with 60 up" : "", (long)(g_wyBaSkips - M.baSkips0), (long)(g_wyCgBlocked - M.cgBlk0));
+}
+
+/* ---- the start (the trigger passed): every measure kept, the lends that hold from the start */
+void WyStart(uint8_t* sk, const uint8_t* mc, uint8_t* bm, const uint8_t* board, const WyWallT& w, float tau, V3 vel, double now) {
+    WyMvT& M = g_wy;
+    V3 fr, bk; float hw = 0.0f; if (!SlAxles(board, fr, bk, hw)) return;
+    Q4 dq; V3 dw; if (!WrDeckWorld(board, dq, dw)) return;
+    M = WyMvT{}; M.on = 1; M.ph = 1; M.t0 = now; M.lastS = now; M.w = w; M.n = ++g_wyN; M.tr = (M.n <= 25 && g_wyTrace) ? 1 : 0;
+    M.tauFace = tau; M.vin = w.vin; M.va = dot(flat(vel), w.E);
+    M.leadF = (dot(sub(fr, bk), flat(vel)) >= 0.0f) ? 1 : 0;
+    M.W = len(sub(fr, bk)); M.hw = hw; M.ha = clampf(0.5f * (fr.z + bk.z) - w.zg, 1.5f, 8.0f);
+    WyHeading(M, M.leadF ? fr : bk, M.leadF ? bk : fr);   /* (wallie 387) */
+    { const V3 up = qrot(dq, v3(0.0f, 0.0f, 1.0f)); M.haD = dot(sub(dw, mul(add(fr, bk), 0.5f)), up); }
+    const uint8_t* root = PtrOk(sk, ACTOR_ROOT + 8) ? *(const uint8_t* const*)(sk + ACTOR_ROOT) : nullptr;
+    M.hh = 90.0f; if (root && PtrOk(root, 0x118)) { const float hh = *(const float*)(root + 0x114); if (std::isfinite(hh) && hh > 40.0f && hh < 140.0f) M.hh = hh; }   /* the capsule's half height, as LedgeScan reads it */
+    M.capOff = 88.0f; if (root && PtrOk(root, SC_C2W + 0x20)) { const float co = (*(const V3*)(root + SC_C2W + 0x10)).z - 0.5f * (fr.z + bk.z); if (std::isfinite(co) && co > 50.0f && co < 140.0f) M.capOff = co; }   /* (wally 385) */
+    M.rc = WR_BODY_GAP;   /* (open: the capsule's own radius not read) */
+    { const uint8_t* br = PtrOk(board, ACTOR_ROOT + 8) ? *(const uint8_t* const*)(board + ACTOR_ROOT) : nullptr; M.rootOff = (br && PtrOk(br, SC_C2W + 0x20)) ? sub(*(const V3*)(br + SC_C2W + 0x10), dw) : v3(0.0f, 0.0f, 0.0f); if (!finite3(M.rootOff) || len(M.rootOff) > 80.0f) M.rootOff = v3(0.0f, 0.0f, 0.0f); }
+    M.tTail = clampf(0.6f * tau, 0.08f, 0.22f); M.vUp0 = clampf(0.6f * w.vin, 150.0f, 450.0f); M.vOut = clampf(WY_KEEP * w.vin, 150.0f, 700.0f);   /* (wallie 387) WY_KEEP of the closing speed over the top and off it (386: 0.4, 300 at most) */
+    M.Tc = (g_wyClimb > 0.05f) ? g_wyClimb : WyClimbT(M, w.top + WY_WHEEL_R + WY_CLR - (w.zg + 24.0f));   /* (wallie 387) by its rise (the leading axle meets the face about 24 cm up; re-measured at the contact) (386: 0.25 + H / 300 s, 0.35 at the least) */
+    M.Tl = clampf(0.16f - (w.vin - 400.0f) * 0.0001f, 0.12f, 0.18f); M.Tt = (w.mode == 1) ? WY_TT_OVER : clampf((w.T - 50.0f) / fmaxf(M.vOut, 1.0f), 0.04f, WY_TT_ONTO); M.Td = WY_TD;   /* (wallie 387) the lip quicker the faster (386: 0.18); onto a top no farther than it goes */
+    if (w.mode == 1) { const float room = fmaxf(w.T + 0.5f * M.W - (WY_WHEEL_R + 1.0f), 5.0f); M.Tt = fminf(WY_TT_OVER, 0.5f * room / fmaxf(M.vOut, 1.0f)); M.Td = clampf((room - M.vOut * M.Tt) / fmaxf(M.vOut, 1.0f), 0.04f, WY_TD); }   /* (387r) OVER: no longer over the top than its depth (it hung about 60 cm past a 17 cm top, level, for 0.13 s) */
+    M.vAl = WY_KEEP * M.va; M.lenE = -1.0f;   /* (wallie 387) the slide along the face: the travel's own share (386: half of it) -- no farther than the face goes that way */
+    if (fabsf(M.vAl) > 30.0f) {
+        const void* world = SkaterWorld(); const float sg = M.vAl > 0.0f ? 1.0f : -1.0f; M.lenE = 0.0f;
+        for (float d = 15.0f; d <= 180.0f && world; d += 15.0f) {
+            bool ok = true;
+            for (int j = 0; j < 2 && ok; j++) {
+                const V3 ref = j ? v3(w.F.x, w.F.y, w.top - 12.0f) : w.P0; const float refN = j ? (w.n0 + w.lean) : w.n0;   /* (387r) the scan's own reference (a lipped edge kept its slide) */
+                const V3 o = add(add(ref, mul(w.E, sg * d)), mul(w.N, 30.0f)); RayHit hq;
+                ok = Ray(world, o, add(o, mul(w.N, -70.0f)), hq) && hq.hit && fabsf(hq.n.z) < 0.6f && fabsf(dot(sub(hq.p, w.F), w.N) - refN) < 10.0f;
+            }
+            if (!ok) break; M.lenE = d;
+        }
+        const float tAl = M.Tc + M.Tl, room = fmaxf(M.lenE - 15.0f, 0.0f);
+        if (world && fabsf(M.vAl) * tAl > room) M.vAl = sg * room / fmaxf(tAl, 0.05f);
+    }
+    if ((w.ck & 1) && M.vAl * w.cEndSg > 0.0f) {   /* (corner 389) sliding toward the face's end beside the hit: the near wheel kept on the face (and on its top) over the whole plan and 0.3 s on.
+                                                     388 let the slide run on past the end after the climb, and never limited a slide of 30 cm/s or less: #7 (8 Nov 00:06:06, ONTO, the axle 10 cm inside
+                                                     an end 11 cm off) drifted +7 cm/s toward it and left the plan on the top */
+        const float roomC = fmaxf(w.cIn - clampf(M.hw, 4.0f, 15.0f) - 2.0f, 0.0f), tC = M.Tc + M.Tl + M.Tt + 0.3f, was = M.vAl;
+        if (fabsf(M.vAl) * tC > roomC) M.vAl = w.cEndSg * roomC / tC;
+        Log("wallie 389: #%ld at a corner: the slide toward the face's end %+.0f -> %+.0f cm/s (the axle's middle %.0f cm inside the end, the near wheel %.0f off it: %.0f cm of room over %.2f s)", M.n, was, M.vAl, w.cIn, clampf(M.hw, 4.0f, 15.0f), roomC, tC);
+    }
+    M.capClrMin = 999.0f; M.peMax = -999.0f; M.frac = 1.0f;
+    M.baSkips0 = g_wyBaSkips; M.cgBlk0 = g_wyCgBlocked; M.nbSkips0 = g_noBailSkips;
+    if (g_asBaHook == 0) AsBaInstall();   /* the board-angle bail's and the grind check's hooks (the slappy's) */
+    g_wyCgBlock = 1;
+    NoBail(tau + 1.5);
+    WySlamHold();
+    if (g_wyTail && !g_hs.on) { HsSwStart(sk, bm, 0); g_hsNua = 2; M.nuaSet = 1; }   /* (382) its COM side for this stance. THE TAIL STOP'S POSE (the one-foot powerslide's, HeelStopTailAnim 2: the user's pick) */
+    Log("wally 381: #%ld THE WALLY (%s) -- a wall %.0f cm high (its top %.0f deep%s; %s), met %.0f deg off head-on at %.0f cm/s (closing %.0f), its face %.0f cm from the board's nearest part (%.2f s); the face leans %+.0f cm over its height, %.0f cm to a ceiling; the %s axle leads (the wheelbase %.0f, its middle %.1f over the ground, the deck %.1f over it); the capsule's half height %.0f, its radius taken as %.0f | the plan: the tail down to %.0f deg in %.2f s (%s), the climb %.2f s to %.0f deg, the lip %.2f, the top %.2f%s, then %s",
+        M.n, g_wyTrig ? "from the manual / the tail stop" : "riding at it", w.H, w.T, w.mode == 1 ? ", the ground behind it" : ": ridden onto", w.mode == 1 ? "OVER" : "ONTO", w.theta, w.sp, w.vin, w.gap, tau, w.lean, w.ceil, M.leadF ? "front" : "back", M.W, M.ha, M.haD, M.hh, M.rc,
+        g_wyTailPitch, M.tTail, M.nuaSet ? "the tail stop's pose" : g_hs.on ? "in the tail stop already" : "no pose (WallyTail 0)", M.Tc, WY_PHI_CLIMB, M.Tl, M.Tt, w.mode == 1 ? ", the nose down 0.12" : "", w.mode == 1 ? "the game's air and landing" : "ridden away on the top");
+    Log("wallie 387: #%ld the plan: the climb %.2f s (by its rise at %.0f cm/s up, ending still rising), the lip %.2f, the top %.2f%s; over the top %.0f cm/s off the face (%.0f %% of the closing %.0f) and %+.0f along it (of %+.0f; the face runs %.0f cm that way: -1 not looked); the board %.0f deg off square to the face (the outer wheel %.1f cm ahead of the axle's middle)%s",
+        M.n, M.Tc, M.vUp0, M.Tl, M.Tt, w.mode == 1 ? ", the nose down 0.12" : "", M.vOut, 100.0f * M.vOut / fmaxf(w.vin, 1.0f), w.vin, M.vAl, M.va, M.lenE, acosf(clampf(M.cps, -1.0f, 1.0f)) * 57.2957795f, M.wOff, "");
+    if (w.ck) {   /* (corner 388) the corner's decision, once a wallie */
+        char ca[200] = "", cb[260] = "";
+        if (w.ck & 2) snprintf(ca, sizeof(ca), "the corner's other face was met %.0f deg off head-on: this face, %.0f deg, taken; ", w.cTh0, w.theta);
+        if (w.ck & 1) snprintf(cb, sizeof(cb), "this face ends %.0f cm %s of where the rays met it, the leading axle's middle meets it %.0f cm inside that end (the slide along it %+.0f cm/s: %s)", w.cEnd, w.cEndSg > 0.0f ? "on along the travel" : "back against the travel", w.cIn, M.vAl, (w.cEndSg * M.vAl > 0.0f) ? "toward the end, on past it over the corner after the climb" : "away from the end, along the face");
+        Log("wallie 388: #%ld AT A CORNER (WallyCorners): %s%s", M.n, ca, cb);
+    }
+    Log("wally 385: #%ld the face undercut %.0f cm under its edge; the capsule %.0f cm over the axles riding | the nose up from %.2f s x the closing speed before the face (%.0f-%.0f cm) to %.3f s x it (wallie 386: by distance), the nose's end (%.0f cm past the axle) counted at the face; the climb steep by %.2f s; the lip a lever %.2f s (the board levelled about it)", M.n, w.U, M.capOff, WY_LIFT_S0, WY_LIFT_D0, WY_LIFT_D1, WY_LIFT_S1, WY_NOSE, 0.45f * M.Tc, M.Tl);
+}
+
+/* ---- each pose after NativeUpdateAnimation */
+void WalyTick() {
+    WyMvT& M = g_wy;
+    uint8_t* sk = (uint8_t*)g_skater; const uint8_t* anim = (const uint8_t*)g_anim;
+    const bool live = g_wyOn && g_hooked && !g_sigMode && !FeatSigOff() && !ReplayNow() && sk && anim && PtrOk(sk, 0xa40) && PtrOk(anim, 0x600);
+    uint8_t* mc = live ? *(uint8_t* const*)(sk + SK_MC) : nullptr;
+    uint8_t* bm = live ? BoardMC() : nullptr;
+    const uint8_t* board = (live && PtrOk(sk, SK_BOARD + 8)) ? *(const uint8_t* const*)(sk + SK_BOARD) : nullptr;
+    if (!live || !mc || !PtrOk(mc, 0xe28) || !bm || !PtrOk(bm, 0x8a0) || !board || !PtrOk(board, 0x530)) { if (M.on) WyEnd(!g_wyOn ? "WallyOn turned off" : ReplayNow() ? "the replay editor" : "the skater, the board or the controller not read", false); return; }
+    const double now = NowS();
+    const float dt = (M.on && now > M.lastS) ? clampf((float)(now - M.lastS), 0.004f, 0.05f) : 0.016f;
+    const bool bail = mc[0x169] == 5 || bm[BM_MODE] == 8, air = mc[0x168] == 6 && mc[0x169] == 2;
+    if (M.on) {
+        M.lastS = now; M.bmode = bm[BM_MODE];
+        if (M.ph == 6) {   /* THE LANDING WATCHED */
+            WySlamHold();   /* (wallie 389) */
+            const bool landed = mc[0x168] == 6 && mc[0x169] == 1 && bm[BM_MODE] == 1;
+            if (bail || landed || now - M.tRel > WY_WATCH_S) {
+                Log("wally 381: #%ld %s %.2f s after the release (%.2f s in all): speed %.0f cm/s; impacts passed over %ld", M.n, bail ? "BAILED" : landed ? "LANDED, riding" : "no landing seen", now - M.tRel, now - M.t0, g_spOk ? g_spNow : -1.0f, (long)(g_noBailSkips - M.nbSkips0));
+                if (!bail && now - M.tRel < 0.22) g_wyFadeT = M.tRel;
+                if (M.stk) Log("wallie 387: #%ld the sticks handed back to the game (kept in the middle %ld poses)", M.n, M.stkN);
+                if (bail) { const float sf = WySlamNow(); Log("wallie 389: #%ld bailed in the landing watch: the board's own slam %s (SpeedMin %.0f)", M.n, sf == WR_SLAM_OFF ? "HELD OFF" : "NOT held", sf == WR_SLAM_OFF ? -1.0f : sf); }   /* (389r) */
+                WySlamGive(); M.on = 0; M.ph = 0; g_wyCoolT = now + 1.0;   /* (wallie 389) the slam given back here, not at the release */
+            }
+            return;
+        }
+        if (bail) { WyEnd("a bail", true); return; }
+        if (mc[0x168] != 6) { WyEnd("off the board (the skater not skating any more: thrown off -- the game's own)", true); return; }   /* (wallie 389) */
+        { const double lim = (M.ph >= 2) ? (M.tC - M.t0) + (double)WyEndTau(M) + 0.3 : (double)WY_MAX_S; if (now - M.t0 > lim) { WyEnd("its time up", false); return; } }   /* (382) the plan's own length */
+        M.poses++; if (M.ph >= 2) { const int cr = WgCrankUse(sk); if (!M.stk && cr >= 0 && (cr == 1 || WgCrouchNow(sk, anim))) {   /* (387r) a crouch held at the contact, not one let go before it */ M.crSeen = 1; M.stk = 1; Log("wallie 387: #%ld the crouch taken from the contact on: its crank reset and the game handed the sticks in the middle to the landing (no ollie, no catch of the game's from them -- 386's crouched wallies #13, 14, 17, 18, 21 lost the board's pitch to the game as the air came 0.10 s after the contact and bailed)", M.n); } }   /* (383r) from the contact on */   /* (383) a held crouch is no ollie under a wally: the game's crank reset every pose to the release (the wallride kick's way) */
+        const double el = now - M.t0;
+        if (M.ph == 1) {   /* P1 THE TAIL */
+            if (WgCrouchNow(sk, anim)) M.crSeen = 1;   /* (wally 384) */
+            if (((PopPendingFn)(Exe() + RVA_POP_PENDING))(sk)) { WyEnd(M.crSeen ? "you popped: the game's ollie (a crouch was held in the wally: let go before the contact, it is the game's ollie)" : "the game's ollie came up pending with NO crouch seen since the start (wally 384: not a pop of yours?)", false); return; }
+            if (g_wyTail && !g_hs.on) { g_hsNua = 2; M.nuaSet = 1; }
+            WySlamHold();   /* (wallie 389) renewed each pose of the tail too (388 #1, 387's four on the 55 cm wall: bailed on the contact pose, board mode 8, no SessionTweaks line) */
+            /* (wally 385) the leading end's clearance from the face -- its wheels' and its nose's end (below about 65 deg the nose meets the face first:
+               384's #2 bailed with the wheels 8 cm off it at +29 deg, n.log 2597) -- and the time left at the deck's own closing speed */
+            float cl = 1.0e9f, clT = 1.0e9f;
+            for (int k = M.leadF ? 5 : 3; k < (M.leadF ? 7 : 5); k++) { const uint8_t* p = *(const uint8_t* const*)(board + WG_PART[k]); if (!p || !PtrOk(p, SC_C2W + 0x20)) continue; const V3 q = *(const V3*)(p + SC_C2W + 0x10); if (finite3(q)) cl = fminf(cl, dot(sub(q, M.w.F), M.w.N) - WyFaceN(M.w, q.z) - WY_WHEEL_R); }
+            { V3 fr, bk; float hw; Q4 dq; V3 dw; if (SlAxles(board, fr, bk, hw) && WrDeckWorld(board, dq, dw)) { const V3 L = M.leadF ? fr : bk, T = M.leadF ? bk : fr, a = norm(sub(L, T)), up = qrot(dq, v3(0.0f, 0.0f, 1.0f)); const V3 tip = add(add(L, mul(a, WY_NOSE)), mul(up, M.haD + 2.0f)); if (finite3(tip)) clT = dot(sub(tip, M.w.F), M.w.N) - WyFaceN(M.w, tip.z) - 10.0f * fabsf(M.sps); } }   /* (387r) at an angle the deck's leading corner, not its middle */
+            float clV = -1.0f; { const uint8_t* dk = *(const uint8_t* const*)(board + BD_DECK); V3 vdk; if (dk && PtrOk(dk, SC_C2W + 0x30) && WallBodyVel((void*)dk, vdk) && finite3(vdk)) clV = -dot(vdk, M.w.N); }   /* (wally 384) the deck's closing speed */
+            const float clN = fminf(cl, clT), tRem = fmaxf(clN - 2.5f, 0.0f) / fmaxf(clV, 100.0f);
+            const float vC = (M.vin > 100.0f) ? M.vin : fmaxf(clV, 100.0f), dS = clampf(WY_LIFT_S0 * vC, WY_LIFT_D0, WY_LIFT_D1), dE = clampf(WY_LIFT_S1 * vC, WY_LIFT_E0, WY_LIFT_E1);   /* (wallie 386) by distance */
+            const float phiPlan = g_wyTailPitch * Sm01((dS - fmaxf(clN - 2.5f, 0.0f)) / fmaxf(dS - dE, 4.0f));   /* (wallie 386) 385's 0.15 -> 0.03 s began 92 cm out at 731 cm/s, 48 at 346 (n.log 10478, 10703): "the board lifts way too early" */
+            if (phiPlan > 0.5f && M.tLift <= 0.0) { M.tLift = now; Log("wallie 386: #%ld the nose starts up %.0f cm from the face (its nearest end; the window %.0f -> %.0f cm at %.0f cm/s closing), %.2f s in, %.2f s to the face", M.n, clN, dS, dE, clV, el, tRem); }   /* (wally 385) over the last 0.15 -> 0.03 s (384 began it at the trigger: "the board lifts still too soon. It hits the wall") */
+            float pe = -999.0f; const int np = WyTailAssist(board, M, phiPlan, pe);
+            if (np < 0) { WyEnd("the board's parts not read", false); return; }
+            if (pe > M.peMax) M.peMax = pe;
+            M.prog = clampf((float)(el / fmax(M.tauFace, 0.05)), 0.0f, 1.0f);
+            {   /* the capsule held a radius off the face (riding: its closing lowered only) */
+                const uint8_t* root = *(const uint8_t* const*)(sk + ACTOR_ROOT);
+                if (root && PtrOk(root, SC_C2W + 0x20)) {
+                    const V3 R = *(const V3*)(root + SC_C2W + 0x10); V3& sv = *(V3*)(mc + 0xc4);
+                    const float nR = dot(sub(R, M.w.F), M.w.N), room = nR - (WyFaceN(M.w, R.z - M.hh) + M.rc + WY_CAP_OUT), vN = dot(sv, M.w.N);
+                    if (finite3(sv) && vN < -8.0f * fmaxf(room, 0.0f)) sv = add(sv, mul(M.w.N, -8.0f * fmaxf(room, 0.0f) - vN));
+                }
+            }
+            /* the contact: the leading wheels or the nose's end at the face (385: measured above) */
+            if (M.tr && InterlockedIncrement(&g_wyMvLogs) <= 2500) Log("wy mv #%ld +%3.0f ms | 1 tail     | board %d skater %d/%d | the lead wheels %+.1f cm from the face | pitch %+.0f (plan %+.0f, %s) | the tail stop's pose %s | the deck closing %.0f cm/s | the nose's end %+.1f, %.2f s to the face", M.n, el * 1000.0, (int)bm[BM_MODE], (int)mc[0x168], (int)mc[0x169], cl, pe, phiPlan, np > 0 ? "lifted" : "the game's own", M.nuaSet ? "on" : "off", clV, clT, tRem);
+            if (clN <= 2.5f || (el > M.tauFace && clN < 6.0f) || (clV > 100.0f && clN < 12.0f && clN - clV * dt <= 0.0f && (M.early = 1) != 0)) {   /* (wallie 389) or the next pose would pass the face */   /* (wally 385) the nose's end too */
+                V3 fr, bk; float hw; if (!SlAxles(board, fr, bk, hw)) { WyEnd("the axles not read at the contact", false); return; }
+                const V3 L = M.leadF ? fr : bk, T = M.leadF ? bk : fr, a = norm(sub(L, T));
+                M.nL0 = dot(sub(L, M.w.F), M.w.N); M.zL0 = L.z; M.phi0 = asinf(clampf(a.z, -1.0f, 1.0f)) * 57.29578f;
+                M.s0 = dot(sub(mul(add(L, T), 0.5f), M.w.F), M.w.E);
+                M.sL0 = dot(sub(L, M.w.F), M.w.E); WyHeading(M, L, T);   /* (wallie 387) the lead's place along the face, the board's line as it meets it */
+                if (!(g_wyClimb > 0.05f)) M.Tc = WyClimbT(M, M.w.top + WY_WHEEL_R + WY_CLR - M.zL0);   /* (wallie 387) the climb's time by its own rise */
+                M.tC = now; M.ph = 2; M.nRLast = 1.0e9f;
+                g_wyOwnBa = 1;
+                if (M.nuaSet) { if (!g_hs.on) g_hsNua = 0; M.nuaSet = 0; }   /* the tail stop's pose done: the body is the wally's from here */
+                M.tipHit = clT < cl ? 1 : 0; WySlamHold();
+                { const float sf = WySlamNow(); Log("wallie 389: #%ld at the contact the board's own slam %s (SpeedMin %.0f), the deck closing %.0f cm/s, the nose's end %.1f cm out%s", M.n, sf == WR_SLAM_OFF ? "HELD OFF" : "NOT held", sf == WR_SLAM_OFF ? -1.0f : sf, clV, clN, M.early ? " (met a pose early: the next pose would have passed the face)" : ""); }
+                Log("wally 381: #%ld THE CONTACT %.2f s in (planned %.2f): the leading wheels %.1f cm from the face, the nose's end %.1f (%s first), the leading axle %.0f cm up, the nose %+.0f deg -> the climb (%.2f s)", M.n, el, M.tauFace, cl, clT, M.tipHit ? "the nose's end" : "the wheels", M.zL0 - M.w.zg, M.phi0, M.Tc);
+            }
+            else if (el > M.tauFace + 0.25) { WyEnd("the face never reached (0.25 s past its time)", false); return; }   /* (wally 385) 0.15: the tail's drag slows the board about 10 % */
+            return;
+        }
+        /* P2..P5: THE BOARD ON THE PLAN, THE CAPSULE OVER THE WALL */
+        const float tau = (float)(now - M.tC);
+        if (tau >= WyEndTau(M)) { WyRelease(sk, mc, bm); return; }
+        V3 Lp, Tp, Cp, Lp2, Tp2, Cp2; float phi, phi2; int ph, ph2;
+        WyPlan(M, tau, Lp, Tp, Cp, phi, ph); WyPlan(M, tau + dt, Lp2, Tp2, Cp2, phi2, ph2);
+        if (ph != M.ph) { Log("wally 381: #%ld phase %d -> %d at %.2f s from the contact (%s)", M.n, M.ph, ph, tau, ph == 3 ? "over the lip" : ph == 4 ? "on the top" : "the nose down"); M.ph = ph; }
+        M.prog = (float)(ph - 1) + clampf(ph == 2 ? tau / M.Tc : ph == 3 ? (tau - M.Tc) / M.Tl : ph == 4 ? (tau - M.Tc - M.Tl) / M.Tt : (tau - M.Tc - M.Tl - M.Tt) / M.Td, 0.0f, 1.0f);
+        float err = 0.0f, pe = 0.0f; V3 vc = v3(0, 0, 0), vw = v3(0, 0, 0);
+        const int np = WyStep(board, M, dt, Lp, Tp, Lp2, Tp2, err, pe, vc, vw);
+        if (np <= 0) { WyEnd("the board's parts not read", false); return; }
+        M.peLast = pe; if (pe > M.peMax) M.peMax = pe; if (err > M.errMax) M.errMax = err;
+        M.errN = (err > 25.0f) ? M.errN + 1 : 0;
+        if (M.errN >= 5) { V3 fr, bk; float hw; const bool ax = SlAxles(board, fr, bk, hw);
+            if (ax && ph >= 4 && fminf(fr.z, bk.z) > M.w.top - 2.0f) { Log("wallie 389: #%ld %.0f cm off the plan on the top with both axles over it (front %+.1f, back %+.1f): the board slower than the plan's ride-in -- RELEASED to the game, not ended", M.n, err, fr.z - M.w.top, bk.z - M.w.top); WyRelease(sk, mc, bm); return; }
+            if (ax) Log("wallie 389: #%ld off the plan in phase %d: the front axle %+.1f out %+.1f up, the back %+.1f out %+.1f up (from the face, over the top); the board's mode %d, the skater %d/%d", M.n, ph, dot(sub(fr, M.w.F), M.w.N), fr.z - M.w.top, dot(sub(bk, M.w.F), M.w.N), bk.z - M.w.top, (int)bm[BM_MODE], (int)mc[0x168], (int)mc[0x169]);
+            WyEnd("the board left the plan (25 cm, 5 poses: it met something)", false); return; }
+        if (ph == 2 && tau > 0.6f * M.Tc) { float nL, zL; WyLead(M, 0.6f * M.Tc, nL, zL); V3 fr, bk; float hw; if (SlAxles(board, fr, bk, hw)) { const V3 L = M.leadF ? fr : bk; if (L.z - M.zL0 < 0.3f * (zL - M.zL0)) { WyEnd("the board did not climb (the face held it)", false); return; } } }
+        WyGrace(bm); NoBail(0.5); WySlamHold();
+        {   /* the game's own in-air pitch target and its PID target: the plan's */
+            float peT = -999.0f;
+            if (bm[BM_MODE] == 3) {
+                if (!M.airSeen) { M.airSeen = 1; M.tAirS = now; M.ownP = WyPitchProbe(bm, sk); if (M.ownP) M.pF = clampf(M.p0 + (float)M.sP * (phi - M.pe0) / fmaxf(M.pK, 0.3f), M.p0 - 120.0f, M.p0 + 120.0f);   /* (wally 385) onto the plan's pitch at once (384 walked it there 8 deg a pose: the game's level target dropped the nose 56 -> 36 as the air began, n.log 3210-3220) */ Log("wally 381: #%ld the game's AIR %.2f s from the contact: the board's in-air pitch target %s", M.n, tau, M.ownP ? "steered onto the plan's (its offset probed)" : "NOT ours (the game steers it: catch orient, recovery, or the lever did not turn it) -- the servo's turn alone"); }
+                if (!M.ownP && !M.whyTold) { M.whyTold = 1; Log("wallie 387: #%ld whose the board's pitch is in the air: the catch orient %d, the pitch recovery %d, the a0e path %d; the crouch %s -- taken again each pose to the lip's end once the game lets it go", M.n, (int)sk[SK_CATCH_STATE], (int)bm[WR_BM_RECOVER], (int)(sk[WR_SK_A0E] & 3), M.stk ? "taken (the sticks in the middle)" : M.crSeen ? "seen" : "none"); }
+                else if (!M.ownP && ph <= 3 && M.retryN < 60) { M.retryN++; M.ownP = WyPitchProbe(bm, sk); if (M.ownP) { M.pF = clampf(M.p0 + (float)M.sP * (phi - M.pe0) / fmaxf(M.pK, 0.3f), M.p0 - 120.0f, M.p0 + 120.0f); Log("wallie 387: #%ld the board's in-air pitch target taken %.2f s into the air (%d poses after the game had it)", M.n, now - M.tAirS, M.retryN); } }   /* (wallie 387) */
+                WyPitchLoop(bm, phi, dt, peT);
+            }
+            const float r = phi * 0.0174532925f; const V3 g = (len(M.Hw) > 0.5f) ? add(mul(M.Hw, -sinf(r)), v3(0.0f, 0.0f, cosf(r))) : add(mul(M.w.N, sinf(r)), v3(0.0f, 0.0f, cosf(r)));   /* (wallie 387) the grip square to the board's own line */   /* the grip's side: up level, out from the wall when vertical */
+            { const uint8_t* br = PtrOk(board, ACTOR_ROOT + 8) ? *(const uint8_t* const*)(board + ACTOR_ROOT) : nullptr; Q4 dqN; V3 dwN; if (br && PtrOk(br, SC_C2W + 0x20) && WrDeckWorld(board, dqN, dwN)) { const V3 ro = sub(*(const V3*)(br + SC_C2W + 0x10), dwN); if (finite3(ro) && len(ro) < 80.0f) M.rootOff = ro; } }   /* (382) the root's offset as it stands */
+            const V3 Pd = add(add(Cp, mul(g, M.haD)), M.rootOff);
+            g_wyBt.px = Pd.x; g_wyBt.py = Pd.y; g_wyBt.pz = Pd.z; g_wyBt.mc = mc; g_wyBt.at = GetTickCount64(); g_wyBt.w = 1.0f;
+            M.phiLast = peT;
+        }
+        if (!M.airSeen && !M.capAir && tau > M.Tc + M.Tl) { if (M.w.mode == 2 && err < 12.0f) { if (!M.rodeOn) { M.rodeOn = 1; Log("wallie 389: #%ld no air by the lip, but ONTO a top with the board on the plan (%.1f cm off): ridden on, on the ground (388 #20 was ended here)", M.n, err); } } else { WyEnd("no air by the lip (the game kept the board on the ground)", false); return; } }
+        float capErr = 0.0f, clr = 0.0f, vzGiven = 0.0f;
+        {   /* THE CAPSULE: a radius off the face until its bottom clears the top, then over the board's middle */
+            const uint8_t* root = *(const uint8_t* const*)(sk + ACTOR_ROOT);
+            if (root && PtrOk(root, SC_C2W + 0x20)) {
+                const V3 R = *(const V3*)(root + SC_C2W + 0x10); V3& sv = *(V3*)(mc + 0xc4);
+                const float nR = dot(sub(R, M.w.F), M.w.N), bot = R.z - M.hh; clr = bot - M.w.top;
+                if (nR < M.rc && clr < M.capClrMin) M.capClrMin = clr;
+                if (!air) M.rpOk = 0;   /* (wally 385) no feed-forward from an old air (#3's +900 on its second air's first pose) */
+                if (air && finite3(sv)) {
+                    if (!M.capAir) { M.capAir = 1; M.zRair = R.z; M.tauAir = tau; }   /* the rise from where the body is as its air begins */
+                    const float zNeed = M.w.top + WY_CAP_CLR + M.hh, t1 = fmaxf(M.Tc + 0.5f * M.Tl, M.tauAir + 0.12f);
+                    float zR = (tau < t1) ? M.zRair + (zNeed - M.zRair) * Sm01((tau - M.tauAir) / (t1 - M.tauAir)) : zNeed + 6.0f * sinf(3.14159f * clampf((tau - t1) / fmaxf(WyEndTau(M) - t1, 0.05f), 0.0f, 1.0f));
+                    zR = fmaxf(zR, Cp.z + M.capOff - M.hip0 * (1.0f - M.frac));   /* (wally 385) never under the board's own rise: the hips a sane height over the deck ("the capsule must rise with the board") */
+                    const float nC = dot(sub(Cp, M.w.F), M.w.N), botP = zR - M.hh;
+                    const float nMin = (botP < M.w.top + 2.0f) ? WyFaceN(M.w, clampf(botP, M.w.z0, M.w.top)) + M.rc + WY_CAP_OUT : -1.0e9f;
+                    float nWant = fmaxf(nC, nMin); if (M.nRLast < 1.0e8f) nWant = fmaxf(nWant, M.nRLast - fmaxf(300.0f, M.vOut + 100.0f) * dt);   /* off the face, then over the board at 300 cm/s at most */
+                    M.nRLast = nWant;
+                    const V3 Rp = WyW(M.w, dot(sub(R, M.w.F), M.w.E), nWant, zR);
+                    V3 v = add(M.rpOk ? mul(sub(Rp, M.RpLast), 1.0f / dt) : v3(0, 0, 0), mul(sub(Rp, R), WY_CAP_K));
+                    v.z += 980.0f * dt;   /* a frame's gravity fed forward */
+                    v = add(sub(v, mul(M.w.E, dot(v, M.w.E))), mul(M.w.E, M.vAl));   /* (wallie 387) the plan's slide (382: half the approach's) */   /* (382) the board's plan along (not -5 % a pose) */   /* along the wall: its own */
+                    v.z = clampf(v.z, -WY_CAP_VZ, WY_CAP_VZ);   /* (wally 385) */
+                    if (len(v) > WY_CAP_VMAX) v = mul(norm(v), WY_CAP_VMAX);
+                    if (finite3(v)) { sv = v; vzGiven = v.z; WyBodySteer(sk, mc, v, tau); }   /* (wally 385) the flying body: the one the air moves */
+                    M.RpLast = Rp; M.rpOk = 1;
+                    capErr = len(sub(Rp, R)); if (capErr > M.capErrMax) M.capErrMax = capErr;
+                    M.capErrN = (capErr > 30.0f) ? M.capErrN + 1 : 0;
+                    if (M.capErrN >= 6) { WyEnd("the body could not follow (the capsule 30 cm off its plan, 6 poses: it met the wall?)", false); return; }
+                } else if (!air && finite3(sv)) {   /* riding still: held off the face */
+                    const float room = nR - (WyFaceN(M.w, bot) + M.rc + WY_CAP_OUT), vN = dot(sv, M.w.N);
+                    if (vN < -8.0f * fmaxf(room, 0.0f)) sv = add(sv, mul(M.w.N, -8.0f * fmaxf(room, 0.0f) - vN));
+                }
+                {   /* the body turned onto the board's line (the slappy's way: 3 deg a pose at most) */
+                    V3 kf = flat(qrot(qnorm(*(const Q4*)(root + SC_C2W)), v3(1.0f, 0.0f, 0.0f)));
+                    if (len(kf) > 0.2f) { kf = norm(kf); const V3 want = (len(M.Hw) < 0.5f) ? ((dot(kf, M.w.N) <= 0.0f) ? mul(M.w.N, -1.0f) : M.w.N) : (dot(kf, M.Hw) >= 0.0f) ? M.Hw : mul(M.Hw, -1.0f);   /* (wallie 387) onto the board's own line (at an angle not squared to the face) */ const float cp = atan2f(kf.x * want.y - kf.y * want.x, dot(kf, want)) * 57.29578f; if (std::isfinite(cp) && fabsf(cp) > 2.0f) SafeWrCapTurn((void*)mc, clampf(cp, -3.0f, 3.0f)); }
+                }
+            }
+        }
+        if (M.tr && InterlockedIncrement(&g_wyMvLogs) <= 2500) {
+            V3 fr, bk; float hw = 0.0f; SlAxles(board, fr, bk, hw); const V3 L = M.leadF ? fr : bk, T = M.leadF ? bk : fr;
+            static const char* PH[] = { "?", "1 tail    ", "2 climb   ", "3 lip     ", "4 top     ", "5 nose dn " };
+            Log("wy mv #%ld +%3.0f ms | %s| board %d skater %d/%d | lead %+.1f out %+.1f up (plan %+.1f %+.1f), trail %+.1f %+.1f (plan %+.1f %+.1f), off %.1f | pitch %+.0f plan %+.0f target %+.0f offset %s%+.0f | capsule off its plan %.0f, its bottom %+.0f over the top, up %+.0f given | the deck moved %+.0f %+.0f %+.0f, given %+.0f %+.0f %+.0f | hips %.2f",
+                M.n, (now - M.t0) * 1000.0, PH[ph < 1 || ph > 5 ? 0 : ph], (int)bm[BM_MODE], (int)mc[0x168], (int)mc[0x169],
+                dot(sub(L, M.w.F), M.w.N), L.z - M.w.top, dot(sub(Lp, M.w.F), M.w.N), Lp.z - M.w.top, dot(sub(T, M.w.F), M.w.N), T.z - M.w.top, dot(sub(Tp, M.w.F), M.w.N), Tp.z - M.w.top, err,
+                pe, phi, M.phiLast, M.ownP ? "" : "(not ours) ", M.ownP ? M.pF - M.p0 : 0.0f, capErr, clr, vzGiven,
+                dot(vw, M.w.E), dot(vw, M.w.N), vw.z, dot(vc, M.w.E), dot(vc, M.w.N), vc.z, M.frac);
+        }
+        return;
+    }
+    /* ---- THE TRIGGER */
+    if (now < g_wyCoolT) return;
+    if (!(mc[0x168] == 6 && mc[0x169] == 1 && bm[BM_MODE] == 1)) return;
+    if (g_offBoard || sk[SK_GRAB] != 0 || g_slm.on || g_sl.inGrind || WallRiding() || g_wg.state != 0) return;
+    const uint8_t fp = sk[SK_FOOTPOS]; const char* gate = (fp != 1 && fp != 4) ? (fp == 2 ? "you rode fakie (the wally takes regular and switch only, for now)" : fp == 3 ? "you rode nollie (the wally takes regular and switch only, for now)" : "the foot position was not read") : nullptr;   /* regular / switch (fakie, nollie: later) */   /* (383) the gates are said once a wall an approach (WyRefuse, after the scan), not silent */
+    if (!gate && g_wyTrig == 1 && !((sk[HS_SK_MAN] & 2) || g_hs.on)) gate = "you were not in a manual or the tail stop (WallyTrigger 1 takes it from those only)";   /* WallyTrigger 1: from a manual or the tail stop only */
+    const bool crouchNow = WgCrouchNow(sk, anim); if (!gate && ((PopPendingFn)(Exe() + RVA_POP_PENDING))(sk)) gate = "an ollie's pop was pending (you let go of the crouch)";   /* (383) the crouch no longer refuses (every crouched head-on ride of 6 Nov was refused here, silently): the wally takes it -- WgCrankUse at the start and every pose after */
+    const uint8_t* deck = *(const uint8_t* const*)(board + BD_DECK);
+    V3 vel = *(const V3*)(mc + 0xc4); if (deck && PtrOk(deck, SC_C2W + 0x30)) { V3 vb; if (WallBodyVel((void*)deck, vb)) vel = vb; }
+    const float sp = len(flat(vel)); if (sp < g_wyMinSp * 0.6f) return;   /* (383) a slow approach is said (WallyMinSpeed's refusal after the scan) */
+    { static int skip = 0; if (!g_wySeen && (++skip & 1)) return; }   /* the fan every other pose until a wall is seen (14 rays) */
+    WyWallT w = {};
+    const int got = WyScan(board, vel, w);
+    g_wySeen = got != 0;
+    if (got <= 0) return;
+    if (w.sp > g_wyMaxSp) { WyRefuse(w.P0, w.N, "a %.0f cm wall at %.0f cm/s (WallyMaxSpeed %.0f)", w.H, w.sp, g_wyMaxSp); return; }
+    if (w.vin < g_wyMinSp) { WyRefuse(w.P0, w.N, "a %.0f cm wall closed on at %.0f cm/s (WallyMinSpeed %.0f)", w.H, w.vin, g_wyMinSp); return; }
+    const float tau = fmaxf(w.gap - fmaxf(w.nW - w.n0, 0.0f), 0.0f) / fmaxf(w.vin, 1.0f);   /* (383) to the face's foot where it flares out */
+    if (tau > g_wyLead) return;   /* not yet */ if (gate) { WyRefuse(w.P0, w.N, "a %.0f cm wall (%s) met %.0f deg off head-on at %.0f cm/s, %.2f s out -- %s", w.H, w.mode == 1 ? "over it" : "onto it", w.theta, w.vin, tau, gate); return; }   /* (383) */
+    const bool tailDown = (sk[HS_SK_MAN] & 2) || g_hs.on;
+    if (tau < (tailDown ? 0.05f : WY_TAU_MIN)) { WyRefuse(w.P0, w.N, "a %.0f cm wall first seen %.2f s out -- too late to put the tail down", w.H, tau); return; }
+    V3 fr, bk; float hw; if (!SlAxles(board, fr, bk, hw)) return; if (crouchNow && (g_wgCrankDead || FeatSigOff())) { WyRefuse(w.P0, w.N, "a %.0f cm wall met crouched, and the game's crouch could not be taken off (ResetCrank not callable): stand up for a wally", w.H); return; }   /* (383) the crouch eaten: letting go of the stick is no ollie */
+    WyStart(sk, mc, bm, board, w, tau, vel, now);
+    if (g_wy.on && g_wy.t0 == now && crouchNow) g_wy.crSeen = 1;   /* (wally 384) crouched at the start */
+}
+void SafeWalyTick() {
+    __try { WalyTick(); }
+    __except (GrabFilter(GetExceptionCode())) {
+        g_wy.on = 0; g_wy.ph = 0; g_wyBt.w = 0.0f; g_wyOwnBa = 0; g_wyCgBlock = 0;
+        __try { WyLendsOff(BoardMC()); NoBail(0.3); } __except (EXCEPTION_EXECUTE_HANDLER) { g_wy.ownP = 0; g_wy.nuaSet = 0; }   /* (382) every lend given back */
+        InterlockedExchange(&g_wyOn, 0);
+        Log("wally 381: fault in its tick (code %08x) -- wallies are off for this run", GetExceptionCode());
+    }
+}
+
+/* ---- THE BODY (the pose pass, after the hop's legs, before the wallride's pose): the hips by the reference's table, the feet pinned
+   where they rode on the drawn deck (they turn with it), the legs solved onto them, the shins onto their lines (the shin fix) */
+bool WalyPose(void* mesh) {
+    WyMvT& M = g_wy;
+    if (!WalyDrawWanted() || g_pelvis < 0 || g_foot[0] < 0 || g_foot[1] < 0 || g_thigh[0] < 0 || g_thigh[1] < 0 || g_calf[0] < 0 || g_calf[1] < 0) return false;
+    if (!DeckXf(mesh)) return false;
+    const uint8_t* m = (const uint8_t*)mesh; if (!PtrOk(m, SC_C2W + 0x30)) return false;
+    const Q4 mq = qnorm(*(const Q4*)(m + SC_C2W)); const V3 mp = *(const V3*)(m + SC_C2W + 0x10), ms = *(const V3*)(m + SC_C2W + 0x20);
+    if (fabsf(ms.x) < 1e-3f || fabsf(ms.y) < 1e-3f || fabsf(ms.z) < 1e-3f || !finite3(mp)) return false;
+    const double now = NowS();
+    if (M.capN == 0) {   /* the first pose: where the feet ride on the deck, how high the hips ride over them */
+        for (int k = 0; k < 2; k++) { M.footL[k] = qinv(g_dq, sub(g_Ct[g_foot[k]].p, g_dp)); M.footQL[k] = qnorm(qmul(qconj(g_dq), g_Ct[g_foot[k]].q)); }
+        const V3 upC0 = norm(qinv(mq, v3(0.0f, 0.0f, 1.0f)));
+        M.hip0 = dot(sub(g_Ct[g_pelvis].p, mul(add(g_Ct[g_foot[0]].p, g_Ct[g_foot[1]].p), 0.5f)), upC0);
+        if (!(M.hip0 > 40.0f && M.hip0 < 115.0f)) M.hip0 = 80.0f;
+        M.hipRef = (M.crSeen && g_hipRideN >= 60 && g_hipRide > M.hip0) ? fminf(0.95f * g_hipRide, M.hip0 + 20.0f) : M.hip0; if (!(M.hipRef >= M.hip0)) M.hipRef = M.hip0;   /* (wallie 387) crouched at the start: the table's heights from the standing ride's (the drop-in's learnt one), reached by the contact */
+        M.capN = 1;
+        Log("wally 381: #%ld the body: the feet at %+.0f %+.0f and %+.0f %+.0f on the deck, the hips %.0f cm over them riding", M.n, M.footL[0].x, M.footL[0].y, M.footL[1].x, M.footL[1].y, M.hip0);
+    }
+    const float wIn = Sm01((float)((now - M.t0) / 0.08)), wOut = (M.ph == 6) ? 1.0f - Sm01((float)((now - M.tRel) / 0.22)) : !M.on ? 1.0f - Sm01((float)((now - g_wyFadeT) / 0.22)) : 1.0f, w = fminf(wIn, wOut);
+    if (!(w > 0.001f)) return false;
+    const float p = clampf(M.prog, 0.0f, 5.0f); const int i0 = (int)fminf(p, 4.0f);
+    float frac = WY_FRAC[i0] + (WY_FRAC[i0 + 1] - WY_FRAC[i0]) * (p - (float)i0);
+    const float bu = clampf(g_wyBodyUp, 0.0f, 1.5f);   /* (wallie 388) "always keep boosting his body up": 387 sank the hips to 0.60 of their riding height on the top (u387 poses: 41 of 69 cm over the feet, 50 cm under the game's own hips) */
+    frac = clampf(1.0f - clampf(g_wyCrouch, 0.0f, 1.5f) * (1.0f - frac) * fmaxf(1.0f - WY_BU_CROUCH * bu, 0.0f), 0.30f, 1.0f); M.frac = frac;
+    const V3 upC = norm(qinv(mq, v3(0.0f, 0.0f, 1.0f))), outC = norm(qinv(mq, M.w.N));
+    V3 Ft[2]; Q4 Fq[2];
+    for (int k = 0; k < 2; k++) { Ft[k] = lerp(g_Ct[g_foot[k]].p, add(g_dp, qrot(g_dq, M.footL[k])), w); Fq[k] = qslerpTo(g_Ct[g_foot[k]].q, qnorm(qmul(g_dq, M.footQL[k])), w); }
+    /* (wallie 386) THE FOOT ROCK -- the grabs' sole-edge roll (LegSearch's footFor). The user, 385: "you're going to have to do the whole foot
+       rock thing we do for the grabs ... we roll the feet so they're not perfectly flat on the board ... then the legs can more naturally [bend]
+       and his upper torso can stay vertical". Flat on a deck at +75 each ankle was rolled 75 deg about the foot's length (the shin fix turned
+       up to 23 deg, n.log 10568). Each foot is turned toward level about the deck's tilt axis, pivoting on its UPHILL sole edge -- pinned on
+       the deck, the other edge lifts off it, nothing goes into it: the front foot on its outer edge, the back on its inner (the Nose grab's
+       sides, RollFront -40 / RollBack +10) -- the uphill foot more. The place is pinned; the leg's rotations follow (Leg, the shin fix) */
+    float rockD[2] = { 0.0f, 0.0f }, tiltD = 0.0f;
+    {
+        const V3 upD = norm(qrot(g_dq, DeckN())); const float cu = clampf(dot(upD, upC), -1.0f, 1.0f); tiltD = acosf(cu) * 57.2957795f;
+        V3 ax = cross(upD, upC); const float axl = len(ax);
+        if (std::isfinite(tiltD) && tiltD > 3.0f && axl > 1.0e-3f && g_wyRock > 0.01f) {
+            ax = mul(ax, 1.0f / axl); const V3 dUp = norm(sub(upC, mul(upD, cu)));   /* uphill along the deck */
+            for (int k = 0; k < 2; k++) {
+                const bool hi = dot(sub(Ft[k], Ft[1 - k]), dUp) >= 0.0f;   /* the uphill foot (the front one with the nose up) */
+                const float deg = w * clampf(g_wyRock, 0.0f, 1.5f) * fminf((hi ? WY_ROCK_HI : WY_ROCK_LO) * tiltD, hi ? WY_ROCK_HI_MAX : WY_ROCK_LO_MAX);
+                if (!(deg > 0.2f)) continue;
+                V3 fw = (g_toe[k] >= 0) ? qrot(Fq[k], norm(g_Lt[g_toe[k]].p)) : v3(0.0f, 0.0f, 0.0f); fw = sub(fw, mul(upD, dot(fw, upD)));
+                const float along = (len(fw) > 0.2f) ? fabsf(dot(norm(fw), dUp)) : 0.0f;   /* a foot turned along the deck pivots farther out on its toe or heel */
+                const float hA = clampf(dot(M.footL[k], DeckN()), 4.0f, 14.0f);   /* the ankle over the deck, riding */
+                const V3 E = add(sub(Ft[k], mul(upD, hA)), mul(dUp, WY_ROCK_EDGE + 7.0f * along));   /* the sole's uphill edge: the pivot */
+                const Q4 R = qaxis(ax, deg); const V3 F2 = add(E, qrot(R, sub(Ft[k], E)));
+                if (!finite3(F2)) continue;
+                Ft[k] = F2; Fq[k] = qnorm(qmul(R, Fq[k])); rockD[k] = deg;
+                if (deg > M.rockMax[k]) M.rockMax[k] = deg;
+            }
+        }
+        if (std::isfinite(tiltD) && tiltD > M.tiltMax) M.tiltMax = tiltD;
+    }
+    float buSeat = 0.0f, buLen = 0.0f; int buFar = 0;
+    if (bu > 0.01f) {   /* (wallie 389) OfbSeat's seat done here, its 30 cm cap at WY_BU_SEATMAX: OfbSeat leaves a joint 30 cm or more out of the pelvis as the game drew it --
+           u388 #13 (poses.bin seg 16, poses 144 / 148): the right, then the left hip joint 30.2 / 30.5 cm out for a pose each (a torn hip flashed), the game's echo
+           25-30 cm out from the climb to the top (n8.log 3658-3666: "seated 0.0 cm" between 24.8 and 28.5); the one-foot balance's own seat and maxima untouched */
+        const float a = clampf(w * fminf(bu, 1.0f), 0.0f, 1.0f);
+        const bool pair = g_thigh[0] >= 0 && g_thigh[1] >= 0 && g_parent[g_thigh[0]] == g_pelvis && g_parent[g_thigh[1]] == g_pelvis && g_hipRefN[0] >= 30 && g_hipRefN[1] >= 30;
+        if (pair && dot(sub(g_Lt[g_thigh[0]].p, g_Lt[g_thigh[1]].p), sub(g_hipRef[0], g_hipRef[1])) > 0.0f)   /* (a mirrored pose left alone, as OfbSeat / LegOwnLength do) */
+            for (int sd = 0; sd < 2; sd++) {
+                const int th = g_thigh[sd]; const V3 cur = g_Lt[th].p; const float gap = len(sub(cur, g_hipRef[sd]));
+                if (!(gap > 0.3f) || !(gap < WY_BU_SEATMAX)) continue;
+                g_Lt[th].p = lerp(cur, g_hipRef[sd], a); CompOf(th, g_Lt, g_Ct); RebuildSub(th);
+                if (gap > buSeat) buSeat = gap;
+                if (gap >= 30.0f) buFar++;
+            }
+        if (g_spine1 >= 0 && g_spine1 != g_pelvis && g_parent[g_spine1] == g_pelvis && g_spRefN >= 30) {   /* spine_01 (the body above goes with it) */
+            const V3 cur = g_Lt[g_spine1].p; const float gap = len(sub(cur, g_spRef));
+            if (gap > 0.3f && gap < WY_BU_SEATMAX) {
+                g_Lt[g_spine1].p = lerp(cur, g_spRef, a); CompOf(g_spine1, g_Lt, g_Ct); RebuildSub(g_spine1);
+                if (gap > buSeat) buSeat = gap;
+                if (gap >= 30.0f) buFar++;
+            }
+        }
+        if (g_legRefOk) for (int sd = 0; sd < 2; sd++) {   /* the thigh and shin their own length (LegRefLearn's); the knee is solved again by Leg() */
+            const int th = g_thigh[sd], ca = g_calf[sd], ft = g_foot[sd];
+            if (th < 0 || ca < 0 || ft < 0 || g_legRef[sd][0] < 1.0f || g_legRef[sd][1] < 1.0f) continue;
+            const int bone[2] = { ca, ft }; bool fix = false;
+            for (int j = 0; j < 2; j++) {
+                const float cur = len(g_Lt[bone[j]].p), ref = g_legRef[sd][j];
+                if (cur > 1.0f && fabsf(cur - ref) > 0.3f) { g_Lt[bone[j]].p = mul(g_Lt[bone[j]].p, (cur + (ref - cur) * a) / cur); if (fabsf(cur - ref) > buLen) buLen = fabsf(cur - ref); fix = true; }
+            }
+            if (fix) RebuildSub(th);
+        }
+    }   /* (388r) the one-foot balance's maxima left as they were */   /* (wallie 388) the thighs and spine_01 back in their sockets, the thigh and shin their own length (the one-foot balance's seat): the game's own pose had the shins at 17-29 cm (41 their own) and 45.7, the hip joints up to 23 cm out of the pelvis, from the lip to the landing, and Leg() solved with what it found */
+    if (bu > 0.01f && g_hipRideN >= 60 && g_hipRide > M.hip0 && (M.crSeen || M.hip0 < WY_BU_CRREF * g_hipRide)) {   /* (wallie 389) the crouched start's standing reference
+           (387's, set on the first pose only) also for a crouch first seen at the contact or hips riding low: u388 #17 rode in at 49 cm (the standing ride 70),
+           the crouch taken at the contact -- on the top the drawn hips 43 cm over the feet, the game's 66-72, the knees 67-89; eased up WY_BU_REFSTEP a pose */
+        const float want = fminf(0.95f * g_hipRide, M.hip0 + 20.0f);
+        if (std::isfinite(want) && want > M.hipRef) M.hipRef = fminf(want, M.hipRef + WY_BU_REFSTEP);
+    }
+    const V3 mid = mul(add(Ft[0], Ft[1]), 0.5f);
+    const float hipH = (M.hip0 + (M.hipRef - M.hip0) * Sm01(p)) * frac;   /* (wallie 387) */
+    V3 Pt = add(mid, mul(upC, hipH));
+    float hipUp = 0.0f;
+    {   /* (wallie 386) the hips no closer over the HIGHER foot than WY_HIP_HI of its leg: at +75 the front foot sits 19 cm over the feet's middle,
+           the hips 0.70 x 57 cm over it -- the front ankle 20 cm under the hips, its leg folded flat ("his body still crumples"); the reach
+           clamp below still holds them to the lower foot */
+        const int hk = (dot(sub(Ft[0], Ft[1]), upC) >= 0.0f) ? 0 : 1;
+        const float hHi = dot(sub(Ft[hk], mid), upC);
+        const float Lh = len(sub(g_Ct[g_calf[hk]].p, g_Ct[g_thigh[hk]].p)) + len(sub(g_Ct[g_foot[hk]].p, g_Ct[g_calf[hk]].p));
+        const float need = (hHi + (WY_HIP_HI + WY_BU_HI * bu) * Lh - hipH) * Sm01((tiltD - 30.0f + WY_BU_RAMP * bu) / 30.0f);   /* (wallie 388) 0.60 of the leg with WallyBodyUp 1, from 15 deg */   /* (386r) only with the deck standing up: the top's crouch kept */
+        if (std::isfinite(need) && need > 0.0f) { hipUp = fminf(need, WY_HIP_UPMAX); Pt = add(Pt, mul(upC, hipUp)); if (w * hipUp > M.hipUpMax) M.hipUpMax = w * hipUp; }
+    }
+    float backS = 0.0f;
+    if (bu > 0.01f && g_wyHipsBack > 0.01f) {   /* (wallie 389) THE HIPS BACK OFF THE HIGHER FOOT: on the climb and the lip the lower leg was at its reach (knee 160) and the
+           higher folded to 49-70 deg (u388 poses: #13 seg 16, #22 seg 44; the 'wy body' knees 160/51..160/70 in every wallie's phases 2-3) -- the hips put horizontally
+           toward the lower foot till the higher one is WY_BU_BACK_D of its leg from its hip joint (knee about 90), WY_BU_BACK_MAX at most, from 15 deg of tilt, faded out past
+           75 (a board stood up: the feet one over the other, no room). A place pinned; the reach clamp below keeps the lower foot reached, Leg() and the shin fix follow.
+           The recording's poses replayed with it: the front knee +8..+17 deg, the hips' height -2..+2 cm */
+        const int hk = (dot(sub(Ft[0], Ft[1]), upC) >= 0.0f) ? 0 : 1, lo = 1 - hk;
+        const V3 dd = sub(Ft[lo], Ft[hk]); const V3 hz = sub(dd, mul(upC, dot(dd, upC))); const float hl = len(hz);
+        const float ramp = Sm01((tiltD - 15.0f) / 30.0f) * (1.0f - Sm01((tiltD - 75.0f) / 20.0f));
+        if (std::isfinite(tiltD) && std::isfinite(hl) && hl > 0.5f && ramp > 0.01f) {
+            const V3 u = mul(hz, 1.0f / hl);
+            const float side = clampf(2.0f * dot(u, outC), 0.0f, 1.0f);   /* (389r) the lower foot away from the face (the climb, the lip): OVER's nose-down, the back foot the higher one, left as 388 drew it (0 at level, where the ramp is 0 too) */
+            const V3 th = add(g_Ct[g_thigh[hk]].p, sub(Pt, g_Ct[g_pelvis].p)); const V3 dv = sub(Ft[hk], th);
+            const float Lh = len(sub(g_Ct[g_calf[hk]].p, g_Ct[g_thigh[hk]].p)) + len(sub(g_Ct[g_foot[hk]].p, g_Ct[g_calf[hk]].p));
+            const float D = WY_BU_BACK_D * Lh, du = dot(dv, u), disc = du * du - dot(dv, dv) + D * D;
+            if (std::isfinite(disc) && disc > 0.0f && dot(dv, dv) < D * D && side > 0.01f) {   /* (389r) only a higher leg folded past D */
+                const float s = clampf(du + sqrtf(disc), 0.0f, WY_BU_BACK_MAX) * ramp * side * clampf(g_wyHipsBack, 0.0f, 1.5f) * fminf(bu, 1.0f);
+                if (std::isfinite(s) && s > 0.05f) { backS = s; Pt = add(Pt, mul(u, s)); }
+            }
+        }
+    }
+    {   /* under the top the hips stay off the face (the reference's knees-to-the-chest: the body beside the wall, the board on it) */
+        const V3 Pw = add(mp, qrot(mq, mulv(Pt, ms)));
+        const float nP = dot(sub(Pw, M.w.F), M.w.N);
+        if (Pw.z < M.w.top + 20.0f && nP < WY_HIP_OUT && M.ph <= 3) Pt = add(Pt, mul(outC, (WY_HIP_OUT - nP) / fabsf(ms.x)));
+    }
+    Q4 Rp = q4(0.0f, 0.0f, 0.0f, 1.0f); float pelUp = 0.0f;
+    {   /* (wallie 388) "his upper torso can stay vertical": the game's own pose bends the trunk 54-61 deg over at the lip, the top and the nose-down
+           (its air and landing crouch) and the hips carry it -- the pelvis turned toward upright by its trunk's lean (pelvis to neck) past WY_BU_TOL;
+           (388r) decided before the reach clamp below, which measures the hip joints where this turn puts them; the legs keep their own turn (below) */
+        const int tb = (g_neck >= 0) ? g_neck : g_chest;
+        if (bu > 0.01f && tb >= 0 && tb != g_pelvis) {
+            const V3 tv = sub(g_Ct[tb].p, g_Ct[g_pelvis].p); const float tl = len(tv);
+            if (tl > 10.0f) {
+                const V3 tn = mul(tv, 1.0f / tl); const float a = acosf(clampf(dot(tn, upC), -1.0f, 1.0f)) * 57.2957795f; const V3 ax = cross(tn, upC); const float al = len(ax);
+                if (std::isfinite(a) && a > WY_BU_TOL && al > 1.0e-3f) {
+                    pelUp = w * fminf(bu, 1.0f) * fminf(WY_BU_PEL * (a - WY_BU_TOL), WY_BU_PELMAX);
+                    if (pelUp > 0.2f) Rp = qaxis(mul(ax, 1.0f / al), pelUp); else pelUp = 0.0f;
+                }
+            }
+        }
+    }
+    const V3 pel0 = g_Ct[g_pelvis].p; V3 Pf = lerp(pel0, Pt, w);
+    for (int pass = 0; pass < 2; pass++) for (int k = 0; k < 2; k++) {   /* no more than the legs reach: the hips drawn toward a foot they would miss */
+        const V3 th = (pelUp > 0.0f) ? add(Pf, qrot(Rp, sub(g_Ct[g_thigh[k]].p, pel0))) : add(g_Ct[g_thigh[k]].p, sub(Pf, pel0));   /* (388r) the hip joint where the pelvis turn puts it (0: 387's exactly) */
+        const float Lg = 0.985f * (len(sub(g_Ct[g_calf[k]].p, g_Ct[g_thigh[k]].p)) + len(sub(g_Ct[g_foot[k]].p, g_Ct[g_calf[k]].p)));
+        const V3 d = sub(Ft[k], th); const float dl = len(d);
+        if (dl > Lg && dl > 1.0f) Pf = add(Pf, mul(d, (dl - Lg) / dl));
+    }
+    if (!finite3(Pf)) return false;
+    const Q4 pq = (pelUp > 0.0f) ? qnorm(qmul(Rp, g_Ct[g_pelvis].q)) : g_Ct[g_pelvis].q;   /* (wallie 388) the place pinned (Pf), the legs solved after (the feet pinned) */
+    SetComp(g_pelvis, pq, Pf);
+    if (pelUp > 0.0f) for (int k = 0; k < 2; k++) TurnComp(g_thigh[k], qconj(Rp));   /* (388r) the thighs as the game turned them (the knees' way kept), at the turned pelvis's hip joints */
+    float upr = 0.0f;
+    if (g_spine1 >= 0 && g_chest >= 0 && g_chest != g_spine1 && p > 1.0f) {   /* (386r) by the plan's progress, not the phase: it fades with w after the end */   /* (wallie 386) the chest upright from the contact on ("his upper torso can stay vertical"); WallyLean's lean below, on top */
+        const V3 tv = sub(g_Ct[g_chest].p, g_Ct[g_spine1].p); const float tl = len(tv);
+        if (tl > 5.0f) {
+            const V3 tn = mul(tv, 1.0f / tl); const float a = acosf(clampf(dot(tn, upC), -1.0f, 1.0f)) * 57.2957795f; const V3 ax = cross(tn, upC); const float al = len(ax);
+            if (std::isfinite(a) && a > 2.0f && al > 1.0e-3f) {
+                upr = w * Sm01((p - 1.0f) / 0.4f) * fminf(WY_UPRIGHT * a, WY_UPRIGHT_MAX);
+                if (upr > 0.2f) { TurnComp(g_spine1, qaxis(mul(ax, 1.0f / al), upr)); if (upr > M.uprMax) M.uprMax = upr; } else upr = 0.0f;
+            }
+        }
+    }
+    if (g_spine1 >= 0 && g_wyLean > 0.5f) {   /* the chest over the board: a lean toward the wall as deep as the crouch */
+        V3 fwd = (len(M.Hw) > 0.5f) ? qinv(mq, M.Hw) : mul(outC, -1.0f);   /* (wallie 387) along the board's line */ fwd = sub(fwd, mul(upC, dot(fwd, upC)));
+        if (len(fwd) > 0.2f) { const V3 ax = norm(cross(upC, norm(fwd))); const float deg = w * clampf(g_wyLean, 0.0f, 40.0f) * clampf((1.0f - frac) / 0.68f, 0.0f, 1.0f); if (deg > 0.2f) TurnComp(g_spine1, qaxis(ax, deg)); }
+    }
+    for (int k = 0; k < 2; k++) { const float miss = Leg(k, Ft[k], Fq[k]); if (miss > M.legMiss[k]) M.legMiss[k] = miss; }
+    for (int s = 0; s < 2; s++) {   /* THE SHIN FIX (HopShinFix's loop): each shin turned the least way onto its line knee to ankle, the foot put back */
+        const int ca = g_calf[s], ft = g_foot[s];
+        if (g_shinAxN[s] < 30) continue;
+        const V3 sh = sub(g_Ct[ft].p, g_Ct[ca].p); const float sl = len(sh);
+        const V3 ax = qrot(qnorm(g_Ct[ca].q), g_shinAx[s]);
+        if (!(sl > 5.0f) || !finite3(ax) || !(len(ax) > 0.5f)) continue;
+        const V3 a0 = norm(ax), a1 = mul(sh, 1.0f / sl);
+        const float off = acosf(clampf(dot(a0, a1), -1.0f, 1.0f)) * 57.2957795f;
+        const V3 n = cross(a0, a1); const float nl = len(n);
+        if (!std::isfinite(off) || off <= HOP_SHIN_AIM_MIN || off >= SHIN_AIM_MAX2 + SHIN_AIM_FADE2 || !(nl > 1.0e-4f)) continue;
+        const float turn = off * clampf(3.0f * w, 0.0f, 1.0f) * clampf((SHIN_AIM_MAX2 + SHIN_AIM_FADE2 - off) / SHIN_AIM_FADE2, 0.0f, 1.0f);
+        if (!std::isfinite(turn) || !(turn > 0.01f)) continue;
+        const Q4 fq0 = g_Ct[ft].q; const V3 fp0 = g_Ct[ft].p;
+        TurnComp(ca, qaxis(mul(n, 1.0f / nl), turn)); ShinRoll(s, ca, ft, turn); SetComp(ft, fq0, fp0);
+        M.shinN++; if (turn > M.shinMax) M.shinMax = turn;
+    }
+    if (M.tr && (M.poses % 3) == 0 && InterlockedIncrement(&g_wyMvLogs) <= 2500)
+        Log("wy body #%ld | phase %d (%.2f) w %.2f | the hips %.2f of %.0f cm over the feet (moved %.0f), the legs short of the feet L %.1f R %.1f cm at most, shins turned %d times up to %.0f deg | (wallie 386) the deck %.0f deg off level: the feet rocked L %.0f R %.0f on their uphill edges, the hips %+.0f cm for the higher foot, the chest %.0f toward upright | (wallie 388) body up %.2f: the pelvis turned %.0f toward upright, the hip joints / spine_01 seated %.1f cm, the leg bones %.1f cm to their own (sockets %d %d, lengths %d), the shins %.1f %.1f cm, the knees %.0f %.0f deg | (wallie 389) far seats %d, the crouch's reference %.0f cm, the hips back %.1f cm", M.n, M.ph, M.prog, w, frac, M.hip0, len(sub(Pf, pel0)), M.legMiss[0], M.legMiss[1], M.shinN, M.shinMax, tiltD, rockD[0], rockD[1], hipUp, upr,
+            bu, pelUp, buSeat, buLen, g_hipRefN[0], g_hipRefN[1], (int)g_legRefOk, len(sub(g_Ct[g_foot[0]].p, g_Ct[g_calf[0]].p)), len(sub(g_Ct[g_foot[1]].p, g_Ct[g_calf[1]].p)),
+            acosf(clampf(dot(norm(sub(g_Ct[g_thigh[0]].p, g_Ct[g_calf[0]].p)), norm(sub(g_Ct[g_foot[0]].p, g_Ct[g_calf[0]].p))), -1.0f, 1.0f)) * 57.2957795f,
+            acosf(clampf(dot(norm(sub(g_Ct[g_thigh[1]].p, g_Ct[g_calf[1]].p)), norm(sub(g_Ct[g_foot[1]].p, g_Ct[g_calf[1]].p))), -1.0f, 1.0f)) * 57.2957795f,
+            buFar, M.hipRef, backS);
+    return true;
+}
+void WyStickHand() {   /* (wallie 387) a crouched wallie's sticks kept from the game, the contact to the landing: the game sees no crouch (no crank to let go: no ollie; no stick for its catch) */
+    WyMvT& M = g_wy;
+    if (!M.on || !M.stk || M.ph < 2 || NowS() - M.lastS > 0.25 || ReplayNow() != 0 || !g_pc || !PtrOk(g_pc, ALT_PC_STICKS + 16)) return;   /* (387r) only with a live tick */
+    float* s = (float*)((uint8_t*)g_pc + ALT_PC_STICKS);
+    s[0] = 0.0f; s[1] = 0.0f; s[2] = 0.0f; s[3] = 0.0f; M.stkN++;
+}
+void SafeWyStickHand() { __try { WyStickHand(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_wy.stk = 0; } }
+bool SafeWalyPose(void* mesh) {
+    __try { return WalyPose(mesh); }
+    __except (GrabFilter(GetExceptionCode())) { g_wy.capN = 0; static LONG n = 0; if (InterlockedIncrement(&n) <= 3) Log("wally 381: a fault drawing the body -- the game's pose kept"); return false; }
+}
+
+void SafeWyEnd(const char* why) { __try { WyEnd(why, false); } __except (EXCEPTION_EXECUTE_HANDLER) { g_wy.on = 0; g_wy.ph = 0; g_wyBt.w = 0.0f; g_wyOwnBa = 0; g_wyCgBlock = 0; } }   /* (no __try in WalySet: its std::string) */
+/* ---- the settings (nSet: E9) */
+bool WalySet(const std::string& k, double v) {
+    const bool fin = std::isfinite(v);
+    if (k == "wally") { const LONG o = (fin && v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_wyOn, o) != o) { Log("wally 381: %s (WallyOn)", o ? "ON -- ride straight at a wall 30-120 cm high (WallyLowestWall .. WallyMaxHeight): the tail goes down, the nose rides up the face, the board goes over (or onto) it" : "off"); if (o && (g_sigMode || !g_nuaOn)) Log("wally 381: ON, but it cannot run on this build: %s", g_sigMode ? "signature mode (another exe: its tick stands down while g_sigMode)" : "NativeUpdateAnimation is not hooked (its tick rides on that hook)"); } }   /* (382) the tick ends a running wally on the game's thread (the setter's thread raced it) */   /* (383) a stand-down said */
+    else if (k == "wyminh") g_wyMinH = fin ? clampf((float)v, 20.0f, 150.0f) : 30.0f;   /* (wally 385) WallyLowestWall, 30 (the user: "a nice one about knee height") */
+    else if (k == "wyunder") g_wyMaxUnder = fin ? clampf((float)v, 0.0f, 80.0f) : 20.0f;   /* (wally 385) WallyMaxUndercut */
+    else if (k == "wymaxh") g_wyMaxH = fin ? clampf((float)v, 40.0f, 200.0f) : 120.0f;
+    else if (k == "wyminsp") g_wyMinSp = fin ? clampf((float)v, 100.0f, 800.0f) : 250.0f;
+    else if (k == "wymaxsp") g_wyMaxSp = fin ? clampf((float)v, 300.0f, 2500.0f) : 1100.0f;
+    else if (k == "wyang") g_wyMaxAng = fin ? clampf((float)v, 5.0f, 70.0f) : 55.0f;   /* (wallie 387) WallyApproach 55 (386: WallyMaxAngle 25, clamped to 45 here: "I'm doing like a 45 and it's not letting me") */
+    else if (k == "wylead") g_wyLead = fin ? clampf((float)v, 0.12f, 0.8f) : 0.20f;   /* (wally 384) WallyLeadTime, 0.2: the tail down shortly before the face (383's 0.4 began it 2-3 m out) */
+    else if (k == "wytail") g_wyTailPitch = fin ? clampf((float)v, 10.0f, 45.0f) : 30.0f;
+    else if (k == "wytailpose") g_wyTail = (fin && v >= 0.5) ? 1 : 0;
+    else if (k == "wyclimb") g_wyClimb = fin ? clampf((float)v, 0.0f, 1.2f) : 0.0f;
+    else if (k == "wycrouch") g_wyCrouch = fin ? clampf((float)v, 0.0f, 1.5f) : 1.0f;
+    else if (k == "wylean") g_wyLean = fin ? clampf((float)v, 0.0f, 40.0f) : 15.0f;
+    else if (k == "wytrig") g_wyTrig = (fin && v >= 0.5) ? 1 : 0;
+    else if (k == "wyover") g_wyOverMax = fin ? clampf((float)v, 10.0f, 70.0f) : 60.0f;
+    else if (k == "wyrock") g_wyRock = fin ? clampf((float)v, 0.0f, 1.5f) : 1.0f;   /* (wallie 386) WallyFootRock */
+    else if (k == "wybodyup") g_wyBodyUp = fin ? clampf((float)v, 0.0f, 1.5f) : 1.0f;   /* (wallie 388) WallyBodyUp */
+    else if (k == "wyhipsback") g_wyHipsBack = fin ? clampf((float)v, 0.0f, 1.5f) : 1.0f;   /* (wallie 389) WallyHipsBack */
+    else if (k == "wycorner") g_wyCorners = (fin && v >= 0.5) ? 1 : 0;   /* (corner 388) WallyCorners */
+    else if (k == "wrcorner") g_wrCorners = (fin && v >= 0.5) ? 1 : 0;   /* (corner 388) WallRideCorners */
+    else if (k == "wrcornercm") g_wrCornerCm = fin ? clampf((float)v, 5.0f, 60.0f) : 30.0f;   /* (corner 388) WallRideCornerReach */
+    else if (k == "wrcornface") g_wrCornFace = fin ? clampf((float)v, 0.0f, 200.0f) : 70.0f;   /* (corner 389) WallRideCornerFace (0 = off) */
+    else if (k == "wytrace") g_wyTrace = (fin && v >= 0.5) ? 1 : 0;
+    else return false;
+    if (k != "wally") Log("wally 381: %s = %.2f", k.c_str(), v);
+    return true;
 }
 uintptr_t BsAddr(double d) { return (d > 65536.0 && d < 1.8e19) ? (uintptr_t)d : 0; }
 // ==== (bigdrop 302) THE BIG DROP LANDING (BigDropLanding / BigDropHeight; the note in v144/w70/bigdrop/mk_bigdrop_native.pl). The Lua hands
@@ -27600,7 +31070,32 @@ int nSet(const Lua& lua) {
         return 1;
     }
     if (k == "airwalk") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_awOn, o) != o) Log("airwalk: %s (Airwalk=%ld; aw 324)", o ? "ON -- in a Nose grab, A or X kicks the feet off the board, one out in front and one behind" : "off", (long)o); lua.set_integer(1); return 1; }   /* (aw 324) in front of the chain */
-    if (k == "awcount") { lua.set_integer((int)g_awN); return 1; }   /* (aw 326) the airwalks so far: the Lua names a Nose grab with one in it "Airwalk" */
+    if (k == "ofkeys") { g_ofKeys = (std::isfinite(v) && v >= 0.5) ? 1 : 0; Log("ofb 374: the judo air and the airwalk on %s (OneFootKeys %ld; 387: the one-foot catch has its own, OneFootCatchInput)", g_ofKeys ? "the STICK CLICKS: R3 as A, L3 as X" : "A and X", (long)g_ofKeys); lua.set_integer(1); return 1; }   /* (374) */
+    if (k == "slmaxh") { g_slMaxH = (std::isfinite(v)) ? (float)clampf((float)v, 5.0f, 40.0f) : 28.0f; Log("slappy 383: curbs up to %.0f cm high (SlappyMaxHeight)", g_slMaxH); lua.set_integer(1); return 1; }
+    if (k == "slmaxth") { g_slMaxTh = (std::isfinite(v)) ? (float)clampf((float)v, 10.0f, 80.0f) : 55.0f; Log("slappy 383: met at up to %.0f deg (SlappyMaxAngle)", g_slMaxTh); lua.set_integer(1); return 1; } if (k == "slstq") { g_stGhMode = !std::isfinite(v) ? 1 : (v >= 1.5) ? 2 : (v >= 0.5) ? 1 : 0; Log("slappy 383: SessionTweaks' grind feel through a slappy: %s (SlappyTweaksQuiet %ld)", g_stGhMode == 0 ? "left as its menu sets it" : g_stGhMode == 1 ? "held at 0 from the move to 0.25 s after the grind" : "held at 0 for the move, the grind's first moments and each change, and while one grind stick is let go", (long)g_stGhMode); lua.set_integer(1); return 1; } if (k == "slstqmask") { g_stGhMask = std::isfinite(v) ? ((LONG)v & 15) : 13; Log("slappy 383: SessionTweaks' switches held through a slappy:%s%s%s%s%s (SlappyTweaksQuietMask %ld)", (g_stGhMask & 1) ? " GrindRock" : "", (g_stGhMask & 2) ? " GrindLean" : "", (g_stGhMask & 4) ? " GrindPitchFix" : "", (g_stGhMask & 8) ? " GrindPopSwing" : "", g_stGhMask ? "" : " none", (long)g_stGhMask); lua.set_integer(1); return 1; } if (k == "slstqwin") { g_stGhWinMs = std::isfinite(v) ? (LONG)clampf((float)v, 100.0f, 2000.0f) : 400; Log("slappy 383: SlappyTweaksQuiet 2's window %ld ms", (long)g_stGhWinMs); lua.set_integer(1); return 1; }   /* (383) */
+    if (k == "slpick") { const LONG o = (!std::isfinite(v) || v >= 0.5) ? 1 : 0; InterlockedExchange(&g_slPick, o); Log("slappy 384: the first grind %s (SlappyPick %ld)", o ? "FROM THE STICKS: back stick down 5-0, front down nosegrind, one down + one up 50-50, a stick tilted 55-72 deg crooked (its end toward the curb: the front's) / overcrook (the back's toward the curb, the front's away)" : "the 50-50, the game's change from the sticks after its settle (as 383)", (long)o); lua.set_integer(1); return 1; }   /* (slappy 384) SlappyPick */
+    if (k == "sloncurb") { g_slOnCurb = std::isfinite(v) ? clampf((float)v, 50.0f, 90.0f) : 70.0f; Log("slappy 385: %.0f%% of the trucks on the curb's top, on the way in and held in the grind (SlappyOnCurb; 50 = their middle on the edge)", g_slOnCurb); lua.set_integer(1); return 1; }   /* (slappy 385) SlappyOnCurb */
+    if (k == "slnoslide") { const LONG o = (!std::isfinite(v) || v >= 0.5) ? 1 : 0; InterlockedExchange(&g_slNoSlide, o); Log("slappy 385: the game's powerslide %s (SlappyNoSlide %ld)", o ? "HELD OFF riding at a curb a slappy can take and through its move (a crook's tilted stick)" : "left to the game at curbs", (long)o); lua.set_integer(1); return 1; }   /* (slappy 385) SlappyNoSlide */
+    if (k == "slckmir") { const LONG o = (!std::isfinite(v) || v >= 0.5) ? 1 : 0; InterlockedExchange(&g_slCkMir, o); Log("slappy 387: the game's mirrored crook picks in a slappy grind %s (SlappyCrookMirror %ld)", o ? "answered by their shape (its Overcrook = a Crooked, its Crooked = an Overcrook)" : "answered by their own names (386)", o); lua.set_integer(1); return 1; }   /* (slappy 387) SlappyCrookMirror */
+    if (k == "slckyaw") { g_slCrookYaw = std::isfinite(v) ? clampf((float)v, 0.0f, 45.0f) : 30.0f; Log("slappy 386: a crooked / overcrook slappy turned %.0f deg off the curb on the way in (SlappyCrookYaw%s)", g_slCrookYaw, g_slCrookYaw < 0.5f ? ": 0 = straight on, as 385" : ""); lua.set_integer(1); return 1; }   /* (slappy 386) SlappyCrookYaw */
+    if (k == "slfeet") { const LONG o = (!std::isfinite(v) || v >= 0.5) ? 1 : 0; InterlockedExchange(&g_slFeet, o); Log("slappy 386: the grinding foot %s (SlappyFeetOnTruck %ld)", o ? "drawn in over its truck in a slappy 5-0 / nosegrind / crook" : "left where the game puts it", (long)o); lua.set_integer(1); return 1; }   /* (slappy 386) SlappyFeetOnTruck */
+    if (k == "slinset") { g_slInset = std::isfinite(v) ? clampf((float)v, 0.0f, 8.0f) : 3.0f; Log("slappy 384: the trucks' middle %.1f cm in from the curb's edge, on the way in and held in the grind (SlappyInset; 383: 1 on the way in, 0 in the grind)", g_slInset); lua.set_integer(1); return 1; }   /* (slappy 384) SlappyInset */
+    if (k == "ofbbtn") { g_ofbBtnMode = (std::isfinite(v) && v >= 0.5) ? 1 : 0; Log("ofb 371: A / X in a trick's air catch and land on one foot (held until the other button; no push meanwhile) -- %s (OneFootButtons %ld)", g_ofbBtnMode ? "A the FRONT foot up, X the BACK, whatever the stance" : "A the RIGHT foot up, X the LEFT", (long)g_ofbBtnMode); lua.set_integer(1); return 1; }   /* (ofb 368) */
+    if (k == "ofbin") {   /* (ofb 387) OneFootCatchInput */
+        LONG o = !std::isfinite(v) ? 1 : (v >= 2.5) ? 3 : (v >= 1.5) ? 2 : (v >= 0.5) ? 1 : 0; if (g_ofbClickDead) o &= 1;   /* (387r) a fault keeps the clicks the game's */
+        InterlockedExchange(&g_ofbIn, o); Log("ofb 387: the one-foot catch on %s (OneFootCatchInput %ld)", o == 3 ? "A / X AND the stick clicks L3 / R3" : o == 2 ? "the STICK CLICKS L3 / R3 (A and X do not catch)" : o == 1 ? "A / X (the clicks are not looked at)" : "nothing: OFF", (long)o);
+        if (!o) { if (g_ofb.auto_) g_ofb.endReq = 1; else if (g_ofb.armBit) { g_ofb.armBit = 0; g_ofb.catchN = 0; } }
+        lua.set_integer(1); return 1;
+    }
+    if (k == "ofbstand") { const LONG o = (!std::isfinite(v) || v >= 0.5) ? 1 : 0; InterlockedExchange(&g_ofbStand, o); Log("ofb 387: a stick click's one-foot catch -- %s (OneFootClickStand %ld)", o ? "you stand on the clicked stick's foot, the other comes up" : "the clicked stick's foot comes up", (long)o); lua.set_integer(1); return 1; }   /* (ofb 387) */
+    if (k == "ofsole") { const LONG o = (!std::isfinite(v) || v >= 0.5) ? 1 : 0; InterlockedExchange(&g_ofSole, o); Log("ofb 387: one-foot standing sole -- %s (OneFootSole %ld)", o ? "held flat ON the deck in the air and after the landing, at the riding height of the foot that rides on the deck's flat (needs OneFootPlant 1)" : "386's: eased back to the game's own after the landing", (long)o); lua.set_integer(1); return 1; }   /* (387) */
+    if (k == "ofsplay") { g_ofSplay = std::isfinite(v) ? clampf((float)v, 0.0f, 20.0f) : 7.0f; Log("ofb 387: one-foot A-frame -- the lifted leg turned out at the hip up to %.0f deg, until the legs stand %.0f deg apart (OneFootSplay; 0 = 386's)", (double)g_ofSplay, 3.0 * g_ofSplay); lua.set_integer(1); return 1; }   /* (387) */
+    if (k == "ofbal") { const LONG o = (std::isfinite(v) && v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_ofBal, o) != o || !o) Log("ofb 386: one-foot balance -- %s (OneFootBalance %ld)", o ? "the trunk upright along the board, the hips placed so the body's mass is over the standing foot (needs OneFootHips 1 or 2)" : "385's: the hips moved with the foot", (long)o); lua.set_integer(1); return 1; }   /* (386) */
+    if (k == "ofhips") { g_ofHips = !std::isfinite(v) ? 1 : (v >= 1.5) ? 2 : (v >= 0.5) ? 1 : 0; Log("ofb 384: one-foot hips -- %s (OneFootHips %ld)", g_ofHips == 2 ? "the hip joints back in the pelvis, the legs their own length, the pelvis over the standing foot, no learning from one-foot poses" : g_ofHips ? "the hip joints back in the pelvis, the legs their own length, no learning from one-foot poses (the hips move with the foot, 383's)" : "383's", (long)g_ofHips); lua.set_integer(1); return 1; }   /* (384) */
+    if (k == "ofb") { const LONG m = (std::isfinite(v) && v >= 0.5) ? (LONG)clampf((float)v, 0.0f, 3.0f) : 0; g_ofbMode = m; lua.set_integer(1); return 1; }   /* (ofb 367) the F8 test */
+    if (k == "ofbplant") { const LONG o = (std::isfinite(v) && v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_ofbPlant, o) != o || !o) Log("ofb 384: the one-foot catch's standing foot %s (OneFootPlant %ld)", o ? "kept on the deck through the air (its riding height, its sole flat), eased to the game's own over 0.3 s after the touchdown" : "as the game draws it (383)", (long)o); lua.set_integer(1); return 1; }   /* (ofb 384) */
+    if (k == "jdcount") { lua.set_integer((int)g_jdN); return 1; }   /* (judo 367) the judo airs so far */
+    if (k == "awcount") { lua.set_integer((int)g_awUpN); return 1; }   /* (judo 369) the airwalks proper (both feet) */   /* (aw 326) the airwalks so far: the Lua names a Nose grab with one in it "Airwalk" */
     if (k == "awspeed") { g_awSp = std::isfinite(v) ? clampf((float)v / 100.0f, 0.2f, 1.5f) : 0.8f; lua.set_integer(1); return 1; }   /* (aw 331) AirwalkSpeed */
     if (k == "awpitch") { g_awPitch = std::isfinite(v) ? clampf((float)v, 0.0f, 85.0f) : 75.0f; lua.set_integer(1); return 1; }   /* (aw 325) AirwalkRocket */
     if (k == "awkick" || k == "awdrop") { const float c = std::isfinite(v) ? clampf((float)v, 0.0f, 60.0f) : (k == "awkick" ? 30.0f : 10.0f); if (k == "awkick") g_awKick = c; else g_awDrop = c; lua.set_integer(1); return 1; }   /* (aw 324) */
@@ -27613,6 +31108,19 @@ int nSet(const Lua& lua) {
     if (k == "bigdrop" || k == "bigdropcm") { lua.set_integer(BdSet(k == "bigdrop" ? 0 : 1, v)); return 1; }   /* (bigdrop 302) in front of the chain */
     if (k == "heelon") { lua.set_integer((NowS() - g_hsBActT < 1.5) ? 1 : 0); return 1; }   /* (tsname 339) a B tail stop now or 1.5 s ago */
     if (k == "heelman") { HsSet(5, v); lua.set_integer(1); return 1; }   /* (mode 338) */
+    if (k == "ncshovedef") { const uintptr_t d = (std::isfinite(v) && v > 0.0) ? (uintptr_t)v : 0; if (d != g_ncs.ncDef) Log("ncshove 345: %s", d ? "ON -- a regular shove-it with the other stick held down plays the no comply's animation" : "off"); g_ncs.ncDef = d; if (!d) { g_ncs.active = 0; g_ncsSwNc = 0; } lua.set_integer(1); return 1; }
+    if (k == "ncnose") { const int p = (std::isfinite(v)) ? (int)clampf((float)v, 0.0f, 200.0f) : 100; if (p != g_ncs.nosePct) Log("ncshove 353: the no comply's nose pop %d %% of the clip's own board angle%s", p, p ? "" : " -- off (the game's pitch)"); g_ncs.nosePct = p; lua.set_integer(1); return 1; }
+    if (k == "ncbodylift") { g_ncsBodyLift = std::isfinite(v) ? clampf((float)v, 0.0f, 40.0f) : 15.0f; Log("ncshove 370: NoComplyBodyLift %.1f: the drawn body lifted with the feet pinned from the plant foot's leave; in a shove-it the board's target lowered by it (+8)", g_ncsBodyLift); lua.set_integer(1); return 1; }
+    if (k == "ncswbf") { g_ncsBfMidSw = std::isfinite(v) ? clampf((float)v, 10.0f, 45.0f) : 28.0f; Log("ncshove 384: a SWITCH shove-it's back foot held %.0f cm over the deck's middle after the pop, straight up (NoComplySwitchShoveFoot; regular: %.0f, capped 24 over the scoop's place)", g_ncsBfMidSw, NCS_BF_MID); lua.set_integer(1); return 1; }
+    if (k == "ncsplantfloor") { g_ncsPfMode = !std::isfinite(v) ? 1 : (v >= 1.5) ? 2 : (v >= 0.5) ? 1 : 0; Log("ncshove 384: the shove-it's plant foot kept on top of the spun deck: %s (NoComplyShovePlantFloor %ld)", g_ncsPfMode == 0 ? "off" : g_ncsPfMode == 1 ? "switch shove-its" : "every shove-it", (long)g_ncsPfMode); lua.set_integer(1); return 1; }
+    if (k == "ncletdown") { g_ncsLetDown = std::isfinite(v) ? clampf((float)v, 0.10f, 0.40f) : 0.26f; Log("ncshove 384: the no comply's body lift let down over %.2f s, done 0.40 s after the plant foot's leave (NoComplyLetDown; 383: 0.20)", g_ncsLetDown); lua.set_integer(1); return 1; }
+    if (k == "ncbacklift") { g_ncs.backLift = std::isfinite(v) ? clampf((float)v, 0.0f, 30.0f) : 8.0f; Log("ncshove 354: the no comply's back foot lifted %.1f cm at the pop's top", g_ncs.backLift); lua.set_integer(1); return 1; }
+    if (k == "slappypull") { g_sl.pull = std::isfinite(v) ? clampf((float)v, 0.0f, 400.0f) : 120.0f; Log("slappy 356: the pull toward the curb %.0f cm/s", g_sl.pull); lua.set_integer(1); return 1; }
+    if (WalySet(k, v)) { lua.set_integer(1); return 1; }   /* (wally 381) */
+    if (k == "slappy") { const LONG o = (v >= 0.5) ? 1 : 0; if (o != g_sl.on) Log("slappy 383: %s", o ? "ON -- ride at a low curb (5-40 cm) holding one stick down and the other up (the 50-50's sticks) or in the middle (the crouch): the tail dips, the nose rides up onto the curb's edge, the tail fishtails in, and the game's grind there is the 50-50" : "off"); g_sl.on = o; lua.set_integer(1); return 1; }
+    if (k == "ncsfree") { lua.set_integer(g_ncsFree ? 1 : 0); return 1; }   /* (ncshove 360) the Lua leaves the foot IK on */
+    if (k == "ncspin") { lua.set_integer((int)g_ncs.sN); return 1; }   /* (ncshove 356) the shoves so far: the Lua renames the trick */
+    if (k == "ncsstate") { lua.set_integer(g_ncs.active ? (int)g_ncs.n : 0); return 1; }   /* (ncshove 345) */
     if (k == "heelbtn") { HsSet(4, v); lua.set_integer(1); return 1; }   /* (bstop 335) HeelStopButton */
     if (k == "heelstop" || k == "heeldecel" || k == "heelanim" || k == "heelsound") { HsSet(k == "heelstop" ? 0 : k == "heeldecel" ? 1 : k == "heelanim" ? 2 : 3, v); lua.set_integer(1); return 1; }   /* (heelstop 299) in front of the chain */
     if (k == "altnostallslide") { const LONG o = (v >= 0.5) ? 1 : 0; if (InterlockedExchange(&g_asNsSlide, o) != o) Log("alt stalls: the no stall %s (AltNoStallSlide=%ld)", o ? "INTO THE GAME'S OWN NOSE SLIDE: caught at the lip by the stall's own hold (no turn), its leading wheels put on the coping top, then the game's ground grind check opened and the grind it begins taken as GRIND_FS_Noseslide, held there by the lock -- before the drop-in hand-over; the game owns the pop / flip-out (forcegrind 287, lockgrind3 290)" : "as build 286", (long)o); lua.set_integer(1); return 1; }   /* (forcegrind 287) AltNoStallSlide, in front of the chain (C1061) */
@@ -27684,8 +31192,8 @@ int nSet(const Lua& lua) {
         lua.set_integer(1);
         return 1;
     }
-    if (k == "hopkeep" || k == "headup" || k == "headturn") {    // (v115) in front of the chain too
-        if (k == "headup") g_headUp = std::isfinite(v) ? clampf((float)v, 0.0f, 100.0f) : 0.0f;          //   deg the head is raised in a grab, at the most (the note at HeadUp)
+    if (k == "hopkeep" || k == "headup" || k == "headturn" || k == "headease" || k == "headrate" || k == "grabeasein" || k == "grabeaseout" || k == "headhold" || k == "headout" || k == "headsteady") {    // (v115) in front of the chain too; (383) the head's ease and the grab's
+        if (k == "headhold") g_htHold = std::isfinite(v) ? clampf((float)v, 0.0f, 2.0f) : 0.0f; else if (k == "headout") g_htOut = std::isfinite(v) ? clampf((float)v, 0.0f, 2.0f) : 0.0f; else if (k == "headsteady") g_headAbs = (std::isfinite(v) && v >= 0.5) ? 1 : 0; else if (k == "headease") g_headEase = std::isfinite(v) ? clampf((float)v, 0.0f, 1.0f) : 0.0f; else if (k == "headrate") g_headRate = std::isfinite(v) ? clampf((float)v, 10.0f, 1000.0f) : 200.0f; else if (k == "grabeasein") g_geIn = std::isfinite(v) ? clampf((float)v, 0.0f, 1.0f) : 0.0f; else if (k == "grabeaseout") g_geOut = std::isfinite(v) ? clampf((float)v, 0.0f, 1.0f) : 0.0f; else if (k == "headup") g_headUp = std::isfinite(v) ? clampf((float)v, 0.0f, 100.0f) : 0.0f;          //   deg the head is raised in a grab, at the most (the note at HeadUp)
         else if (k == "headturn") g_headTurn = std::isfinite(v) ? clampf((float)v, 0.0f, 100.0f) : 0.0f; //   deg it is turned toward the way of travel, at the most
         else if (!std::isfinite(v) || v == 0) HopKeepOff();                                              //   hopkeep 0: off
         else if (v > 0) g_hkTrackUntil = GetTickCount64() + (ULONGLONG)(clampf((float)v, 0.0f, 2.0f) * 1000.0f);   //   s > 0: a hop is in the air for that long yet -- its heading is followed
@@ -27906,6 +31414,10 @@ int nSet(const Lua& lua) {
     else if (k == "bumpermask") g_bumpMaskUntil = (v > 0 && g_xiUser >= 0) ? GetTickCount64() + (ULONGLONG)(v * 1000.0) : 0;   // (v68) seconds RB is kept from the game (only with an XInput pad to read it from)
     else if (k == "offboard") g_offBoard = v != 0 ? 1 : 0;       // (v84)
     else if (k == "bail") g_bail = v != 0 ? 1 : 0;               // (v63)
+    else if (k == "slclack") { InterlockedExchange(&g_slClack, (std::isfinite(v) && v >= 1.5) ? 2 : (std::isfinite(v) && v >= 0.5) ? 1 : 0); Log("slappy 399: the slappy's hit on the curb %s (SlappyClack %ld)", g_slClack ? "played, once a slappy" : "the game's own", (long)g_slClack); }   // (399)
+    else if (k == "slswitch") { InterlockedExchange(&g_slSwitch, (std::isfinite(v) && v >= 0.5) ? 1 : 0); Log("slappy 394: slappies in fakie / switch %s (SlappySwitch)", g_slSwitch ? "ON" : "off"); }   // (394)
+    else if (k == "slnolip") { InterlockedExchange(&g_slNoLip, (std::isfinite(v) && v >= 0.5) ? 1 : 0); Log("slappy 393: the anim's lip-trick flag %s in a slappy grind (SlappyAnimFix)", g_slNoLip ? "held 0" : "left to the game"); }   // (393)
+    else if (k == "pdgrind") { InterlockedExchange(&g_pdGrindOn, (std::isfinite(v) && v >= 0.5) ? 1 : 0); Log("pose dump: grinds %s (RecordGrinds)", g_pdGrindOn ? "recorded too" : "not recorded"); }   // (391)
     else if (k == "posedump") PdSwitch(v != 0);                    // (v94) 1 = every trick's poses to ExpandedTricks.poses.bin (the default), 0 = off
     else if (k == "grindgrabs") { lua.set_integer(GrindLean(v != 0)); return 1; }   /* (v169) GrindGrabs: 1 = the game's bumper lean-out of a grind off, 0 = back */
     else if (k == "handaim") g_handAim = (int)v;
@@ -28124,5 +31636,5 @@ void UpdExtras(const std::string& t) {
 #define HJN_API __declspec(dllexport)
 extern "C" {
 HJN_API RC::CppUserModBase* start_mod() { return new HippieNative(); }
-HJN_API void uninstall_mod(RC::CppUserModBase* m) { delete m; }
+HJN_API void uninstall_mod(RC::CppUserModBase* m) { SafeStGhGiveBack(); delete m; }
 }

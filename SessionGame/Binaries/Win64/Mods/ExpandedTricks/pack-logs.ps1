@@ -4,6 +4,9 @@
 # again with your settings), and a short note of what is installed. The zip is kept under 8 MB so it goes through
 # Discord: it holds the NEWEST part of every log. The skeleton of your newest tricks goes in too
 # (ExpandedTricks.poses.bin: the mod records it unless RecordPoses=0 in ExpandedTricks.ini).
+# Crash reports go in too: the game's newest ones from the last 14 days (%LOCALAPPDATA%\SessionGame\Saved\Crashes:
+# where it crashed, and a small memory dump), under crashes\. UE4SS's own crash dumps beside the exe and Windows' are
+# too big for Discord; about.txt lists them with their times, so you can be asked for one.
 # What did not fit is not thrown away: the next older part of the logs goes into a second zip, and the part before
 # that into a third (...-older-2.zip, ...-older-3.zip; three files at most). Send the first one; keep the others in
 # case you are asked for more.
@@ -205,6 +208,42 @@ for ($part = 1; $part -le $MaxParts; $part++) {
                 }
                 if ($got.Count -eq 0) { Remove-Item -LiteralPath $gs -Recurse -Force -ErrorAction SilentlyContinue; $about.Add("the game's settings files were not found under " + $gameSaved) }
                 else { $about.Add("game-settings: " + ($got -join ', ') + " (from " + $gameSaved + ")") }
+                # crash reports: the game's newest (14 days), fewer on each try; the big dumps only listed
+                $crashMax = @(3, 2, 1, 1)[$try]
+                $since = (Get-Date).AddDays(-14)
+                try {
+                    $cdir = Join-Path $gameSaved 'Crashes'
+                    $cr = @()
+                    if (Test-Path -LiteralPath $cdir) { $cr = @(Get-ChildItem -LiteralPath $cdir -Directory | Where-Object { $_.LastWriteTime -ge $since } | Sort-Object LastWriteTime -Descending) }
+                    if ($cr.Count -eq 0) { $about.Add("crash reports: none from the game in the last 14 days") }
+                    else {
+                        $about.Add(("crash reports: {0} from the game in the last 14 days, newest first:" -f $cr.Count))
+                        $n = 0
+                        foreach ($c in $cr) {
+                            $line = "  " + $c.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss') + "  " + $c.Name
+                            if ($n -lt $crashMax) {
+                                $to = Join-Path $tmp ('crashes\' + $c.LastWriteTime.ToString('yyyyMMdd-HHmmss'))
+                                New-Item -ItemType Directory -Path $to -Force | Out-Null
+                                $in = New-Object System.Collections.Generic.List[string]
+                                foreach ($f in (Get-ChildItem -LiteralPath $c.FullName -File)) {
+                                    try { if (Copy-Small $f.FullName (Join-Path $to $f.Name)) { $in.Add($f.Name) } else { $in.Add($f.Name + " (too big, left out)") } } catch { $in.Add($f.Name + " (could not read)") }
+                                }
+                                $line += "  -> crashes\" + (Split-Path -Leaf $to) + ": " + ($in -join ', ')
+                                $n++
+                            }
+                            $about.Add($line)
+                        }
+                    }
+                    foreach ($d in @(@{ dir = $win64; pat = 'crash_*.dmp'; who = "UE4SS's crash dumps beside the exe" },
+                                     @{ dir = (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'CrashDumps'); pat = 'SessionGame*.dmp'; who = "Windows' crash dumps" })) {
+                        if (-not (Test-Path -LiteralPath $d.dir)) { continue }
+                        $big = @(Get-ChildItem -LiteralPath $d.dir -Filter $d.pat -File | Where-Object { $_.LastWriteTime -ge $since } | Sort-Object LastWriteTime -Descending)
+                        if ($big.Count -gt 0) {
+                            $about.Add(("{0} (last 14 days, not packed: too big; send one only if asked):" -f $d.who))
+                            foreach ($b in ($big | Select-Object -First 10)) { $about.Add(("  {0}  {1}  {2:N1} MB" -f $b.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'), $b.FullName, ($b.Length / 1MB))) }
+                        }
+                    }
+                } catch { $about.Add("could not read the crash reports: " + $_.Exception.Message) }
                 # what is installed
                 $about.Add("Expanded Tricks log pack, " + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
                 $about.Add("Windows: " + [Environment]::OSVersion.VersionString)

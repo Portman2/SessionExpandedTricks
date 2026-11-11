@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.4.0 -- slappies, the no comply shove-it, the judo air
+Lua build 399, native v295. A 1.x install with *Automatic updates* at 2 installs it by itself at its next start, pictures included.
+
+- **Slappies** (new; General gameplay page, *Slappies*). Ride at a low curb (up to 28 cm high, met at up to 55 degrees)
+  holding a grind's sticks, or crouched. The nose rides up onto the edge, the back truck follows, and you lock into the
+  grind on the curb, with the truck's hit on the curb's edge. The sticks you hold pick the grind: one down and the
+  other up for a 50-50, the back-foot stick alone for a 5-0, the front-foot stick alone for a nosegrind, a stick tilted
+  sideways for a crooked grind. From there the game's own grind sticks and triggers change the grind, with the game's
+  own grind animation; turn the board far enough off the curb with the triggers and it goes into the game's slide, as
+  in an ollied-on grind. Regular, nollie, fakie and switch. The trick display says *Frontside Slappy* or *Backside
+  Slappy*. *Highest curb*, *Steepest approach*, *Grind from the sticks* and *Onto the curb* sit under it.
+- **No comply shove-it** (new; No Comply page, *No comply shove-it*). Do a no comply, then scoop either stick round in
+  the air: the board spins a shove-it under you while your feet do the no comply. Regular and switch. Every no comply's
+  nose now pops with its animation, your body rises with the plant, and the back foot clears the spinning board.
+- **Judo Air** (new; Grabs page, under *Airwalk*). In a one-hand Nose grab press **A** or **X**: your front foot kicks out
+  and the back foot stays on the board. Press the other one too and it becomes the airwalk. *Buttons* under *Airwalk*:
+  A and X, or the stick clicks (R3 does what A does, L3 what X does).
+- **Dolphin flip:** every other dolphin turned its half flip the heelflip's way and looked like a porpoise flip. It
+  flips your kickflip's way every time now.
+- **Tail stop on B:** pressed in the air it now waits for the landing; held through it, you land in the tail stop.
+  Before, the game took that press as its foot drag.
+- **Grabs:** a grab comes in and lets go on a smooth curve, and the head's aim in a grab is eased and steadier (no more
+  whipping head in front-hand grabs off flat ground); it keeps its aim a moment after the landing.
+- **Side slide:** the tail stop's side-slide guard is back to its 1.2.x strength (slow stops slid sideways on 1.3.0).
+- **Steam:** everything new runs on Steam's exe too: slappies find the game's grind functions by signature (they stand
+  down as a whole, with a line in the log, if any is missing).
+- **Trick Guide pictures:** *Other tricks* adds the no comply shove-it and the slappy; *Grabs* adds the judo air.
+- **Log packer:** `pack-logs.bat` also packs the game's newest crash reports (from the last 14 days).
+- **Settings file:** `Experimental=1` shows rows that are still being worked on. They are off and out of the menu as
+  the mod ships.
+
+### Build by build
+- Builds 344-399, native v240-v295: the side slide guard (344); the no comply shove-it (345-354, 356-362, 364-379,
+  383-385); slappies (355-399: the game's own grind animation in a slappy grind, 393; fakie and switch, 397; Steam and
+  the turned slappy grind, 398; the hit on the curb, 399); the judo air (367-387); grab ease and head aim (383-384); the
+  dolphin flip's half flip (388); the release's settings pass and the Steam audit (391-392); the tail stop's B in the
+  air (395).
+
 ## 1.3.0 -- the airwalk, the tail stop on B, a big drop landing that comes and goes, Steam fixes
 Lua build 343, native v239. A 1.0.0, 1.1.x or 1.2.x install with *Automatic updates* at 2 installs it by itself at its next start, pictures included.
 
