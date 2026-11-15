@@ -51,7 +51,7 @@
 -- ============================================================================
 
 ------------------------------------------------------------------- settings
-local MOD_VERSION = "1.4.0"               -- (v121) the release version (the Lua and native halves keep their own build numbers)
+local MOD_VERSION = "1.5.0"               -- (v121) the release version (the Lua and native halves keep their own build numbers)
 local S = {
     Height = 60.0,
     GameGravity   = 1,
@@ -110,10 +110,16 @@ local S = {
     SlappyFeetOnTruck = 0,                 -- (slappy 386) 1 = in a slappy 5-0 / nosegrind / crook the grinding foot is drawn in over its truck
     SlappyCrookMirror = 1,                 -- (slappy 387) 1 = the game's mirrored crook picks in a slappy grind named by their shape (its Overcrook = a Crooked)
     SlappyTweaksQuiet = 1, SlappyTweaksQuietMask = 13, SlappyTweaksQuietWindow = 400,   -- (slappy 383) SessionTweaks' grind rock / pitch fix / pop swing held off through a slappy (0 off, 1 the whole grind, 2 its first moments) | 1 rock 2 lean 4 pitch fix 8 pop swing | ms
-    OneFootKeys = 0,                       -- (ofb 374) 0 = A / X, 1 = the stick clicks (R3 as A, L3 as X) for the judo air and the airwalk ((387) the one-foot catch: OneFootCatchInput)
+    OneFootToeAngle = 35,                  -- (408) the one-foot catch's standing foot: degrees off the board's long axis (90 = across, as before 407; 407's OneFootAngle retired)
+    OneFootHipTurn = 45,                   -- (408) the one-foot catch: degrees the hips turn toward the standing foot's way (as pushing); (ofb 411) the X catch (the back foot up, standing on the front foot)
+    OneFootBackHipTurn = 60,               -- (ofb 413) the A catch (the front foot up, standing on the BACK foot): degrees the hips turn from PARALLEL to the board toward the nose (0 = parallel, 411-412's OneFootHipTurnBack 0; 90 = square to the nose)
+    OneFootPlumb = 1,                      -- (ofb 411) the one-foot catch: 1 = the standing leg straight up under the hip (its hip joint over its ankle), 0 = 410's
+    AirwalkButtons = 1,                    -- (rel 414) 1 = the stick clicks (R3 as A, L3 as X) for the judo air, the airwalk and the Benihana, 0 = A / X (OneFootKeys, default 0, retired; the one-foot catch: OneFootCatchInput)
     OneFootPlant = 1,                      -- (ofb 384) 1 = the one-foot catch's standing foot kept on the deck through the air (its riding height, its sole flat); 0 = as the game draws it
     OneFootSole = 1,                       -- (ofb 387) 1 = the one-foot catch's standing foot held flat ON the deck after the landing too (the riding sole and height of the foot on the deck's flat); 0 = 386's (eased back to the game's own after the landing)
     OneFootSplay = 7,                      -- (ofb 387) degrees the lifted leg is turned out at the hip, away from the standing leg (an A-frame; less once the legs stand three times that apart); 0 = 386's
+    OneFootHangOut = 20,                   -- (ofb 411) degrees (at least) the hanging leg's knee points out from the hips' forward, away from the standing leg (410 had it 15-18 in: the knees met); 0 = 410's
+    OneFootDangle = 25,                    -- (ofb 411) degrees the hanging foot is pointed past square, toward the line of its shin (a relaxed dangle; 410 held it level); 0 = 410's
     OneFootBalance = 1,                    -- (ofb 386) 1 = on one foot the trunk upright along the board and the hips placed so the body's mass is over the standing foot; 0 = 385's (the hips moved with the foot)
     OneFootHips = 1,                       -- (ofb 384) one-foot balance: 1 = the hip joints put back into the pelvis, the legs their own length, the hips moving with the foot (383's place); 2 = the same with the pelvis over the standing foot (374's place, a test); 0 = 383's
     OneFootButtons = 1,                    -- (ofb 368) A / X in a trick's air land on one foot: 1 = A the front foot up, X the back (front / back foot controls); 0 = A the right foot, X the left
@@ -276,6 +282,29 @@ local S = {
     AirwalkKick = 30,                      -- (aw 324) how far the legs swing out: 30 = the usual stride (aw 328: the front leg 55 deg out, the back shin near level), 60 = twice that
     AirwalkSpeed = 80,                     -- (aw 331) how fast the legs swing out and back in an airwalk, % of build 330's (0.12 s out, 0.18 s back): 80 = a quarter slower
     AirwalkRocket = 75,                    -- (aw 325) degrees the board's nose is lifted over the horizon in an airwalk (the Nose grab's own is TiltNose)
+    Benihana = 1,                          -- (bn 401) THE BENIHANA: in a one-hand Tail grab A or X (or one held as the Tail grab begins) kicks the back foot off, down and behind; the front leg stays on the board
+    BenihanaTilt = 40,                     -- (bn 401) degrees the tail is lifted over the horizon in a Benihana (the nose drops along the front leg)
+    ObjectDropperPlus = 1,                 -- (od 405) the object dropper: L3 normal / FINE speed, hold R3 snap, tap R3 level, D-pad left-right turn steps, RB copy
+    ObjectNormal = 0.5,                    -- (od 405) normal speed: the sticks' and the camera's share of the game's speed
+    ObjectSnapDistance = 20,               -- (od 405) snap: how near (cm) a face / edge / centre line pulls the object onto it
+    ObjectSnapReach = 150,                 -- (od 405) snap: how far (cm, gap between the boxes) a placed object counts as the neighbour
+    ObjectHud = 1,                         -- (od 405) the dropper's mode picture (speed, snap, the controls)
+    ObjectHudX = 40,                       -- (od 405) its place on the screen, from the top left
+    ObjectHudY = 40,
+    ObjectHudScale = 1,
+    ObjectHudZ = 50,
+    ObjectFine = 0.15,                     -- (od 403) FINE mode: the sticks' share (0.15 = 15 % of the game's speed)
+    ObjectFineHeight = 40,                 -- (od 403) FINE mode: D-pad up/down speed, cm/s
+    ObjectGrid = 25,                       -- (od 405) snap with no object near: the world grid, cm (0 = none)
+    ObjectTurnStep = 15,                   -- (od 403) D-pad left/right: degrees a step
+    ObjectTestLedge = 1,                   -- (od 403) give the player the test ledge (ODX Ledge 200) when its files are installed
+    BenihanaFrontSeat = 1,                 -- (bn 411) 1 = the Benihana's front foot stays seated on its inner edge (no heel lift: 410's regular one rose 10 cm and slid toward its toes)
+    BenihanaKneeClear = 15,                -- (bn 413) cm the Benihana's front knee stays over the deck (412's switch one went into it); 0 = off
+    BenihanaFrontReach = 0.62,             -- (bn 411) the body goes back until the Benihana's front leg reaches this share of its length, hip to ankle (410 switch 0.45-0.50, regular 0.60-0.65); 0 = off
+    BenihanaFrontRoll = 15,                -- (bn 408) degrees the front foot rocks onto its inner edge in a Benihana
+    BenihanaPush = 0,                      -- (bn 410) cm the body moves back from the board in a Benihana (406's BenihanaForward, retired: it turned the front foot on the deck)
+    BenihanaHandDelay = 0.12,              -- (bn 410) seconds the hand waits when the Benihana starts with the grab (the free leg clears the tail first)
+    BenihanaKick = 30,                     -- (bn 401) how far behind straight down the free leg hangs: 30 = 17 deg, 0 = straight down, 60 = twice 30
     AirwalkDrop = 10,                      -- (aw 324) no longer read (aw 328: the feet are placed from the hips)
     GrabAllAlong = 0,
     GrabAllAcross = 0,
@@ -729,10 +758,16 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "SlappyCrookMirror", "num", 0, 1, "SLAPPIES (build 387): 1 = when you turn a slappy grind into a crook (the triggers or the stick), the game sees it from the far side of the curb and calls a crooked an overcrook (the tail out over the street); it is answered by its shape: the tail out over the street = Crooked, in over the top = Overcrook. 0 = the game's name, side swapped (build 386)" },
     { "SlappyNoSlide", "num", 0, 1, "SLAPPIES (build 385): 1 = the game's powerslide is held off while you ride at a curb a slappy can take and through the slappy's move, so the crook's tilted stick does not start one (build 384: a little powerslide, then a bail); 0 = the game's own powerslide everywhere" },
     { "OneFootSole", "num", 0, 1, "ONE-FOOT STANDING SOLE (build 387): 1 = after a one-foot catch the sole of the foot you stand on is held flat ON the deck in the air and after the landing, at its riding height (386 gave it back to the game after the landing: it hovered 2-3 cm and was tilted 7-20 degrees); 0 = 386's. Needs OneFootPlant 1" },
+    { "OneFootHangOut", "num", 0, 45, "The one-foot catch's hanging leg: degrees (at least) its knee points out from the hips' forward, away from the standing leg, so the knees do not meet (0 = as 410) (ofb 411)" },
+    { "OneFootDangle", "num", 0, 50, "The one-foot catch's hanging foot: degrees it is pointed past square toward the line of its shin, a relaxed dangle instead of a level foot (0 = as 410) (ofb 411)" },
     { "OneFootSplay", "num", 0, 20, "ONE-FOOT A-FRAME (build 387): degrees the lifted leg is turned out from the hip, away from the standing leg, so the legs make an A rather than two parallel lines -- less once the legs stand three times that far apart (a ride that already opens them gets less); 0 = 386's" },
     { "OneFootBalance", "num", 0, 1, "ONE-FOOT BALANCE (build 386): 1 = after a one-foot catch the body stands over the foot it is on -- the trunk upright along the board, the hips placed so the weight is over the standing foot, that leg straighter (385: the body leant 8-15 degrees toward the lifted foot); 0 = 385's (the hips moved with the foot). Needs OneFootHips 1 or 2" },
     { "OneFootHips", "num", 0, 2, "ONE-FOOT HIPS (build 384): after a one-foot catch the game's next pose carried half the hips' move into the thighs and the belly -- the hips torn out of the pelvis and the shins drawn out (worst on the back foot, A). 1 = the hip joints put back into the pelvis, the legs their own length, the hips moving with the foot as in 383 (1); 2 = the same with the pelvis over the standing foot (374's place, a test); 0 = 383's" },
-    { "OneFootKeys", "num", 0, 1, "THE ONE-FOOT KEYS (build 374): 0 = A and X for the judo air and the airwalk; 1 = the stick clicks: R3 does what A does, L3 what X does (A and X are the game's again). (Build 387: the one-foot catch has its own key, OneFootCatchInput.) SessionTweaks' Click to catch keeps the clicks on the board: turn it off for 1" },
+    { "OneFootToeAngle", "num", 0, 90, "THE ONE-FOOT CATCH'S STANDING FOOT (build 408): degrees off the board's long axis -- 35 = turned well along the board, 90 = across it as you ride" },
+    { "OneFootHipTurn", "num", 0, 80, "The one-foot catch: degrees the hips turn toward the standing foot's way, as when pushing (0 = as you ride). Build 411: the X catch (back foot up, standing on the front foot); the A catch has OneFootBackHipTurn" },
+    { "OneFootBackHipTurn", "num", 0, 90, "The A one-foot catch (front foot up, standing on the BACK foot): degrees the hips turn from parallel to the board toward the nose (0 = parallel as you ride, 90 = square to the nose; the X catch stands about 65) (ofb 413)" },
+    { "OneFootPlumb", "num", 0, 1, "The one-foot catch: 1 = the standing leg straight up under the body, its hip over its ankle (410 left it 8-11 degrees off, leaning back); 0 = 410's (ofb 411)" },
+    { "AirwalkButtons", "num", 0, 1, "THE AIRWALK AND BENIHANA BUTTONS (build 414; was OneFootKeys, default 0): 0 = A and X for the judo air, the airwalk and the Benihana; 1 = the stick clicks: R3 does what A does, L3 what X does (A and X are the game's again). (Build 387: the one-foot catch has its own key, OneFootCatchInput.) SessionTweaks' Click to catch keeps the clicks on the board: turn it off for 1" },
     { "OneFootCatchInput", "num", 0, 3, "THE ONE-FOOT CATCH'S INPUT (build 387): in a flip trick's air (not in a grab) catch it landing on one foot, the other foot up until you tap the other button or click the other stick. 0 = off, 1 = A / X (as before; OneFootButtons says which foot), 2 = the stick clicks L3 / R3 (OneFootClickStand says which foot), 3 = both. Any other click goes on to the hippie jump, the mini hop, the grinds and the game as before. SessionTweaks' Click to catch (its CatchClickToCatch=1) keeps the clicks on the board: turn it off for 2 or 3" },
     { "OneFootClickStand", "num", 0, 1, "THE ONE-FOOT CATCH ON A STICK CLICK (build 387): each stick is the foot it drives in the game's stick mode (front foot / back foot: the left stick is the front foot; left foot / right foot: the left foot). 1 = you stand on the clicked stick's foot and the other comes up (in the front / back-foot mode R3 catches as A does, L3 as X); 0 = the clicked stick's foot comes up" },
     { "NoComplyShove", "num", 0, 1, "NO COMPLY SHOVE-IT (build 348, a first try; regular only): do the no comply, then SCOOP either stick in the air (a sweep round of 75 deg or more) and the board spins a shove-it's 180 under you; a pop shove-it with the pressure crouch held also plays the no comply's animation -- you play the no comply's animation and the board does the game's shove-it. 0 = off. Takes effect at the next skater (a level load)" },
@@ -859,6 +894,29 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "AirwalkKick",   "num", 0, 60,   "how far the legs swing out in an airwalk: 30 = the usual stride (the front leg 55 deg out toward your toes, the back shin near level behind you), 60 = twice that, 0 = not at all (aw 324; 328)" },
     { "AirwalkSpeed",  "num", 20, 150, "how fast the legs swing out and back in an airwalk, % of build 330's (0.12 s out, 0.18 s back): 80 = a quarter slower, 100 = as 330, 150 = half again as fast (aw 331)" },
     { "AirwalkRocket", "num", 0, 85,   "degrees the board's nose is lifted over the horizon in an airwalk: 90 would be straight up (aw 325; the Nose grab's own angle is TiltNose)" },
+    { "Benihana",      "num", 0, 1,    "1 = THE BENIHANA (bn 401): in a one-hand Tail grab press A or X (cross or square), or hold one as the Tail grab begins: the back foot comes off, kicked down and behind you, the front leg stays on the board; let go and it comes back" },
+    { "BenihanaTilt",  "num", 0, 85,   "degrees the tail is lifted over the horizon in a Benihana: the nose drops along your front leg (bn 401)" },
+    { "ObjectDropperPlus", "num", 0, 1, "1 = OBJECT DROPPER PLUS (od 405): L3 switches normal / FINE speed (the camera too); hold R3 = snap on/off (a magnet to the nearest placed object, in its own frame); tap R3 = level onto the ground under it (again = flat); D-pad left/right turns ObjectTurnStep degrees a step; RB = copy what you hold" },
+    { "ObjectNormal",  "num", 0.05, 1, "Normal speed in the dropper: the sticks' and the camera's share of the game's speed (0.5 = half)" },
+    { "ObjectSnapDistance", "num", 1, 200, "Snap: how near in cm a face, edge or centre line pulls the object onto it" },
+    { "ObjectSnapReach", "num", 10, 2000, "Snap: how far in cm (the gap between the boxes) a placed object still counts as the neighbour" },
+    { "ObjectHud",     "num", 0, 1, "1 = show the dropper's mode picture (speed, snap and the controls)" },
+    { "ObjectHudX",    "num", 0, 4000, "The mode picture's place: from the screen's left" },
+    { "ObjectHudY",    "num", 0, 4000, "The mode picture's place: from the screen's top" },
+    { "ObjectHudScale", "num", 0.2, 4, "The mode picture's size (1 = as drawn)" },
+    { "ObjectHudZ",    "num", 0, 1000000, "The mode picture's layer on the screen" },
+    { "ObjectFine",    "num", 0.02, 1, "FINE mode: the sticks' share of the game's speed (0.15 = 15 %)" },
+    { "ObjectFineHeight", "num", 5, 1250, "FINE mode: D-pad up/down speed in cm/s" },
+    { "ObjectGrid",    "num", 0, 1000, "Snap with no object near: the world grid in cm (0 = none)" },
+    { "ObjectTurnStep", "num", 1, 180, "D-pad left/right in the dropper: degrees a turn step" },
+    { "ObjectTestLedge", "num", 0, 1, "1 = give the player the test ledge (ODX Ledge 200) when its files are installed" },
+    { "BenihanaFrontSeat", "num", 0, 1, "1 = the front foot stays seated on its inner edge through a Benihana (no heel lift, no slide toward the toes) (bn 411)" },
+    { "BenihanaKneeClear", "num", 0, 40, "cm the front knee stays over the deck in a Benihana (the switch one buckled into the board before build 413; 0 = off) (bn 413)" },
+    { "BenihanaFrontReach", "num", 0, 0.9, "the front leg's reach in a Benihana, hip to ankle as a share of its length: the body goes back as far as it takes (0 = off) (bn 411)" },
+    { "BenihanaFrontRoll", "num", 0, 40, "degrees the front foot rocks onto its inner edge (the back foot's side) in a Benihana (bn 408)" },
+    { "BenihanaPush", "num", 0, 40, "cm the body moves back from the board in a Benihana (0 = off; 406-409 had 12, which turned the front foot on the deck) (bn 410)" },
+    { "BenihanaHandDelay", "num", 0, 0.5, "seconds the grabbing hand waits when the Benihana starts with the grab, so the free leg clears the tail first (bn 410)" },
+    { "BenihanaKick",  "num", 0, 60,   "how far behind straight down the free back leg hangs in a Benihana: 30 = a little (17 deg), 0 = straight down, 60 = twice 30 (bn 401)" },
     { "AirwalkDrop",   "num", 0, 60,   "no longer read: the airwalk's feet are placed from the hips (aw 324; 328)" },
     { "GrabBlockFlips","num", 0, 1,    "1 = no late flips out of a grab: while LB/RB is down or a grab is held the game's late-trick check is kept switched off;\n; let go and (0.2 s on, once the sticks have been through centre) late flips work as ever" },
     { "GrabAllAlong",  "num", -20, 20, "EVERY GRAB'S HAND AT ONCE: cm added to each grab's own Hand...Along (and a two-hand grab's Hand2...Along) -- + toward the nose, - toward the tail. 0 = each grab's own number alone. The per-grab numbers further down are not changed by it" },
@@ -911,7 +969,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "CavemanTime", "num", 100, 217, "ms from the Y press for the caveman's board to come from your hand to under your feet (the game puts you on it 217 ms after the press)" },
     { "CavemanOut", "num", 0, 60, "cm in front of you the caveman's board swings out on its way down (it comes in under your feet from there)" },
     { "CavemanLift", "num", 0, 40, "cm over the spot under your feet the caveman's board is when it is that far out" },
-    { "CavemanTurn", "num", 0, 1, "how far round the caveman turns your body toward your stance in the air, as the board comes under your feet (feet and body together, before the game puts you on):\n; 1 = all the way (20 deg short of the feet's line, as the game's own pose stands), 0.75 = three quarters (the game turns the rest after it puts you on), 0 = not at all\n; (the feet are put on the board turned as they ride against your hips). Takes the native half v295" },
+    { "CavemanTurn", "num", 0, 1, "how far round the caveman turns your body toward your stance in the air, as the board comes under your feet (feet and body together, before the game puts you on):\n; 1 = all the way (20 deg short of the feet's line, as the game's own pose stands), 0.75 = three quarters (the game turns the rest after it puts you on), 0 = not at all\n; (the feet are put on the board turned as they ride against your hips). Takes the native half v310" },
     { "CavemanKeepFall", "num", 0, 1, "1 = after the caveman's mount the board is given back the speed you were falling (or rising) at: the game's mount sets it to 0\n; and you hang for a moment; 0 = the game's own" },
     { "CavemanHold", "num", 0, 1.5, "seconds at most the caveman's hand holds the board (a Melon with the front hand, an Indy with the back hand: the hand that carried it) once you are on the board in the air, with the knees\n; up and the hips down as in a rolling grab; it lets go CavemanLetGo before touchdown in any case. 0 = no grab" },
     { "CavemanSquat", "num", 0, 55, "cm at most the hips come down toward the board in the caveman's grab (no leg is folded under 35 % of its length for it: the back leans on)" },
@@ -945,7 +1003,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "CavemanHandReach", "num", 0, 1, "1 = the caveman's holding arm reaches for the board again once his crouch is drawn deeper: the elbow straightens as far as it needs and the hand comes down onto the board with the shoulder; 0 = build 247's (the hand kept where the arm reached before the crouch: elbow bent, hand over the board)" },
     { "CavemanHandLean", "num", 0, 45, "deg at most the caveman's upper body leans from the waist toward the board while his hand holds it, when the straight arm is still short of its spot: down, forward and toward that side, eased in over the hold and let go with the grab -- the resting grip on the board, not over it;\n; 0 = build 248's (the hand 13-20 cm over the board)" },
     { "CavemanHeadEase", "num", 0, 30, "poses the caveman's head is handed back to the game over once the hand lets go (his look ahead held whole while the hand holds): no snap;\n; 0 = build 248's (let go with the feet's hold)" },
-    { "WallRide", "num", 0, 1, "WALLRIDES. 1 = fly into a wall at a shallow angle in any air on the board (an ollie; a flip once its spin is over) and you ride along it for a moment,\n; the board on the wall: automatic, no button. A head-on hit is left to the game (it bails you). 0 = off, the game's own. Takes the native half v295" },
+    { "WallRide", "num", 0, 1, "WALLRIDES. 1 = fly into a wall at a shallow angle in any air on the board (an ollie; a flip once its spin is over) and you ride along it for a moment,\n; the board on the wall: automatic, no button. A head-on hit is left to the game (it bails you). 0 = off, the game's own. Takes the native half v310" },
     { "WallRideMinSpeed", "num", 100, 1500, "cm/s along the ground you need to start a wallride" },
     { "WallRideMinHeight", "num", 10, 200, "cm the board must be over the ground to start a wallride (lower leaves no time to get on and off the wall)" },
     { "WallRideReach", "num", 30, 150, "cm from the wall (to the board's middle) within which a wallride can start; a fast approach is met further out by itself\n; (30 + the speed into the wall squared / 3000, up to 150)" },
@@ -1011,7 +1069,7 @@ local SPEC = {   -- key, kind, lo, hi, comment
     { "WallRideGroundWallieRate", "num", 100, 1500, "degrees a second that nose pitch (WallRideGroundWallie) comes at as a wallride from the ground takes off: 600 is up 45 in about 0.08 s. New in build 253" },
     { "WallRideGroundWallieBody", "num", 0, 45, "degrees your body leans back toward the tail while the board's nose is pitched up (WallRideGroundWallie) as a wallride\n; from the ground takes off: your weight over the tail, your feet on the pitched board, your knees bent, back to the ride's line as the\n; board flattens on the wall. 0 = the feet on the board only. New in build 253" },
     { "StickClickPass", "num", 0, 1, "1 = a stick click the mod does not use goes on to the game (L3 opens the missions); one it uses (a hippie jump, a mini hop, a board hop, a click grab) does not;\n; 0 = every stick click goes to the game as well (as before build 225: the mission viewer came up with every hippie jump)" },
-    { "AltFlips", "num", 0, 1, "ALT FLIP SET. 1 = push the back-foot stick UP to crouch for a second set of flip tricks (front/back-foot or left/right-foot stick mode; not in Legacy):\n; front stick pulled DOWN = Monster Flip, pushed UP = Dolphin Flip (AltFrontSwap); the varial flip's scoop, swept from up toward the SAME side as your varial's, and its flick = Nightmare Flip;\n; the varial heel's, the same way, = Daydream Flip; every other trick from that crouch is the game's own. 0 = off (up does nothing, as in the game). Takes the native half v295" },
+    { "AltFlips", "num", 0, 1, "ALT FLIP SET. 1 = push the back-foot stick UP to crouch for a second set of flip tricks (front/back-foot or left/right-foot stick mode; not in Legacy):\n; front stick pulled DOWN = Monster Flip, pushed UP = Dolphin Flip (AltFrontSwap); the varial flip's scoop, swept from up toward the SAME side as your varial's, and its flick = Nightmare Flip;\n; the varial heel's, the same way, = Daydream Flip; every other trick from that crouch is the game's own. 0 = off (up does nothing, as in the game). Takes the native half v310" },
     { "AltFlipEngage", "num", 0.25, 0.95, "how far UP the back-foot stick must go (0..1 of its throw past the game's dead zone) to crouch for the alt set; it must point within 40 deg of straight up (sideways is the game's pressure tricks)" },
     { "AltFlipRelease", "num", 0.1, 0.6, "the back-foot stick let back inside this (0..1) ends the alt crouch; after an alt trick it must come back inside it once before the next alt crouch (kept under AltFlipEngage)" },
     { "AltMonster", "num", 0, 1, "MONSTER FLIP: alt crouch + front stick pulled DOWN (AltFrontSwap; handed to the game as its ollie) and the board turns end over end (about its short axis) in the air: one full turn,\n; or in manual catch until you catch it (AltMonsterCatch); 0 = the alt ollie stays an ollie" },
@@ -4724,6 +4782,7 @@ grabTick = function(now)
             GR.nativeT0, GR.named, GR.sw = now, false, NAT.switch   -- (v129) GR.sw: the stance at the start, for the name
             do local ok, n = pcall(HJN_Set, "awcount", 0) GR.aw0 = (native == 1 and ok) and tonumber(n) or nil end   -- (aw 326) the airwalks before this grab
             do local ok, n = pcall(HJN_Set, "jdcount", 0) GR.jd0 = (native == 1 and ok) and tonumber(n) or nil end   -- (judo 367) the judo airs before it
+            do local ok, n = pcall(HJN_Set, "bncount", 1) GR.bn0 = (native == 100 and ok) and tonumber(n) or nil end   -- (bn 401) the Benihanas before it
             GR.tgt = nil
             GR.crouch0, GR.logged03 = crouchNow(), false
             grabNumbers("at the start", native)
@@ -4795,8 +4854,8 @@ grabTick = function(now)
         GR.named = true
         local kind = native
         local bone = (kind == 102) and GR.boneAt ~= nil and (now - GR.boneAt) < 2.5      -- (v149) an Indy out of a no comply
-        local aw0, jd0 = GR.aw0, GR.jd0                                                    -- (aw 326) a Nose grab with an airwalk in it: "Airwalk"; (judo 367) one with a judo air: "Judo Air"
-        trickNameLater(function() local ok, n = pcall(HJN_Set, "awcount", 0) local awN = aw0 and ok and tonumber(n) local okj, nj = pcall(HJN_Set, "jdcount", 0) local jdN = jd0 and okj and tonumber(nj) return GR.turnName(bone and "Boneless" or (kind == 1 and awN and awN > aw0) and "Airwalk" or (kind == 1 and jdN and jdN > jd0) and "Judo Air" or grabTitle(kind)) end)
+        local aw0, jd0, bn0 = GR.aw0, GR.jd0, GR.bn0                                                    -- (aw 326) a Nose grab with an airwalk in it: "Airwalk"; (judo 367) one with a judo air: "Judo Air"
+        trickNameLater(function() local ok, n = pcall(HJN_Set, "awcount", 0) local awN = aw0 and ok and tonumber(n) local okj, nj = pcall(HJN_Set, "jdcount", 0) local jdN = jd0 and okj and tonumber(nj) local okb, nb = pcall(HJN_Set, "bncount", 0) local bnN = bn0 and okb and tonumber(nb) return GR.turnName(bone and "Boneless" or (kind == 100 and bnN and bnN > bn0) and "Benihana" or (kind == 1 and awN and awN > aw0) and "Airwalk" or (kind == 1 and jdN and jdN > jd0) and "Judo Air" or grabTitle(kind)) end)
         trickNameHide(bone and "no comply" or "ollie", 6)              -- (v108) the game's own "Ollie" / "Nollie" line for this pop is not wanted beside it
     end
     -- (v97) a late trick during a grab or just after it: logged, with when -- what the block lets through
@@ -7271,7 +7330,7 @@ NATIVE.wallTick = function()                          -- every frame of our skat
     if type(HJN_Wall) ~= "function" then
         if on and not W.said.old then
             W.said.old = true
-            log("wallride: the native half beside this file (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall: it is not the one made with this main.lua (v295, with wallrides) -- NOT TAKEN: no wallrides on this run")   -- (fixer, Lua review F7: by the function, not the number)
+            log("wallride: the native half beside this file (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall: it is not the one made with this main.lua (v310, with wallrides) -- NOT TAKEN: no wallrides on this run")   -- (fixer, Lua review F7: by the function, not the number)
         end
         return
     end
@@ -7367,7 +7426,7 @@ NATIVE.wallCfg = function(force)                      -- from NATIVE.sync: the s
         took = ok and tonumber(r) or 0
     end
     local tail = ""
-    if took == nil then tail = " -- NOT TAKEN: the native half (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall; these need the v295 made with this main.lua"   -- (fixer, Lua review F7)
+    if took == nil then tail = " -- NOT TAKEN: the native half (v" .. tostring(tonumber(NATIVE.v) or "?") .. ") has no HJN_Wall; these need the v310 made with this main.lua"   -- (fixer, Lua review F7)
     elseif took == -1 then tail = " -- stood down: not on this build of the game (ExpandedTricks.native.log says why)"
     elseif took > 0 and took < #n then tail = " -- an older native half took the first " .. tostring(took) .. " of " .. #n .. ": WallRideMaxApproach is its approach limit there, and the carve, the slam guard and the exit turn are not in it (copy the native half made with this main.lua)"
     elseif took ~= #n then tail = " -- REFUSED by the native half (" .. tostring(took) .. " of " .. #n .. " taken; ExpandedTricks.native.log says why)" end
@@ -8391,7 +8450,7 @@ NATIVE.iniNote = function(t) lastIni = t end
 -- appended to ExpandedTricks.tweaks.log (next to the ini). The values people reach for are the ones a settings screen should carry.
 NATIVE.tweak = function(key, old, new, how)
     log(string.format("tweak: %s %s -> %s (%s)", key, tostring(old), tostring(new), how))
-    if key:sub(1, 8) == "NoComply" and NATIVE.noComply then NATIVE.noComply.done = false end if key:sub(1, 5) == "Wally" or key:sub(1, 6) == "Slappy" or key == "OneFootKeys" or key == "OneFootButtons" or key == "OneFootCatchInput" or key == "OneFootClickStand" or key == "OneFootPlant" or key == "OneFootHips" or key == "OneFootBalance" then NATIVE.ncLiveDue = true end   -- (383r) these sent on their own (the wiring re-run mid-boneless undid its catch)   -- (v137) applied again; (383) the wally's, the slappy's and the one-foot keys too (they are sent with the no comply's wiring: 382 only at a level load)
+    if key:sub(1, 8) == "NoComply" and NATIVE.noComply then NATIVE.noComply.done = false end if key:sub(1, 5) == "Wally" or key:sub(1, 6) == "Slappy" or key == "AirwalkButtons" or key == "OneFootKeys" or key == "OneFootButtons" or key == "OneFootCatchInput" or key == "OneFootClickStand" or key == "OneFootPlant" or key == "OneFootHips" or key == "OneFootBalance" then NATIVE.ncLiveDue = true end   -- (383r) these sent on their own (the wiring re-run mid-boneless undid its catch)   -- (v137) applied again; (383) the wally's, the slappy's and the one-foot keys too (they are sent with the no comply's wiring: 382 only at a level load)
     if key == "OneFootSole" or key == "OneFootSplay" then NATIVE.ncLiveDue = true end   -- (ofb 387)
     if key == "WallRideCorners" or key == "WallRideCornerReach" or key == "WallRideCornerFace" then NATIVE.ncLiveDue = true end   -- (corner 388) sent with the wally's keys
     if (key == "SpeedScale" or key == "PushScale") and NATIVE.speed then NATIVE.speed.applied = nil end   -- (v147/v149) applied again
@@ -8428,6 +8487,7 @@ NATIVE.MENU = {
         { "slider", "PushScale", "Push strength", 100, 10, "How hard each push accelerates you, as a percentage (%) of the game's own push. 100 = unchanged. Raise it to get up to speed in fewer pushes.", 0.5, 3, unit = "%" },
         { "slider", "ThrowdownScale", "Throwdown speed", 100, 10, "How fast the game's own throwdown (Y on foot) sends you off, as a percentage (%) of the speed you were moving at. 100 = unchanged. The throw plays faster to match. Standing still, nothing is added.", 1, 4, unit = "%" },
         { "toggle", "StickTurn", "Left stick steers the board", 1, 1, "On: the game's own steering, where pushing the left stick sideways leans and turns the board. Off: only the triggers turn you, so doing a stick trick no longer pulls the board off its line." },
+        { "toggle", "ObjectDropperPlus", "Enhanced object dropper", 1, 1, "The object dropper's extras: L3 switches normal and fine speed (the camera too), hold R3 to snap to the nearest placed object, tap R3 to set the object on the ground under it (again = flat), D-pad left and right turn it in steps, RB copies what you hold, and the custom objects are kept stocked. Off: the game's own object dropper." },   -- (od 411)
         { "toggle", "TrickNames", "Show trick names", 1, 1, "Shows this mod's tricks in the game's trick display when you land them, for example 180 Hippie Jump, Crail Grab, No Comply, Boneless or Bean Plant. Off: none of them are shown." },
         { "slider", "AutoUpdate", "Automatic updates", 1, 1, "0 = off. 1 = tells you, in the log and on the trick display, when a new version of the mod is out. 2 = also downloads it from the mod's GitHub page, checks it and installs it for the next time you start the game.", 0, 2 },
         { "slider", "HeelStopMode", "Tail stop", 1, 1, "0 = off. 1 = manual: in a manual (not a nose manual) push the back-foot stick all the way down to drag the tail and slow down. 2 = hold B while rolling (B is then not the game's foot brake). 3 = both.", 0, 3 },   -- (mode 338)
@@ -8502,11 +8562,20 @@ NATIVE.MENU = {
         { "toggle", "GrabKeepFirst", "  Lock the grab until release", 1, 1, "On: the grab you took stays until you let go of the bumper, and moving the stick only tweaks it. Off: moving the stick just after grabbing can switch you to a different grab." },
         { "toggle", "GrabLetGo", "  Let go on landing", 1, 1, "On: a grab you hold into the landing simply ends as the wheels touch down. Off: still holding the board when the wheels touch down makes you bail, so you have to let go in time." },
         { "toggle", "GrabBlockFlips", "  Block late flips while grabbing", 1, 1, "On: stick movements do not start a late flip while a bumper is held or a grab is on, so picking or tweaking a grab cannot flip the board by accident. Late flips work again 0.2 seconds after you let go." },
-        { "toggle", "Airwalk", "  Airwalk", 1, 1, "In a one-hand Nose grab, press A or X (cross or square): your front foot kicks out (the judo air). Press the other one too for the airwalk: both feet come off the board. Let go and they come back onto it." },
+        { "toggle", "Airwalk", "  Airwalk", 1, 1, "In a one-hand Nose grab, click R3 or L3 (A or X with Buttons at 0): your front foot kicks out (the judo air). Click the other one too for the airwalk: both feet come off the board." },
         { "slider", "AirwalkKick", "    Stride", 1, 5, "How far your legs swing out in an airwalk: 30 is the usual stride (the front leg well out toward your toes, the back shin near level behind you), 60 twice that, 0 not at all.", 0, 60 },
         { "slider", "AirwalkRocket", "    Board angle", 1, 5, "How far the board's nose is lifted in an airwalk, in degrees over level: 90 would be straight up. It goes back to the Nose grab's own angle as your feet come back.", 0, 85, unit = "degrees" },
         { "slider", "AirwalkSpeed", "    Leg speed", 1, 5, "How fast your legs swing out and back in an airwalk: 100 is quick (out in about a tenth of a second), lower is slower and smoother, but takes longer to finish before you land.", 20, 150, unit = "%" },
-        { "slider", "OneFootKeys", "    Buttons", 1, 1, "0 = A and X for the judo air and the airwalk. 1 = the stick clicks: R3 does what A does, L3 what X does.", 0, 1 },
+        { "toggle", "Benihana", "  Benihana", 1, 1, "In a one-hand Tail grab, click R3 or L3 (A or X with Buttons at 0): your back foot kicks off behind you and your front leg stays on the board. Holding the click as you grab works too." },   -- (rel 414)
+        { "slider", "BenihanaTilt", "    Board angle", 1, 5, "How far the tail is lifted over level in a Benihana, in degrees. The nose drops along your front leg.", 0, 85, unit = "degrees" },
+        { "slider", "BenihanaKick", "    Leg kick", 1, 5, "How far behind straight down your free back leg hangs. 30 = a little behind, 0 = straight down, 60 = twice 30.", 0, 60 },
+        { "slider", "BenihanaFrontReach", "    Front leg reach", 100, 2, "How straight your front leg is kept, as a percentage (%) of its length hip to ankle: your body goes back until it reaches that. 0 = off.", 0, 0.9, unit = "%" },
+        { "slider", "BenihanaKneeClear", "    Front knee clearance", 1, 1, "How far your front knee stays above the deck, in centimetres (cm), so it never folds into the board. 0 = off.", 0, 40, unit = "cm" },
+        { "toggle", "BenihanaFrontSeat", "    Front foot stays seated", 1, 1, "On: your front foot stays planted on its inner edge, with no heel lift. Off: its heel may lift." },
+        { "slider", "BenihanaFrontRoll", "    Front foot edge roll", 1, 1, "How far your front foot rocks onto its inner edge, in degrees. 0 = flat.", 0, 40, unit = "degrees" },
+        { "slider", "BenihanaHandDelay", "    Hand delay", 1000, 10, "How long the grabbing hand waits when the Benihana starts with the grab, in milliseconds (ms), so your back leg clears the tail first.", 0, 0.5, unit = "ms" },
+        { "slider", "BenihanaPush", "    Body back", 1, 1, "How far your body moves back from the board in a Benihana, in centimetres (cm). 0 = off: more can turn the front foot on the deck.", 0, 40, unit = "cm" },
+        { "slider", "AirwalkButtons", "  Airwalk and Benihana buttons", 1, 1, "1 = the stick clicks: R3 does what A does, L3 what X does. 0 = A and X. For the judo air, the airwalk and the Benihana.", 0, 1 },   -- (rel 414) OneFootKeys' row
         { "slider", "GrabHeadUp", "  Head up", 1, 5, "How far your head is raised in a grab, at the most, in degrees: you look ahead instead of down at the deck. It stops by itself when you look just under level. 0 = the head as the game has it.", 0, 90, unit = "degrees" },
         { "slider", "GrabHeadTurn", "  Head toward travel", 1, 5, "How far your gaze is turned toward the way you travel in a grab, at the most, in degrees. It stops by itself when you look that way. 0 = not turned.", 0, 90, unit = "degrees" },
         { "slider", "GrabTweakStyle", "  Tweak style", 1, 1, "What moving the stick off its grab direction does while you hold a grab. 0 = rotate: your legs and the board twist. 1 = bone: the board is poked out toward the nose; your back leans further to keep the hand on.", 0, 1 },
@@ -9102,7 +9171,7 @@ function NATIVE.sync()
         -- (v191, review) AN OLDER NATIVE HALF BESIDE THIS FILE (main.lua copied by hand, or main.dll not replaced because the
         -- game held it): everything runs, what needs the newer one is left out -- and nothing said so
         if (tonumber(NATIVE.v) or 0) < (NATIVE.WANT or 0) then
-            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then what needs the newer one is left out, each saying so in its own line (wallrides need v295: without it the log says NOT TAKEN)")
+            log("native half: *** v" .. tostring(NATIVE.v) .. " IS OLDER than this main.lua is made for (v" .. tostring(NATIVE.WANT) .. "): close the game and copy the release's Mods\\ExpandedTricksNative\\dlls\\main.dll too (or run its install.bat). Until then what needs the newer one is left out, each saying so in its own line (wallrides need v310: without it the log says NOT TAKEN)")
             NATIVE.upd = NATIVE.upd or {}
             if not NATIVE.upd.show then NATIVE.upd.show, NATIVE.upd.tries = "Expanded Tricks: native half is old - see the log", 0 end
         end
@@ -9354,8 +9423,8 @@ NATIVE.hands = function(force)
         end
     end
     parts[#parts + 1] = tostring(S.NativeHandAvoid)
-    parts[#parts + 1] = tostring(S.GrabAllAlong) .. "/" .. tostring(S.GrabAllAcross) .. "/" .. tostring(S.GrabAllUp) .. "/" .. tostring(S.GrabAllBone) .. "/" .. tostring(S.GrabTurnedSense) .. "/" .. tostring(S.GrabHeadUp) .. "/" .. tostring(S.GrabHeadTurn) .. "/" .. tostring(S.GrabBoneMove) .. "/" .. tostring(S.GrabBoneHands) .. "/" .. tostring(S.GrabBoneLean) .. "/" .. tostring(S.GrabBoneBehind)   -- (v184; v207; v211; v212)
-    parts[#parts + 1] = tostring(S.GrabBlockFlips) .. "/" .. tostring(S.Airwalk) .. "/" .. tostring(S.AirwalkKick) .. "/" .. tostring(S.AirwalkDrop) .. "/" .. tostring(S.AirwalkRocket) .. "/" .. tostring(S.AirwalkSpeed) .. "/" .. tostring(S.GrabHeadEase) .. "/" .. tostring(S.GrabHeadRate) .. "/" .. tostring(S.GrabEaseIn) .. "/" .. tostring(S.GrabEaseOut) .. "/" .. tostring(S.GrabHeadHold) .. "/" .. tostring(S.GrabHeadOut) .. "/" .. tostring(S.GrabHeadSteady)   -- (aw 324; 325; 331; 384b the head's keys)
+    parts[#parts + 1] = tostring(S.GrabAllAlong) .. "/" .. tostring(S.GrabAllAcross) .. "/" .. tostring(S.GrabAllUp) .. "/" .. tostring(S.GrabAllBone) .. "/" .. tostring(S.GrabTurnedSense) .. "/" .. tostring(S.GrabHeadUp) .. "/" .. tostring(S.GrabHeadTurn) .. "/" .. tostring(S.GrabBoneMove) .. "/" .. tostring(S.GrabBoneHands) .. "/" .. tostring(S.GrabBoneLean) .. "/" .. tostring(S.GrabBoneBehind) .. "/" .. tostring(S.ObjectDropperPlus) .. "/" .. tostring(S.BenihanaPush) .. "/" .. tostring(S.BenihanaHandDelay) .. "/" .. tostring(S.BenihanaFrontRoll) .. "/" .. tostring(S.BenihanaFrontSeat) .. "/" .. tostring(S.BenihanaFrontReach) .. "/" .. tostring(S.BenihanaKneeClear) .. "/" .. tostring(S.OneFootToeAngle) .. "/" .. tostring(S.OneFootHipTurn) .. "/" .. tostring(S.OneFootBackHipTurn) .. "/" .. tostring(S.OneFootPlumb) .. "/" .. tostring(S.OneFootHangOut) .. "/" .. tostring(S.OneFootDangle)   -- (412: the pose settings sent when changed) (v184; v207; v211; v212; od 411: the dropper's menu switch sent when changed)
+    parts[#parts + 1] = tostring(S.GrabBlockFlips) .. "/" .. tostring(S.Airwalk) .. "/" .. tostring(S.AirwalkKick) .. "/" .. tostring(S.AirwalkDrop) .. "/" .. tostring(S.AirwalkRocket) .. "/" .. tostring(S.AirwalkSpeed) .. "/" .. tostring(S.GrabHeadEase) .. "/" .. tostring(S.GrabHeadRate) .. "/" .. tostring(S.GrabEaseIn) .. "/" .. tostring(S.GrabEaseOut) .. "/" .. tostring(S.GrabHeadHold) .. "/" .. tostring(S.GrabHeadOut) .. "/" .. tostring(S.GrabHeadSteady) .. "/" .. tostring(S.Benihana) .. "/" .. tostring(S.BenihanaTilt) .. "/" .. tostring(S.BenihanaKick)   -- (aw 324; 325; 331; 384b the head's keys; rel 414 the Benihana's own)
     parts[#parts + 1] = tostring(S.NativeHandAim) .. "/" .. tostring(S.NativeFingerCurl) .. "/" .. tostring(S.NativeFingerCurlRoot) .. "/" .. tostring(S.NativeFingerCurlMid) .. "/" .. tostring(S.NativeFingerCurlTip) .. "/" .. tostring(S.NativeCatchHold) .. "/" .. tostring(S.NativeGrabStance)
     local key = table.concat(parts, " ")
     if key == NATIVE.handsSet and not force then return end
@@ -9385,7 +9454,7 @@ NATIVE.hands = function(force)
     pcall(HJN_Set, "bonehands", S.GrabBoneHands)         --   1 = its hands stay on their spots (0 = as v112)
     pcall(HJN_Set, "boneleanadd", S.GrabBoneLean)        --   deg the back may lean further to keep them there
     pcall(HJN_Set, "headup", S.GrabHeadUp)             -- (v213) the head in a grab: raised by this much at the most (native v115; an older one answers 0)
-    pcall(HJN_Set, "awkick", tonumber(S.AirwalkKick) or 30) pcall(HJN_Set, "awdrop", tonumber(S.AirwalkDrop) or 10) pcall(HJN_Set, "awpitch", tonumber(S.AirwalkRocket) or 75) pcall(HJN_Set, "awspeed", tonumber(S.AirwalkSpeed) or 80) pcall(HJN_Set, "airwalk", ((tonumber(S.Airwalk) or 0) >= 0.5) and 1 or 0)   -- (aw 324) the airwalk (an older native half ignores them)
+    pcall(HJN_Set, "awkick", tonumber(S.AirwalkKick) or 30) pcall(HJN_Set, "awdrop", tonumber(S.AirwalkDrop) or 10) pcall(HJN_Set, "awpitch", tonumber(S.AirwalkRocket) or 75) pcall(HJN_Set, "awspeed", tonumber(S.AirwalkSpeed) or 80) pcall(HJN_Set, "airwalk", ((tonumber(S.Airwalk) or 0) >= 0.5) and 1 or 0) pcall(HJN_Set, "beni", ((tonumber(S.Benihana) or 1) >= 0.5) and 1 or 0) pcall(HJN_Set, "bnpitch", tonumber(S.BenihanaTilt) or 40) pcall(HJN_Set, "bnkick", tonumber(S.BenihanaKick) or 30) pcall(HJN_Set, "bnfwd", tonumber(S.BenihanaPush) or 0) pcall(HJN_Set, "bnhand", tonumber(S.BenihanaHandDelay) or 0.12) pcall(HJN_Set, "ofang", tonumber(S.OneFootToeAngle) or 35) pcall(HJN_Set, "ofhip", tonumber(S.OneFootHipTurn) or 45) pcall(HJN_Set, "ofhipb", tonumber(S.OneFootBackHipTurn) or 60) pcall(HJN_Set, "ofplumb", tonumber(S.OneFootPlumb) or 1) pcall(HJN_Set, "ofhang", tonumber(S.OneFootHangOut) or 20) pcall(HJN_Set, "ofdangle", tonumber(S.OneFootDangle) or 25) pcall(HJN_Set, "bnroll", tonumber(S.BenihanaFrontRoll) or 15) pcall(HJN_Set, "bnseat", tonumber(S.BenihanaFrontSeat) or 1) pcall(HJN_Set, "bnreach", tonumber(S.BenihanaFrontReach) or 0.62) pcall(HJN_Set, "bnknee", tonumber(S.BenihanaKneeClear) or 15) pcall(HJN_Set, "odnorm", tonumber(S.ObjectNormal) or 0.5) pcall(HJN_Set, "odsnapd", tonumber(S.ObjectSnapDistance) or 20) pcall(HJN_Set, "odreach", tonumber(S.ObjectSnapReach) or 150) pcall(HJN_Set, "odfine", tonumber(S.ObjectFine) or 0.15) pcall(HJN_Set, "odvert", tonumber(S.ObjectFineHeight) or 40) pcall(HJN_Set, "odgrid", tonumber(S.ObjectGrid) or 25) pcall(HJN_Set, "odyaw", tonumber(S.ObjectTurnStep) or 15) pcall(HJN_Set, "odgrant", ((tonumber(S.ObjectTestLedge) or 1) >= 0.5) and 1 or 0) pcall(HJN_Set, "odon", ((tonumber(S.ObjectDropperPlus) or 1) >= 0.5) and 1 or 0)   -- (aw 324) the airwalk (an older native half ignores them)
     pcall(HJN_Set, "headturn", S.GrabHeadTurn)         --   and turned toward the way of travel
     pcall(HJN_Set, "headease", S.GrabHeadEase)         -- (383) the head's aim eased in time (native v279; an older one answers 0)
     pcall(HJN_Set, "headrate", S.GrabHeadRate)         --   the most it turns a second
@@ -12473,7 +12542,7 @@ NATIVE.ncLive = function()   -- (383r) sent with the wiring, and on their own wh
     pcall(HJN_Set, "sloncurb", tonumber(S.SlappyOnCurb) or 70); pcall(HJN_Set, "slnoslide", tonumber(S.SlappyNoSlide) or 1); pcall(HJN_Set, "slckyaw", tonumber(S.SlappyCrookYaw) or 30); pcall(HJN_Set, "slfeet", tonumber(S.SlappyFeetOnTruck) or 0); pcall(HJN_Set, "slswitch", tonumber(S.SlappySwitch) or 0); pcall(HJN_Set, "slclack", tonumber(S.SlappyClack) or 1); pcall(HJN_Set, "slckmir", tonumber(S.SlappyCrookMirror) or 1); pcall(HJN_Set, "slpick", tonumber(S.SlappyPick) or 1)   -- (slappy 384; 385: SlappyOnCurb in SlappyInset's place, SlappyNoSlide)
     pcall(HJN_Set, "slappy", tonumber(S.Slappy) or 1)   -- (slappy 355) sent with the no comply's wiring, once a skater
     pcall(HJN_Set, "ofbbtn", tonumber(S.OneFootButtons) or 1)   -- (ofb 368)
-    pcall(HJN_Set, "ofkeys", tonumber(S.OneFootKeys) or 0)   -- (ofb 374)
+    pcall(HJN_Set, "ofkeys", tonumber(S.AirwalkButtons) or 1)   -- (ofb 374)
     pcall(HJN_Set, "ofbin", tonumber(S.OneFootCatchInput) or 1)   -- (ofb 387)
     pcall(HJN_Set, "ofbstand", tonumber(S.OneFootClickStand) or 1)   -- (ofb 387)
     pcall(HJN_Set, "ofbplant", tonumber(S.OneFootPlant) or 1)   -- (ofb 384)
@@ -12665,7 +12734,7 @@ NATIVE.noComplyApply = function()
     pcall(HJN_Set, "ncbodylift", tonumber(S.NoComplyBodyLift) or 15)   -- (ncshove 364)
     pcall(HJN_Set, "ncswbf", tonumber(S.NoComplySwitchShoveFoot) or 28); pcall(HJN_Set, "ncsplantfloor", tonumber(S.NoComplyShovePlantFloor) or 1); pcall(HJN_Set, "ncletdown", tonumber(S.NoComplyLetDown) or 0.26)   -- (ncshove 384)
     pcall(HJN_Set, "ofbbtn", tonumber(S.OneFootButtons) or 1)   -- (ofb 368)
-    pcall(HJN_Set, "ofkeys", tonumber(S.OneFootKeys) or 0)   -- (ofb 374)
+    pcall(HJN_Set, "ofkeys", tonumber(S.AirwalkButtons) or 1)   -- (ofb 374)
     pcall(HJN_Set, "ncnose", want and (tonumber(S.NoComplyNosePop) or 100) or 0)   -- (ncshove 353)
     pcall(HJN_Set, "ncshovedef", (want and S.NoComplyShove ~= 0 and defs.TRICK_RGS_Pressure_KickFlip and addr(defs.TRICK_RGS_Pressure_KickFlip)) or 0)   -- (ncshove 345) the no comply's set, for the shove-it
     log(string.format("no comply: %s -- %d values written to the two pressure kickflip definitions%s", want and "WIRED (left stick down + right stick left)" or "OFF: the game's pressure kickflip is back",
@@ -12713,8 +12782,8 @@ end
 -- latest release's update.txt: its version, build number, the game build it is for and the two files' SHA-256). With
 -- AutoUpdate=2 a newer build is downloaded, checked and put in place for the next start; with 1 you are only told.
 -- NATIVE.BUILD is this file's own build number: the release's update.txt carries the same number, and that is what is compared.
-NATIVE.BUILD = 399
-NATIVE.WANT = 295      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
+NATIVE.BUILD = 414
+NATIVE.WANT = 310      -- (v191) the native half this file is made for (the 'native v' number of the "loaded" line): an older one beside it is said once, in NATIVE.sync
 NATIVE.updateTick = function(live)
     local U = NATIVE.upd or {}
     NATIVE.upd = U
@@ -12833,7 +12902,75 @@ NATIVE.menuWatch = function(key)                         -- (on the game thread)
         (own2 == true or part2 == true) and "" or " (it may take a frame; looked at again in a quarter of a second)"))
 end
 -- (263) the native half's key work (hkInputKey: the stick-click hold, the RB mask, the caveman's Y time) does nothing while a pause menu is up
+NATIVE.OH = { host = nil, img = nil, shown = 0, tex = {}, fail = 0, logs = 0 }   -- (od 405) the object dropper's mode picture
+NATIVE.odHudFail = function(why)
+    local OH = NATIVE.OH
+    OH.fail = OH.fail + 1
+    if OH.logs < 40 then OH.logs = OH.logs + 1 log("objects: mode picture: " .. why .. (OH.fail >= 3 and " -- no more tries this run" or "")) end
+    return false
+end
+NATIVE.odHud = function()                              -- (game thread, four times a second) the native half says which picture
+    local OH = NATIVE.OH
+    local want = 0
+    if OH.fail < 3 and (tonumber(S.ObjectHud) or 1) >= 0.5 and type(HJN_Set) == "function" then
+        local ok, v = pcall(HJN_Set, "odhud", 0)
+        want = ok and math.floor(tonumber(v) or 0) or 0
+    end
+    if want == 0 then
+        if OH.shown ~= 0 and OH.host then q(function() OH.host:RemoveFromParent() end) end
+        OH.shown = 0
+        return true
+    end
+    if not (OH.host and OH.img and alive(OH.host) and alive(OH.img)) then
+        OH.host, OH.img, OH.shown = nil, nil, 0
+        local cls = alive(q(function() return StaticFindObject(NATIVE.GI_HOST) end))
+        if not cls then pcall(function() LoadAsset(NATIVE.GI_HOST) end) cls = alive(q(function() return StaticFindObject(NATIVE.GI_HOST) end)) end
+        local wbl = alive(q(function() return StaticFindObject("/Script/UMG.Default__WidgetBlueprintLibrary") end))
+        local pc = alive(SB.pc) or alive(q(function() return NATIVE.first("SessionPlayerController") end))
+        if not (cls and wbl and pc) then return NATIVE.odHudFail("no host class / widget library / controller") end
+        local host = alive(q(function() return wbl:Create(pc, cls, pc) end))
+        local img = host and alive(q(function() return host.Image_Button end))
+        if not (img and alive(q(function() return img.Slot end))) then return NATIVE.odHudFail("the host widget has no image") end
+        if type(HJN_Root) == "function" then pcall(HJN_Root, q(function() return host:GetAddress() end, 0)) end
+        OH.host, OH.img = host, img
+    end
+    local name = "ObjHud_" .. want
+    local tex = OH.tex[name]
+    if not tex then
+        local path = NATIVE.GI_DIR .. name .. ".png"
+        local fh = io.open(path, "rb")
+        if not fh then return NATIVE.odHudFail(path .. " is missing") end
+        fh:close()
+        local krl = alive(q(function() return StaticFindObject("/Script/Engine.Default__KismetRenderingLibrary") end))
+        tex = krl and alive(q(function() return krl:ImportFileAsTexture2D(OH.host, path) end))
+        if not tex then return NATIVE.odHudFail("ImportFileAsTexture2D gave nothing for " .. path) end
+        if type(HJN_Root) == "function" then pcall(HJN_Root, q(function() return tex:GetAddress() end, 0)) end
+        OH.tex[name] = tex
+    end
+    if OH.shown == 0 then
+        if not pcall(function() OH.host:AddToViewport(math.floor(tonumber(S.ObjectHudZ) or 50)) end) then return NATIVE.odHudFail("AddToViewport failed") end
+    end
+    pcall(function() OH.img:SetBrushFromTexture(tex, false) end)      -- every look: the host re-brushes its own key icon when the pad changes
+    if OH.shown ~= want then
+        local sc = tonumber(S.ObjectHudScale) or 1
+        local w = (tonumber(q(function() return tex:Blueprint_GetSizeX() end, 720)) or 720) * sc
+        local h = (tonumber(q(function() return tex:Blueprint_GetSizeY() end, 150)) or 150) * sc
+        local slot = alive(q(function() return OH.img.Slot end))
+        if slot then
+            pcall(function() slot:SetAnchors({ Minimum = { X = 0.0, Y = 0.0 }, Maximum = { X = 0.0, Y = 0.0 } }) end)
+            pcall(function() slot:SetAlignment({ X = 0.0, Y = 0.0 }) end)
+            pcall(function() slot:SetPosition({ X = tonumber(S.ObjectHudX) or 40, Y = tonumber(S.ObjectHudY) or 40 }) end)
+            pcall(function() OH.host:SetKeySize({ X = w, Y = h }) end)
+            pcall(function() slot:SetSize({ X = w, Y = h }) end)
+            pcall(function() OH.img:SetBrushSize({ X = w, Y = h }) end)
+        end
+        if OH.logs < 40 then OH.logs = OH.logs + 1 log(string.format("objects: mode picture %s (%.0f x %.0f at %s, %s)", name, w, h, tostring(S.ObjectHudX), tostring(S.ObjectHudY))) end
+    end
+    OH.shown = want
+    return true
+end
 NATIVE.menuUpSend = function()
+    if NATIVE.odHud then pcall(NATIVE.odHud) end   -- (od 405) the dropper's picture, four times a second on the game thread
     local up = (NATIVE.mg.a ~= nil) and 1 or 0
     if NATIVE.mg.sent == up or type(HJN_Set) ~= "function" then return end
     NATIVE.mg.sent = up
@@ -12995,7 +13132,7 @@ LoopAsync(2000, function()
     return false
 end)
 
-log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v399 / native v295)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
+log("Expanded Tricks " .. MOD_VERSION .. " -- loaded (v414 / native v310)")   -- (the builds' history is in CHANGELOG.md and the source's own comments)
 
 -- the game's grabs need IsGrabsEnabled in its experimental save (the profile loads it at start-up). (v121) If it is off or
 -- missing, the save is PATCHED here: a BoolProperty tag put into FExperimentalSettings -- the bytes the game's own serializer

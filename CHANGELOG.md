@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.5.0 -- the Benihana, Object Dropper Plus
+Lua build 414, native v310. A 1.x install with *Automatic updates* at 2 installs it by itself at its next start, pictures included.
+
+- **Benihana** (new; Grabs page, *Benihana*). In a one-hand Tail grab click **R3** or **L3**: your back foot kicks off
+  the tail and down behind you while your front leg stays on the board. Hold the click as you grab to go straight into
+  it. Regular and switch. Settings under it: board angle, leg kick, front leg reach, front knee clearance, front foot
+  seat and edge roll, hand delay and body back.
+- **Object Dropper Plus** (new; General gameplay page, *Enhanced object dropper*). In the game's object dropper: L3
+  normal / fine speed (the camera too), hold R3 to snap to the nearest placed object, tap R3 to set the object on the
+  ground under it (again: flat), D-pad left / right turn steps, RB copy, and a picture showing the mode and controls.
+- **Stick clicks:** the judo air, the airwalk and the Benihana now take **R3 / L3** as the mod ships. *Airwalk and
+  Benihana buttons* (Grabs page) at 0 puts them back on A and X. (The setting is new, `AirwalkButtons`; the old
+  `OneFootKeys` is no longer read.)
+- **Steam:** the object dropper finds the game's functions by pattern on any build, also in the exe on disk if another
+  mod has hooked one; each part stands down on its own, with a line in the log, if it is not found.
+- **Trick Guide pictures:** *Grabs* shows the judo air, the airwalk and the Benihana with the stick clicks.
+
+### Build by build
+- Builds 400-414, native v296-v310: the Benihana (401-413); Object Dropper Plus (403-406, 411); the release (414).
+
 ## 1.4.0 -- slappies, the no comply shove-it, the judo air
 Lua build 399, native v295. A 1.x install with *Automatic updates* at 2 installs it by itself at its next start, pictures included.
 

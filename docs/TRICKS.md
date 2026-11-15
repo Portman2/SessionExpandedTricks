@@ -1,4 +1,4 @@
-# Expanded Tricks 1.4.0: the trick list
+# Expanded Tricks 1.5.0: the trick list
 
 Every trick the mod adds, with how to do it on the pad. The short table is in the [README](../README.md#controls).
 
@@ -161,13 +161,20 @@ The caveman's settings are on the Hippie Jumps page.
   **LB** for the front hand. The hand stays on while the bumper is held, through an ollie, a drop or a no comply.
 - **Finger flips:** flick a flip trick with a rolling grab's hand on the board. The hand lets go as the board leaves
   the ground, so it looks as if the hand flipped it. *Rolling grab: flips allowed* picks which flips can be flicked.
-- **Judo air:** in a one-hand **Nose grab**, press **A** or **X**. Your front foot kicks out and the back foot stays on
+- **Judo air:** in a one-hand **Nose grab**, click **R3** or **L3** (A or X with *Airwalk and Benihana buttons* at 0). Your front foot kicks out and the back foot stays on
   the board. The trick display says *Judo Air*.
-- **Airwalk:** in a judo air, press the other one too (**A** and **X**). Your feet come off the board, the front one kicked out in
-  front of you and the back one behind (its shin near level), and the board's nose lifts. Hold the button to keep
+- **Airwalk:** in a judo air, click the other stick too (**R3** and **L3**). Your feet come off the board, the front one kicked out in
+  front of you and the back one behind (its shin near level), and the board's nose lifts. Hold the click to keep
   them out; let go and they come back to the board for the landing. The trick display says *Airwalk*. Under *Airwalk*
-  on the Grabs page: *Stride* (how far the legs swing), *Board angle* (how far the nose lifts), *Leg speed* and
-  *Buttons* (A and X, or the stick clicks: R3 does what A does, L3 what X does).
+  on the Grabs page: *Stride* (how far the legs swing), *Board angle* (how far the nose lifts) and *Leg speed*.
+- **Benihana:** in a one-hand **Tail grab**, click **R3** or **L3**. Your back foot comes off the tail, goes round the
+  board's heel edge and kicks down behind you; your front leg stays on the board, its foot rocked onto its inner edge
+  and its knee kept over the deck. Hold a click as the Tail grab starts and you go straight into it. Let go and the
+  foot comes back round onto the board for the landing. The trick display says *Benihana*. Under *Benihana* on the
+  Grabs page: *Board angle*, *Leg kick*, *Front leg reach*, *Front knee clearance*, *Front foot stays seated*, *Front
+  foot edge roll*, *Hand delay* and *Body back*.
+- **Buttons:** *Airwalk and Benihana buttons* (Grabs page) is 1 as the mod ships: the stick clicks, R3 doing what A
+  did and L3 what X did, with A and X left to the game. 0 puts the three tricks back on A and X.
 - In the left foot / right foot stick mode **LB is the left hand and RB the right**, as the sticks are the left and the
   right foot. The two bumpers change places whenever your left foot is at the back (a regular rider riding switch, a
   goofy rider riding forward), for every grab, the rolling grabs, the boneless and the bean plant.
@@ -222,6 +229,20 @@ seconds; the game's own unused tail brake would be 22). How quickly the tail goe
 - Regular, nollie, fakie and switch. The trick display says *Frontside Slappy* or *Backside Slappy*.
 - *Onto the curb* sets how much of the trucks sits on the curb's top. `SlappyClack` in the ini: 1 = the truck's hit
   on the curb every slappy (as it ships), 2 = the hardest hit, 0 = the game's own.
+
+## Object Dropper Plus
+
+In the game's object dropper, with *Enhanced object dropper* on (General gameplay page, as the mod ships):
+
+- **L3** switches between normal speed (half the game's) and fine speed, for moving and turning; the free and orbit
+  cameras slow down with it.
+- **Hold R3** to switch snapping on or off. Snapping pulls the held object onto the nearest placed one in that object's
+  own frame (faces touching, edges flush or centred, bottoms flush or stacked, its heading onto the neighbour's within
+  8 degrees); with nothing near, onto the world grid.
+- **Tap R3** to set the object onto the ground under it, tilted to match a slope. Tap again to set it flat.
+- **D-pad left / right** turns the object in steps.
+- **RB** while moving places the held objects and brings up copies of them (inventory allowing).
+- A picture in the corner shows the mode and these controls.
 
 ## Big drop landing
 

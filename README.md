@@ -1,7 +1,7 @@
-# Expanded Tricks 1.4.0 for Session: Skate Sim
+# Expanded Tricks 1.5.0 for Session: Skate Sim
 
 New flip tricks (monster, dolphin, porpoise, nightmare, daydream, underflips, the hospital flip), wallrides, the caveman,
-hippie jumps, grabs, the judo air and the airwalk, slappies, no complies and no comply shove-its, bonelesses, finger flips and drop-ins for Session, with its own settings pages in the
+hippie jumps, grabs, the judo air, the airwalk and the Benihana, slappies, no complies and no comply shove-its, bonelesses, finger flips and drop-ins for Session, plus finer controls in the object dropper, with its own settings pages in the
 pause menu. Source and releases: https://github.com/Portman2/SessionExpandedTricks
 
 The full list of tricks with their inputs is in [docs/TRICKS.md](docs/TRICKS.md). What changed since 1.0.0 is in
@@ -57,11 +57,20 @@ The full list of tricks with their inputs is in [docs/TRICKS.md](docs/TRICKS.md)
   press Y. The board is set tail-down on the coping and you step on. Then push a stick up to drop in, press LB or RB to
   step back, or press Y to step off. Tap Y twice to be put on in switch, facing away from the drop. Farther from an
   edge, Y is the game's own throwdown.
-- **Judo air and airwalk.** In a one-hand Nose grab, press **A** or **X**: your front foot kicks out and the back foot
-  stays on the board (the judo air). Press the other one too and it becomes the airwalk: your feet come off the board,
+- **Judo air and airwalk.** In a one-hand Nose grab, click **R3** or **L3**: your front foot kicks out and the back foot
+  stays on the board (the judo air). Click the other one too and it becomes the airwalk: your feet come off the board,
   the front one kicked out in front of you and the back one behind, while the board's nose lifts. Let go and they come
-  back for the landing. *Buttons* under *Airwalk* swaps A / X for the stick clicks (R3 does what A does, L3 what X does). *Stride*,
-  *Board angle* and *Leg speed* under *Airwalk* on the Grabs page.
+  back for the landing. *Stride*, *Board angle* and *Leg speed* under *Airwalk* on the Grabs page.
+- **Benihana.** In a one-hand Tail grab, click **R3** or **L3**: your back foot kicks off the tail, round the board and
+  down behind you, while your front leg stays on the board, its foot on its inner edge. Hold the click as you grab and
+  you go straight into it. Its settings are under *Benihana* on the Grabs page.
+- **Stick clicks or A / X.** The judo air, the airwalk and the Benihana take the stick clicks as the mod ships (R3 does
+  what A did, L3 what X did; A and X stay the game's). *Airwalk and Benihana buttons* on the Grabs page puts them back
+  on A and X.
+- **Object Dropper Plus.** In the game's object dropper: **L3** switches normal and fine speed (the camera too), hold
+  **R3** to snap to the nearest placed object, tap **R3** to set the object on the ground under it (tap again: flat),
+  **D-pad left / right** turns it in steps and **RB** places a copy. A picture in the corner shows the mode and the
+  controls. *Enhanced object dropper* on the General gameplay page switches it off.
 - **Tail stop.** Hold **B** while rolling, or in a manual (not a nose manual) push the back-foot stick **all the way
   down**: the tail drops onto the ground in the game's one-foot powerslide pose and drags, with the game's tail-slide
   sound, until you stop or let go. The *Tail stop* slider picks the way: 1 = the manual, 2 = B, 3 = both (as it ships);
@@ -234,17 +243,19 @@ arrow, as on a clock (12 o'clock is up, 3 is right, 6 is down, 9 is left). Steps
 | Two-hand grab tweak | <img src="docs/buttons/LB.svg" alt="LB" height="28"> + <img src="docs/buttons/RB.svg" alt="RB" height="28">, then turn the stick you swing further, as above; a pair picked with both sticks to a side (Truck Driver, Drunk Driver, Squirrel): <img src="docs/buttons/LS-up.svg" alt="LS up" height="28"> + <img src="docs/buttons/RS-up.svg" alt="RS up" height="28"> after the grab is made bones it | <img src="docs/buttons/LB.svg" alt="LB" height="28"> + <img src="docs/buttons/RB.svg" alt="RB" height="28">, then turn the stick you swing further, as above; a pair picked with both sticks to a side (Truck Driver, Drunk Driver, Squirrel): <img src="docs/buttons/LS-up.svg" alt="LS up" height="28"> + <img src="docs/buttons/RS-up.svg" alt="RS up" height="28"> after the grab is made bones it |
 | Rolling grab | <img src="docs/buttons/RB.svg" alt="RB" height="28"> (back hand) &nbsp;or&nbsp; <img src="docs/buttons/LB.svg" alt="LB" height="28"> (front hand) while riding | <img src="docs/buttons/LB.svg" alt="LB" height="28"> (back hand) &nbsp;or&nbsp; <img src="docs/buttons/RB.svg" alt="RB" height="28"> (front hand) while riding |
 | Finger flip | <img src="docs/buttons/RB.svg" alt="RB" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/LB.svg" alt="LB" height="28"> + a flip trick's flick | <img src="docs/buttons/RB.svg" alt="RB" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/LB.svg" alt="LB" height="28"> + a flip trick's flick |
-| Judo air | in a one-hand Nose grab, **A** or **X** (your front foot kicks out) | in a one-hand Nose grab, **A** or **X** |
-| Airwalk | a judo air, then the other one too (**A** + **X**) | a judo air, then the other one too (**A** + **X**) |
+| Judo air | in a one-hand Nose grab, <img src="docs/buttons/R3.svg" alt="R3" height="28"> or <img src="docs/buttons/L3.svg" alt="L3" height="28"> (your front foot kicks out; **A** or **X** with *Airwalk and Benihana buttons* at 0) | in a one-hand Nose grab, <img src="docs/buttons/R3.svg" alt="R3" height="28"> or <img src="docs/buttons/L3.svg" alt="L3" height="28"> |
+| Airwalk | a judo air, then the other click too (<img src="docs/buttons/R3.svg" alt="R3" height="28"> + <img src="docs/buttons/L3.svg" alt="L3" height="28">) | a judo air, then the other click too (<img src="docs/buttons/R3.svg" alt="R3" height="28"> + <img src="docs/buttons/L3.svg" alt="L3" height="28">) |
+| Benihana | in a one-hand Tail grab, <img src="docs/buttons/R3.svg" alt="R3" height="28"> or <img src="docs/buttons/L3.svg" alt="L3" height="28"> (or hold one as you grab) | in a one-hand Tail grab, <img src="docs/buttons/R3.svg" alt="R3" height="28"> or <img src="docs/buttons/L3.svg" alt="L3" height="28"> (or hold one as you grab) |
 | Drop-in | <img src="docs/buttons/Y.svg" alt="Y" height="28"> at an edge, on foot, board in hand; then <img src="docs/buttons/stick-up.svg" alt="stick up" height="28"> to go, <img src="docs/buttons/LB.svg" alt="LB" height="28"> / <img src="docs/buttons/RB.svg" alt="RB" height="28"> to step back, <img src="docs/buttons/Y.svg" alt="Y" height="28"> to step off | <img src="docs/buttons/Y.svg" alt="Y" height="28"> at an edge, on foot, board in hand; then <img src="docs/buttons/stick-up.svg" alt="stick up" height="28"> to go, <img src="docs/buttons/LB.svg" alt="LB" height="28"> / <img src="docs/buttons/RB.svg" alt="RB" height="28"> to step back, <img src="docs/buttons/Y.svg" alt="Y" height="28"> to step off |
 | Drop-in in switch | <img src="docs/buttons/Y.svg" alt="Y" height="28"> <img src="docs/buttons/Y.svg" alt="Y" height="28"> (tapped twice) at an edge, on foot, board in hand | <img src="docs/buttons/Y.svg" alt="Y" height="28"> <img src="docs/buttons/Y.svg" alt="Y" height="28"> (tapped twice) at an edge, on foot, board in hand |
 | Jump onto the board | <img src="docs/buttons/L3.svg" alt="L3" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/R3.svg" alt="R3" height="28"> near the board | <img src="docs/buttons/L3.svg" alt="L3" height="28"> &nbsp;or&nbsp; <img src="docs/buttons/R3.svg" alt="R3" height="28"> near the board |
 | Slappy | ride at a low curb holding the grind's sticks (the 50-50's: one down, one up), or crouched | the same |
+| Object dropper | <img src="docs/buttons/L3.svg" alt="L3" height="28"> normal / fine speed, <img src="docs/buttons/R3.svg" alt="R3" height="28"> held: snap, <img src="docs/buttons/R3.svg" alt="R3" height="28"> tapped: onto the ground (again: flat), D-pad left / right: turn steps, <img src="docs/buttons/RB.svg" alt="RB" height="28"> copy | the same |
 
 How each one is done, in more detail and for every stance: [docs/TRICKS.md](docs/TRICKS.md).
 
 L3 is also the game's own button for the missions. A click the mod uses (a hippie jump, a mini hop, a jump onto the
-board) is kept from the game; any other click goes on to it. SessionTweaks' *Click to catch* (its Catch page) keeps
+board, a judo air, airwalk or Benihana in a grab) is kept from the game; any other click goes on to it. SessionTweaks' *Click to catch* (its Catch page) keeps
 both stick clicks to itself while you are on the board, so with it on, L3 opens no missions there.
 
 ## Settings
@@ -256,13 +267,13 @@ The pages:
 
 - **General gameplay settings:** max speed, push strength, throwdown speed, left-stick steering, trick names and
   automatic updates. They all ship at the game's own behaviour (100 %, steering on).
-  The tail stop (its slider: 0 off, 1 manual, 2 B, 3 both) and its friction, and the big drop landing's chance
-  (30 %), are on this page too.
+  The tail stop (its slider: 0 off, 1 manual, 2 B, 3 both) and its friction, the big drop landing's chance
+  (30 %) and *Enhanced object dropper* are on this page too.
 - **Hippie Jumps:** the hippie and mini hippie jumps, their heights, spinning, bailing on a bad spin, jumping onto the
   board, and the caveman.
 - **Drop-ins:** the drop-in, its launch speed, the arms and crouch on the way down, and vert walls.
-- **Grabs:** air grabs, two-hand grabs, tweaking and boning, the head, letting go on landing, and moving every grab's
-  hand at once.
+- **Grabs:** air grabs, two-hand grabs, tweaking and boning, the airwalk, the Benihana and their buttons, the head,
+  letting go on landing, and moving every grab's hand at once.
 - **No Comply and Boneless:** the no comply, the boneless and the bean plant: the planted foot, the pop and the scoop.
 - **Rolling Grabs and Finger Flips:** the rolling grab's squat and hands, and finger flips.
 - **Flip Tricks:** the alternate flip set and its nollie set on or off, how far the stick goes, the flip speeds, the
